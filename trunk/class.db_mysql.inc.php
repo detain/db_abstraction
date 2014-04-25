@@ -249,7 +249,8 @@
 		 */
 		public function free()
 		{
-			@mysql_free_result($this->Query_ID);
+			if (is_resource($this->Query_ID))
+				@mysql_free_result($this->Query_ID);
 			$this->Query_ID = 0;
 		}
 
@@ -279,26 +280,19 @@
 				return 0;
 				/* we already complained in connect() about that. */
 			}
-			;
-
 			# New query, discard previous result.
 			if (is_resource($this->Query_ID))
 			{
 				$this->free();
 			}
-
 			if ($this->Debug)
 			{
 				printf("Debug: query = %s<br>\n", $Query_String);
 			}
-			//			if (isset($GLOBALS['tf']))
-			//			{
 			if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
 			{
 				billingd_log($Query_String, $line, $file, false);
 			}
-			//			}
-
 			$this->Query_ID = @mysql_query($Query_String, $this->Link_ID);
 			$this->Row = 0;
 			$this->Errno = mysql_errno();
@@ -353,7 +347,6 @@
 			{
 				$num_rows = $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
 			}
-
 			if ($offset == 0)
 			{
 				$Query_String .= ' LIMIT ' . $num_rows;

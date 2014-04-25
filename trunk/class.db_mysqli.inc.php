@@ -110,7 +110,8 @@
 			/* establish connection, select database */
 			if (!is_object($this->Link_ID))
 			{
-				$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
+				//$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
+				$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
 				/*
 				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
 				* if ($this->Link_ID)
@@ -118,8 +119,9 @@
 				* $this->Link_ID = $this->Link_Init;
 				* }
 				*/
-				if ($this->Link_ID->connect_error)
+				if ($this->Link_ID->connect_errno)
 				{
+					$this->halt("connect($Host, $User, \$Password) failed. ".$mysqli->connect_error);
 					return 0;
 				}
 			}
@@ -134,11 +136,18 @@
 		 */
 		public function disconnect()
 		{
-			return $this->Link_ID->close();
+			if (is_object($this->Link_ID))
+				return $this->Link_ID->close();
+			else
+				return 0;
 		}
 
 		public function real_escape($string)
 		{
+			if ((is_null($this->Link_ID) || $this->Link_ID == 0) && !$this->connect())
+			{
+				return mysqli_escape_string($string);
+			}
 			return mysqli_real_escape_string($this->Link_ID, $string);
 		}
 
@@ -223,7 +232,8 @@
 		 */
 		public function free()
 		{
-			@mysqli_free_result($this->Query_ID);
+			if (is_resource($this->Query_ID))
+				@mysqli_free_result($this->Query_ID);
 			$this->Query_ID = 0;
 		}
 
@@ -253,43 +263,23 @@
 				return 0;
 				/* we already complained in connect() about that. */
 			}
-			;
 			// New query, discard previous result.
-			if (is_object($this->Query_ID))
+			if (is_resource($this->Query_ID))
 			{
 				$this->free();
 			}
-
 			if ($this->Debug)
 			{
 				printf("Debug: query = %s<br>\n", $Query_String);
 			}
-			//			if (isset($GLOBALS['tf']))
-			//			{
-			if ($GLOBALS['log_queries'] !== false)
+			if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
 			{
 				billingd_log($Query_String, $line, $file, false);
 			}
-			//			}
-
-			$this->Query_ID = $this->Link_ID->query($Query_String);
-			/*
-			* echo '<pre>';
-			* echo "Query String: $Query_String<br>";
-			* echo "Query<br>";
-			* echo var_dump($this->Link_ID);
-			* echo "Query ID<br>";
-			* echo var_dump($this->Query_ID);
-			* echo '<br>';
-			* echo "Result ID<br>";
-			* echo var_dump($this->Query_ID);
-			*/
-			/*
-			*/
-
+			$this->Query_ID = mysqli_query($this->Link_ID, $Query_String, MYSQLI_STORE_RESULT);
 			$this->Row = 0;
-			$this->Errno = $this->Link_ID->errno;
-			$this->Error = $this->Link_ID->error;
+			$this->Errno = mysqli_errno($this->Link_ID);
+			$this->Error = mysqli_error($this->Link_ID);
 			if ($this->Query_ID === false)
 			{
 				$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . "User: " . $GLOBALS['tf']->session->account_id . "<br>\n";
@@ -372,13 +362,13 @@
 				return 0;
 			}
 
-			$this->Record = @$this->Query_ID->fetch_array($result_type);
+			$this->Record = @mysqli_fetch_array($this->Query_ID, $result_type);
 			$this->Row += 1;
-			$this->Errno = $this->Link_ID->errno;
-			$this->Error = $this->Link_ID->error;
+			$this->Errno = mysqli_errno($this->Link_ID);
+			$this->Error = mysqli_error($this->Link_ID);
 
 			$stat = is_array($this->Record);
-			if (!$stat && $this->Auto_Free)
+			if (!$stat && $this->Auto_Free && is_resource($this->Query_ID))
 			{
 				$this->free();
 			}
@@ -394,7 +384,7 @@
 		 */
 		public function seek($pos = 0)
 		{
-			$status = @$this->Query_ID->data_seek($pos);
+			$status = @mysqli_data_seek($this->Query_ID, $pos);
 			if ($status)
 			{
 				$this->Row = $pos;
@@ -406,7 +396,7 @@
 				* but do not consider this documented or even
 				* desireable behaviour.
 				*/
-				@$this->Query_ID->data_seek($this->num_rows());
+				@mysqli_data_seek($this->Query_ID, $this->num_rows());
 				$this->Row = $this->num_rows;
 				return 0;
 			}
@@ -463,7 +453,7 @@
 				return - 1;
 			}
 
-			return @$this->Link_ID->insert_id;
+			return @mysqli_insert_id($this->Link_ID);
 		}
 
 		/* public: table locking */
@@ -498,7 +488,7 @@
 			{
 				$query .= "$table $mode";
 			}
-			$res = @$this->Link_ID->query($query);
+			$res = @mysqli_query($this->Link_ID, $query);
 			if (!$res)
 			{
 				$this->halt("lock($table, $mode) failed.");
@@ -516,7 +506,7 @@
 		{
 			$this->connect();
 
-			$res = @$this->Link_ID->query("unlock tables");
+			$res = @mysqli_query($this->Link_ID, "unlock tables");
 			if (!$res)
 			{
 				$this->halt("unlock() failed.");
@@ -533,7 +523,7 @@
 		 */
 		public function affected_rows()
 		{
-			return $this->Link_ID->affected_rows;
+			return @mysqli_affected_rows($this->Link_ID);
 		}
 
 		/**
@@ -543,7 +533,7 @@
 		 */
 		public function num_rows()
 		{
-			return $this->Query_ID->num_rows;
+			return @mysqli_num_rows($this->Query_ID);
 		}
 
 		/**
@@ -553,7 +543,7 @@
 		 */
 		public function num_fields()
 		{
-			return $this->Query_ID->field_count;
+			return @mysqli_num_fields($this->Query_ID);
 		}
 
 		/* public: shorthand notation */
