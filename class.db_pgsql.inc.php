@@ -13,14 +13,6 @@
 	* any later version.                                                       *
 	\**************************************************************************/
 
-	// $Id$
-	// $Source
-	$file_versions['class.db_pgsql.inc.php'] = '$Revision$';
-	if ($check_versions)
-	{
-		return;
-	}
-
 	class db
 	{
 		var $Host     = '';
@@ -523,6 +515,7 @@
 
 		function table_names()
 		{
+			$return = array();
 			$this->query("select relname from pg_class where relkind = 'r' and not relname like 'pg_%'");
 			$i=0;
 			while ($this->next_record())
@@ -537,6 +530,7 @@
 
 		function index_names()
 		{
+			$return = array();
 			$this->query("SELECT relname FROM pg_class WHERE NOT relname ~ 'pg_.*' AND relkind ='i' ORDER BY relname");
 			$i=0;
 			while ($this->next_record())
@@ -581,7 +575,6 @@
 			$this->Password = $currentPassword;
 			$this->Database = $currentDatabase;
 			$this->connect();
-			//return $return;
 		}
 	}
 ?>

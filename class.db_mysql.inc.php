@@ -12,14 +12,6 @@
 	* any later version.                                                       *
 	\**************************************************************************/
 
-	// $Id$ 
-	// $Source: /var/lib/cvs/tfportal/include/class.db_mysql.inc.php,v $
-	$file_versions['class.db_mysql.inc.php'] = '$Revision$';
-	if ($check_versions)
-	{
-		return;
-	}
-
 	class db
 	{
 		/* public: connection parameters */
@@ -593,6 +585,7 @@
 
 		function table_names()
 		{
+			$return = array();
 			$this->query("SHOW TABLES");
 			$i=0;
 			while ($info=mysql_fetch_row($this->Query_ID))
