@@ -71,7 +71,10 @@
 
 		public function log($message, $line = '', $file = '')
 		{
-			billingd_log($message, $line, $file, false);
+			if (function_exists('billingd_log'))
+				billingd_log($message, $line, $file, false);
+			else
+				error_log($message);
 		}
 
 		/**
