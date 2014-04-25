@@ -105,6 +105,10 @@
 		 */
 		public function db_mdb2()
 		{
+		}
+		
+		public function connect()
+		{
 			$this->dbh = mysql_connect($this->db_host, $this->db_user, $this->db_pass);
 			mysql_select_db($this->db_name, $this->dbh);
 		}
@@ -138,6 +142,10 @@
 		 */
 		public function queryOne($query)
 		{
+			if ($this->dbh === false)
+			{
+				$this->connect();
+			}
 			$result = mysql_query($query);
 			if (mysql_num_rows($result) > 0)
 			{
@@ -156,6 +164,10 @@
 		 */
 		public function queryRow($query)
 		{
+			if ($this->dbh === false)
+			{
+				$this->connect();
+			}
 			$result = mysql_query($query);
 			if (mysql_num_rows($result) > 0)
 			{
@@ -174,6 +186,10 @@
 		 */
 		public function query($query)
 		{
+			if ($this->dbh === false)
+			{
+				$this->connect();
+			}
 			return new db_mdb2_result($query);
 		}
 
