@@ -157,7 +157,7 @@
 
 		public function real_escape($string)
 		{
-			if ($this->Link_ID == 0 && !$this->connect())
+			if ((is_null($this->Link_ID) || $this->Link_ID == 0) && !$this->connect())
 			{
 				return mysql_escape_string($string);
 			}
