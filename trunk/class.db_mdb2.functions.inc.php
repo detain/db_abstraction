@@ -106,7 +106,7 @@
 		public function db_mdb2()
 		{
 		}
-		
+
 		public function connect()
 		{
 			$this->dbh = mysql_connect($this->db_host, $this->db_user, $this->db_pass);

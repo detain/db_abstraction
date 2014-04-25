@@ -121,7 +121,7 @@
 				*/
 				if ($this->Link_ID->connect_errno)
 				{
-					$this->halt("connect($Host, $User, \$Password) failed. ".$mysqli->connect_error);
+					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
 				}
 			}
@@ -300,7 +300,7 @@
 				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
 				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
 				$headers .= "From: " . TITLE . " <" . EMAIL_FROM . ">" . EMAIL_NEWLINE;
-//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
+				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 				$headers .= "X-Priority: 1" . EMAIL_NEWLINE;
 				$headers .= "X-MimeOLE: Produced By TF Admin Suite" . EMAIL_NEWLINE;
 				$headers .= "X-MSMail-Priority: High" . EMAIL_NEWLINE;
