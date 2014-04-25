@@ -41,7 +41,7 @@ class db_mdb2
 {
 	var $db_host        = '209.159.155.29';
 	var $db_user        = 'poweradmin';
-	var $db_pass        = 'c0mpt0n1337';
+	var $db_pass        = 'p0w3r4dm1n';
 	var $db_name        = 'poweradmin';
 	var $db_type        = 'mysql';
 
