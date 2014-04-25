@@ -15,33 +15,33 @@
 	class db
 	{
 		/* public: connection parameters */
-		var $Host     = 'localhost';
-		var $Database = '';
-		var $User     = '';
-		var $Password = '';
+		public $Host     = 'localhost';
+		public $Database = '';
+		public $User     = '';
+		public $Password = '';
 
 		/* public: configuration parameters */
-		var $auto_stripslashes = False;
-		var $Auto_Free     = 0;     ## Set to 1 for automatic mysql_free_result()
-		var $Debug         = 0;     ## Set to 1 for debugging messages.
-		var $Halt_On_Error = 'yes'; ## "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
-		var $Seq_Table     = 'db_sequence';
+		public $auto_stripslashes = False;
+		public $Auto_Free     = 0;     ## Set to 1 for automatic mysql_free_result()
+		public $Debug         = 0;     ## Set to 1 for debugging messages.
+		public $Halt_On_Error = 'yes'; ## "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Seq_Table     = 'db_sequence';
 
 		/* public: result array and current row number */
-		var $Record   = array();
-		var $Row;
+		public $Record   = array();
+		public $Row;
 
 		/* public: current error number and error text */
-		var $Errno    = 0;
-		var $Error    = '';
+		public $Errno    = 0;
+		public $Error    = '';
 
 		/* public: this is an api revision, not a CVS revision. */
-		var $type     = 'mysql';
-		var $revision = '1.2';
+		public $type     = 'mysql';
+		public $revision = '1.2';
 
 		/* private: link and query handles */
-		var $Link_ID  = 0;
-		var $Query_ID = 0;
+		public $Link_ID  = 0;
+		public $Query_ID = 0;
 
 		/* public: constructor */
 		function db($query = '')
