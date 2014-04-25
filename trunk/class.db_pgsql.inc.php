@@ -651,7 +651,7 @@
 			}
 			else
 			{
-				echo $s;
+				error_log($s);
 				$GLOBALS['tf']->terminate();
 			}
 		}

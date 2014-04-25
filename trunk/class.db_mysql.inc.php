@@ -680,13 +680,12 @@
 
 			if ($file)
 			{
-				printf("<br><b>File:</b> %s", $file);
+				error_log("File: $file");
 			}
 			if ($line)
 			{
-				printf("<br><b>Line:</b> %s", $line);
+				error_log("Line: $line");
 			}
-
 			if ($this->Halt_On_Error != "report")
 			{
 				echo "<p><b>Session halted.</b>";
@@ -704,11 +703,9 @@
 		public function haltmsg($msg)
 		{
 			billingd_log("Database error: $msg", __line__, __file__);
-			printf("<b>Database error:</b> %s<br>\n", $msg);
 			if ($this->Errno != "0" && $this->Error != "()")
 			{
 				billingd_log("MySQL Error: " . $this->Errno . " (" . $this->Error . ")", __line__, __file__);
-				printf("<b>MySQL Error</b>: %s (%s)<br>\n", $this->Errno, $this->Error);
 			}
 		}
 
