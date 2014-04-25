@@ -15,31 +15,31 @@
 
 	class db
 	{
-		var $Host     = '';
-		var $Database = '';
-		var $User     = '';
-		var $Password = '';
+		public $Host     = '';
+		public $Database = '';
+		public $User     = '';
+		public $Password = '';
 
-		var $auto_stripslashes = False;
+		public $auto_stripslashes = False;
 
 		/* "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning) */
-		var $Halt_On_Error = 'yes';
+		public $Halt_On_Error = 'yes';
 
-		var $Link_ID  = 0;
-		var $Query_ID = 0;
-		var $Record   = array();
-		var $Row      = 0;
+		public $Link_ID  = 0;
+		public $Query_ID = 0;
+		public $Record   = array();
+		public $Row      = 0;
 
-		var $Seq_Table = 'db_sequence';
+		public $Seq_Table = 'db_sequence';
 
-		var $Errno    = 0;
-		var $Error    = '';
+		public $Errno    = 0;
+		public $Error    = '';
 
 		/* Set this to 1 for automatic pg_freeresult on last record. */
-		var $Auto_Free = 0;
+		public $Auto_Free = 0;
 
 		// PostgreSQL changed somethings from 6.x -> 7.x
-		var $db_version;
+		public $db_version;
 
 		function ifadd($add, $me)
 		{

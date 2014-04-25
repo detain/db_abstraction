@@ -6,10 +6,10 @@
 
 class db_mdb2_result
 {
-	var $query;
-	var $result;
-	var $error = false;
-	var $message = '';
+	public $query;
+	public $result;
+	public $error = false;
+	public $message = '';
 
 	function db_mdb2_result($query)
 	{
@@ -39,19 +39,19 @@ class db_mdb2_result
 
 class db_mdb2
 {
-	var $db_host        = '209.159.155.29';
-	var $db_user        = 'poweradmin';
-	var $db_pass        = 'p0w3r4dm1n';
-	var $db_name        = 'poweradmin';
-	var $db_type        = 'mysql';
+	public $db_host        = '209.159.155.29';
+	public $db_user        = 'poweradmin';
+	public $db_pass        = 'p0w3r4dm1n';
+	public $db_name        = 'poweradmin';
+	public $db_type        = 'mysql';
 
-	var $iface_lang     = 'en_EN';
+	public $iface_lang     = 'en_EN';
 
-	var $dns_hostmaster     = 'hostmaster.interserver.net';
-	var $dns_ns1        = 'cdns1.interserver.net';
-	var $dns_ns2        = 'cdns2.interserver.net';
+	public $dns_hostmaster     = 'hostmaster.interserver.net';
+	public $dns_ns1        = 'cdns1.interserver.net';
+	public $dns_ns2        = 'cdns2.interserver.net';
 
-	var $dbh			= false;
+	public $dbh			= false;
 
 	function db_mdb2()
 	{
