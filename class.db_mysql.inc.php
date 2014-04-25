@@ -328,7 +328,7 @@
 				$headers .= "X-MimeOLE: Produced By TF Admin Suite" . EMAIL_NEWLINE;
 				$headers .= "X-MSMail-Priority: High" . EMAIL_NEWLINE;
 				$headers .= "X-Mailer: Trouble-Free.Net Admin Center" . EMAIL_NEWLINE;
-				admin_mail($subject, $email, $headers);
+				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
 				$this->halt("Invalid SQL: " . $Query_String, $line, $file);
 			}
 
