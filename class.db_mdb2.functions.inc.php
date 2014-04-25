@@ -1,8 +1,11 @@
 <?php
-	/************************************************************************************\
-	* Trouble Free CPanel/VPS Services                                                   *
-	* (c)2010 Interserver                                                                *
-	\************************************************************************************/
+/**
+* MDB2 Wrapper Made To Handle Liike Our Other ClasssesRelated Functionality
+* @author Joe Huss <detain@corpmail.interserver.net>
+* @package SQL
+* @subpackage MDB2
+* @copyright 2010
+*/
 
 /**
  * db_mdb2_result
