@@ -3,7 +3,10 @@
 /**
  * MDB2 Wrapper Made To Handle Liike Our Other ClasssesRelated Functionality
  * @author Joe Huss <detain@corpmail.interserver.net>
- * @package SQL
+ * @package MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage SQL
  * @subpackage MDB2
  * @copyright 2010
  */
@@ -11,7 +14,10 @@
 /**
  * db_mdb2_result
  * 
- * @package   
+ * @package MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage   
  * @author cpaneldirect
  * @copyright Owner
  * @version 2011
@@ -75,7 +81,10 @@ class db_mdb2_result
 /**
  * db_mdb2
  * 
- * @package   
+ * @package MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage   
  * @author cpaneldirect
  * @copyright Owner
  * @version 2011

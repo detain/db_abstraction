@@ -3,14 +3,18 @@
 /**
  * MySQL Related Functionality
  * @author Joe Huss <detain@corpmail.interserver.net>
- * @package SQL
+ * @package MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage SQL
  * @copyright 2010
  */
 
 /**
  * db
  * 
- * @package   
+ * @package MyAdmin
+ * @subpackage MyAdmin
+ * @subpackage   
  * @author cpaneldirect
  * @copyright Owner
  * @version 2011
