@@ -208,6 +208,28 @@
 			$this->Error = mysql_error();
 			if (! $this->Query_ID)
 			{
+				$email = "MySQL Error<br>\n"
+				. "Query: " . $Query_String . "<br>\n"
+				. "Error #" . $this->Errno . ": " . $this->Error . "<br>\n"
+				. "Line: " . $line . "<br>\n"
+				. "File: " . $file . "<br>\n"
+				. "User: " . $GLOBALS['tf']->session->account_id . "<br>\n";
+				$email .= "<br><br>Server Variables:<br>";
+				foreach ($GLOBALS['tf']->variables->request as $key => $value)
+				{
+					$email .= $key . ': ' . $value . "<br>\n";
+				}
+				$subject = 'MySQL Error On ' . TITLE;
+				$headers = '';
+				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
+				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
+				$headers .= "From: " . TITLE . " <" . EMAIL_FROM . ">" . EMAIL_NEWLINE;
+				$headers .= "To: John <john@interserver.net>" . EMAIL_NEWLINE;
+				$headers .= "X-Priority: 1" . EMAIL_NEWLINE;
+				$headers .= "X-MimeOLE: Produced By TF Admin Suite" . EMAIL_NEWLINE;
+				$headers .= "X-MSMail-Priority: High" . EMAIL_NEWLINE;
+				$headers .= "X-Mailer: Trouble-Free.Net Admin Center" . EMAIL_NEWLINE;
+				admin_mail($subject, $email, $headers);
 				$this->halt("Invalid SQL: ".$Query_String, $line, $file);
 			}
 
