@@ -116,6 +116,7 @@
 				* }
 				* else
 				* {*/
+				//billingd_log("New MySQL Connection To DB $Database", __LINE__, __FILE__, false);
 				$this->Link_ID = mysql_connect($Host, $User, $Password);
 				/* } */
 
