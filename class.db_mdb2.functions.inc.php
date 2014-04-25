@@ -30,7 +30,7 @@ class db_mdb2_result
 	 * @param mixed $query
 	 * @return
 	 */
-	function db_mdb2_result($query)
+	public function __construct($query)
 	{
 		$this->query = $query;
 		$this->result = mysql_query($query);
@@ -46,7 +46,7 @@ class db_mdb2_result
 	 * 
 	 * @return
 	 */
-	function numRows()
+	public function numRows()
 	{
 		return mysql_num_rows($this->result);
 	}
@@ -56,7 +56,7 @@ class db_mdb2_result
 	 * 
 	 * @return
 	 */
-	function fetchRow()
+	public function fetchRow()
 	{
 		return mysql_fetch_array($this->result);
 	}
@@ -66,7 +66,7 @@ class db_mdb2_result
 	 * 
 	 * @return
 	 */
-	function getMessage()
+	public function getMessage()
 	{
 		return $this->message;
 	}
@@ -102,7 +102,7 @@ class db_mdb2
 	 * 
 	 * @return
 	 */
-	function db_mdb2()
+	public function db_mdb2()
 	{
 		$this->dbh = mysql_connect($this->db_host, $this->db_user, $this->db_pass);
 		mysql_select_db($this->db_name, $this->dbh);
@@ -115,7 +115,7 @@ class db_mdb2
 	 * @param string $type
 	 * @return
 	 */
-	function quote($text = '', $type = 'text')
+	public function quote($text = '', $type = 'text')
 	{
 		switch ($type)
 		{
@@ -135,7 +135,7 @@ class db_mdb2
 	 * @param mixed $query
 	 * @return
 	 */
-	function queryOne($query)
+	public function queryOne($query)
 	{
 		$result = mysql_query($query);
 		if (mysql_num_rows($result) > 0)
@@ -153,7 +153,7 @@ class db_mdb2
 	 * @param mixed $query
 	 * @return
 	 */
-	function queryRow($query)
+	public function queryRow($query)
 	{
 		$result = mysql_query($query);
 		if (mysql_num_rows($result) > 0)
@@ -171,7 +171,7 @@ class db_mdb2
 	 * @param mixed $query
 	 * @return
 	 */
-	function query($query)
+	public function query($query)
 	{
 		return new db_mdb2_result($query);
 	}
@@ -183,7 +183,7 @@ class db_mdb2
 	 * @param mixed $field
 	 * @return
 	 */
-	function lastInsertId($table, $field)
+	public function lastInsertId($table, $field)
 	{
 		return mysql_insert_id();
 	}
@@ -193,7 +193,7 @@ class db_mdb2
 	 * 
 	 * @return
 	 */
-	function disconnect()
+	public function disconnect()
 	{
 		mysql_close();
 	}

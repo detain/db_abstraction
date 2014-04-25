@@ -65,7 +65,7 @@ class db
 	 * @param mixed $me
 	 * @return
 	 */
-	function ifadd($add, $me)
+	public function ifadd($add, $me)
 	{
 		if ('' != $add)
 		{
@@ -80,7 +80,7 @@ class db
 	 * @param string $query
 	 * @return
 	 */
-	function db($query = '')
+	public function __construct($query = '')
 	{
 		$this->query($query);
 	}
@@ -90,7 +90,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function connect()
+	public function connect()
 	{
 		if (0 == $this->Link_ID)
 		{
@@ -126,7 +126,7 @@ class db
 	 * @param mixed $epoch
 	 * @return
 	 */
-	function to_timestamp($epoch)
+	public function to_timestamp($epoch)
 	{
 		$db_version = $this->db_version;
 		if (floor($db_version) == 6)
@@ -145,7 +145,7 @@ class db
 	 * @param mixed $timestamp
 	 * @return
 	 */
-	function from_timestamp($timestamp)
+	public function from_timestamp($timestamp)
 	{
 		if (floor($this->db_version) == 6)
 		{
@@ -164,7 +164,7 @@ class db
 	 * @param mixed $epoch
 	 * @return
 	 */
-	function to_timestamp_6($epoch)
+	public function to_timestamp_6($epoch)
 	{
 
 	}
@@ -176,7 +176,7 @@ class db
 	 * @param mixed $timestamp
 	 * @return
 	 */
-	function from_timestamp_6($timestamp)
+	public function from_timestamp_6($timestamp)
 	{
 
 	}
@@ -188,7 +188,7 @@ class db
 	 * @param mixed $epoch
 	 * @return
 	 */
-	function to_timestamp_7($epoch)
+	public function to_timestamp_7($epoch)
 	{
 		// This needs the GMT offset!
 		return date('Y-m-d H:i:s-00', $epoch);
@@ -201,7 +201,7 @@ class db
 	 * @param mixed $timestamp
 	 * @return
 	 */
-	function from_timestamp_7($timestamp)
+	public function from_timestamp_7($timestamp)
 	{
 		preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts);
 
@@ -214,7 +214,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function disconnect()
+	public function disconnect()
 	{
 		return @pg_close($this->Link_ID);
 	}
@@ -225,7 +225,7 @@ class db
 	 * @param mixed $str
 	 * @return
 	 */
-	function db_addslashes($str)
+	public function db_addslashes($str)
 	{
 		if (!isset($str) || $str == '')
 		{
@@ -244,7 +244,7 @@ class db
 	 * @param string $file
 	 * @return
 	 */
-	function query($Query_String, $line = '', $file = '')
+	public function query($Query_String, $line = '', $file = '')
 	{
 		if (!$line && !$file)
 		{
@@ -292,7 +292,7 @@ class db
 	 * @param string $num_rows
 	 * @return
 	 */
-	function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
+	public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
 	{
 		if ($offset == 0)
 		{
@@ -317,7 +317,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function free()
+	public function free()
 	{
 		@pg_freeresult($this->Query_ID);
 		$this->Query_ID = 0;
@@ -328,7 +328,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function next_record()
+	public function next_record()
 	{
 		$this->Record = @pg_fetch_array($this->Query_ID, $this->Row++);
 
@@ -350,7 +350,7 @@ class db
 	 * @param mixed $pos
 	 * @return
 	 */
-	function seek($pos)
+	public function seek($pos)
 	{
 		$this->Row = $pos;
 	}
@@ -360,7 +360,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function transaction_begin()
+	public function transaction_begin()
 	{
 		return $this->query('begin');
 	}
@@ -370,7 +370,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function transaction_commit()
+	public function transaction_commit()
 	{
 		if (!$this->Errno)
 		{
@@ -387,7 +387,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function transaction_abort()
+	public function transaction_abort()
 	{
 		return pg_Exec($this->Link_ID, 'rollback');
 	}
@@ -399,7 +399,7 @@ class db
 	 * @param mixed $field
 	 * @return
 	 */
-	function get_last_insert_id($table, $field)
+	public function get_last_insert_id($table, $field)
 	{
 		/* This will get the last insert ID created on the current connection.  Should only be called
 		* after an insert query is run on a table that has an auto incrementing field.  Of note, table
@@ -441,7 +441,7 @@ class db
 	 * @param string $mode
 	 * @return
 	 */
-	function lock($table, $mode = 'write')
+	public function lock($table, $mode = 'write')
 	{
 		$result = $this->transaction_begin();
 
@@ -472,7 +472,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function unlock()
+	public function unlock()
 	{
 		return $this->transaction_commit();
 	}
@@ -484,7 +484,7 @@ class db
 	 * @param mixed $seq_name
 	 * @return
 	 */
-	function nextid($seq_name)
+	public function nextid($seq_name)
 	{
 		$this->connect();
 
@@ -524,7 +524,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function affected_rows()
+	public function affected_rows()
 	{
 		return pg_cmdtuples($this->Query_ID);
 	}
@@ -534,7 +534,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function num_rows()
+	public function num_rows()
 	{
 		return pg_numrows($this->Query_ID);
 	}
@@ -544,7 +544,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function num_fields()
+	public function num_fields()
 	{
 		return pg_numfields($this->Query_ID);
 	}
@@ -554,7 +554,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function nf()
+	public function nf()
 	{
 		return $this->num_rows();
 	}
@@ -564,7 +564,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function np()
+	public function np()
 	{
 		print $this->num_rows();
 	}
@@ -576,7 +576,7 @@ class db
 	 * @param string $strip_slashes
 	 * @return
 	 */
-	function f($Name, $strip_slashes = '')
+	public function f($Name, $strip_slashes = '')
 	{
 		if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes))
 		{
@@ -594,7 +594,7 @@ class db
 	 * @param mixed $Name
 	 * @return
 	 */
-	function p($Name)
+	public function p($Name)
 	{
 		print $this->Record[$Name];
 	}
@@ -607,7 +607,7 @@ class db
 	 * @param string $file
 	 * @return
 	 */
-	function halt($msg, $line = '', $file = '')
+	public function halt($msg, $line = '', $file = '')
 	{
 		if ($this->Halt_On_Error == 'no')
 		{
@@ -676,7 +676,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function table_names()
+	public function table_names()
 	{
 		$return = array();
 		$this->query("select relname from pg_class where relkind = 'r' and not relname like 'pg_%'");
@@ -696,7 +696,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function index_names()
+	public function index_names()
 	{
 		$return = array();
 		$this->query("SELECT relname FROM pg_class WHERE NOT relname ~ 'pg_.*' AND relkind ='i' ORDER BY relname");
@@ -718,7 +718,7 @@ class db
 	 * @param string $adminpasswd
 	 * @return
 	 */
-	function create_database($adminname = '', $adminpasswd = '')
+	public function create_database($adminname = '', $adminpasswd = '')
 	{
 		$currentUser = $this->User;
 		$currentPassword = $this->Password;
