@@ -56,8 +56,12 @@
 		 */
 		public function __construct($query = '')
 		{
-			require_once('../vendor/adodb/adodb-php/adodb.inc.php');
-			//require_once (INCLUDE_ROOT . '/adodb5/adodb.inc.php');
+			if (!defined('_ADODB_LAYER')) {
+				if (defined('INCLUE_ROOT') && file_exists(INCLUDE_ROOT . '/database/adodb5/adodb.inc.php'))
+					require_once (INCLUDE_ROOT . '/database/adodb5/adodb.inc.php');
+				elseif (file_exists(realpath(dirname(__file__)) . '/../vendor/adodb/adodb-php/adodb.inc.php'))
+					require_once(realpath(dirname(__file__)) . '/../vendor/adodb/adodb-php/adodb.inc.php');
+			}
 			$this->query($query);
 		}
 
