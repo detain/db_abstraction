@@ -12,6 +12,15 @@
 	* any later version.                                                       *
 	\**************************************************************************/
 
+	/**
+	 * db
+	 * 
+	 * @package   
+	 * @author cpaneldirect
+	 * @copyright Owner
+	 * @version 2011
+	 * @access public
+	 */
 	class db
 	{
 		/* public: connection parameters */
@@ -44,23 +53,48 @@
 		public $Query_ID = 0;
 
 		/* public: constructor */
+		/**
+		 * db::db()
+		 * 
+		 * @param string $query
+		 * @return
+		 */
 		function db($query = '')
 		{
 			$this->query($query);
 		}
 
 		/* public: some trivial reporting */
+		/**
+		 * db::link_id()
+		 * 
+		 * @return
+		 */
 		function link_id()
 		{
 			return $this->Link_ID;
 		}
 
+		/**
+		 * db::query_id()
+		 * 
+		 * @return
+		 */
 		function query_id()
 		{
 			return $this->Query_ID;
 		}
 
 		/* public: connection management */
+		/**
+		 * db::connect()
+		 * 
+		 * @param string $Database
+		 * @param string $Host
+		 * @param string $User
+		 * @param string $Password
+		 * @return
+		 */
 		function connect($Database = '', $Host = '', $User = '', $Password = '')
 		{
 			/* Handle defaults */
@@ -108,6 +142,11 @@
 		}
 
 		/* This only affects systems not using persistant connections */
+		/**
+		 * db::disconnect()
+		 * 
+		 * @return
+		 */
 		function disconnect()
 		{
 			if($this->Link_ID <> 0)
@@ -122,6 +161,12 @@
 			}
 		}
 
+		/**
+		 * db::db_addslashes()
+		 * 
+		 * @param mixed $str
+		 * @return
+		 */
 		function db_addslashes($str)
 		{
 			if (!isset($str) || $str == '')
@@ -132,11 +177,23 @@
 			return addslashes($str);
 		}
 
+		/**
+		 * db::to_timestamp()
+		 * 
+		 * @param mixed $epoch
+		 * @return
+		 */
 		function to_timestamp($epoch)
 		{
 			return date('YmdHis',$epoch);
 		}
 
+		/**
+		 * db::from_timestamp()
+		 * 
+		 * @param mixed $timestamp
+		 * @return
+		 */
 		function from_timestamp($timestamp)
 		{
 			if (strlen($timestamp) == 19)
@@ -151,6 +208,12 @@
 			return mktime($parts[4],$parts[5],$parts[6],$parts[2],$parts[3],$parts[1]);
 		}
 
+		/**
+		 * db::limit()
+		 * 
+		 * @param mixed $start
+		 * @return
+		 */
 		function limit($start)
 		{
 			echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
@@ -167,6 +230,11 @@
 		}
 
 		/* public: discard the query result */
+		/**
+		 * db::free()
+		 * 
+		 * @return
+		 */
 		function free()
 		{
 			@mysql_free_result($this->Query_ID);
@@ -175,6 +243,14 @@
 
 		/* public: perform a query */
 		/* I added the line and file section so we can have better error reporting. (jengo) */
+		/**
+		 * db::query()
+		 * 
+		 * @param mixed $Query_String
+		 * @param string $line
+		 * @param string $file
+		 * @return
+		 */
 		function query($Query_String, $line = '', $file = '')
 		{
 			/* No empty queries, please, since PHP4 chokes on them. */
@@ -245,6 +321,16 @@
 		}
 
 		// public: perform a query with limited result set
+		/**
+		 * db::limit_query()
+		 * 
+		 * @param mixed $Query_String
+		 * @param mixed $offset
+		 * @param string $line
+		 * @param string $file
+		 * @param string $num_rows
+		 * @return
+		 */
 		function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
 		{
 			if (! $num_rows)
@@ -270,6 +356,12 @@
 		}
 
 		/* public: walk result set */
+		/**
+		 * db::next_record()
+		 * 
+		 * @param mixed $result_type
+		 * @return
+		 */
 		function next_record($result_type = MYSQL_BOTH)
 		{
 			if (!$this->Query_ID)
@@ -292,6 +384,12 @@
 		}
 
 		/* public: position in result set */
+		/**
+		 * db::seek()
+		 * 
+		 * @param integer $pos
+		 * @return
+		 */
 		function seek($pos = 0)
 		{
 			$status = @mysql_data_seek($this->Query_ID, $pos);
@@ -313,21 +411,43 @@
 			return 1;
 		}
 
+		/**
+		 * db::transaction_begin()
+		 * 
+		 * @return
+		 */
 		function transaction_begin()
 		{
 			return True;
 		}
 
+		/**
+		 * db::transaction_commit()
+		 * 
+		 * @return
+		 */
 		function transaction_commit()
 		{
 			return True;
 		}
 
+		/**
+		 * db::transaction_abort()
+		 * 
+		 * @return
+		 */
 		function transaction_abort()
 		{
 			return True;
 		}
 
+		/**
+		 * db::get_last_insert_id()
+		 * 
+		 * @param mixed $table
+		 * @param mixed $field
+		 * @return
+		 */
 		function get_last_insert_id($table, $field)
 		{
 			/* This will get the last insert ID created on the current connection.  Should only be called
@@ -345,6 +465,13 @@
 		}
 
 		/* public: table locking */
+		/**
+		 * db::lock()
+		 * 
+		 * @param mixed $table
+		 * @param string $mode
+		 * @return
+		 */
 		function lock($table, $mode='write')
 		{
 			$this->connect();
@@ -378,6 +505,11 @@
 			return $res;
 		}
 
+		/**
+		 * db::unlock()
+		 * 
+		 * @return
+		 */
 		function unlock()
 		{
 			$this->connect();
@@ -393,32 +525,64 @@
 
 
 		/* public: evaluate the result (size, width) */
+		/**
+		 * db::affected_rows()
+		 * 
+		 * @return
+		 */
 		function affected_rows()
 		{
 			return @mysql_affected_rows($this->Link_ID);
 		}
 
+		/**
+		 * db::num_rows()
+		 * 
+		 * @return
+		 */
 		function num_rows()
 		{
 			return @mysql_num_rows($this->Query_ID);
 		}
 
+		/**
+		 * db::num_fields()
+		 * 
+		 * @return
+		 */
 		function num_fields()
 		{
 			return @mysql_num_fields($this->Query_ID);
 		}
 
 		/* public: shorthand notation */
+		/**
+		 * db::nf()
+		 * 
+		 * @return
+		 */
 		function nf()
 		{
 			return $this->num_rows();
 		}
 
+		/**
+		 * db::np()
+		 * 
+		 * @return
+		 */
 		function np()
 		{
 			print $this->num_rows();
 		}
 
+		/**
+		 * db::f()
+		 * 
+		 * @param mixed $Name
+		 * @param string $strip_slashes
+		 * @return
+		 */
 		function f($Name, $strip_slashes = "")
 		{
 			if ($strip_slashes || ($this->auto_stripslashes && ! $strip_slashes))
@@ -431,12 +595,24 @@
 			}
 		}
 
+		/**
+		 * db::p()
+		 * 
+		 * @param mixed $Name
+		 * @return
+		 */
 		function p($Name)
 		{
 			print $this->Record[$Name];
 		}
 
 		/* public: sequence numbers */
+		/**
+		 * db::nextid()
+		 * 
+		 * @param mixed $seq_name
+		 * @return
+		 */
 		function nextid($seq_name)
 		{
 			$this->connect();
@@ -481,6 +657,13 @@
 		}
 
 		/* public: return table metadata */
+		/**
+		 * db::metadata()
+		 * 
+		 * @param string $table
+		 * @param bool $full
+		 * @return
+		 */
 		function metadata($table='',$full=false)
 		{
 			$count = 0;
@@ -572,6 +755,14 @@
 		}
 
 		/* private: error handling */
+		/**
+		 * db::halt()
+		 * 
+		 * @param mixed $msg
+		 * @param string $line
+		 * @param string $file
+		 * @return
+		 */
 		function halt($msg, $line = '', $file = '')
 		{
 			$this->unlock();	/* Just in case there is a table currently locked */
@@ -601,6 +792,12 @@
 			}
 		}
 
+		/**
+		 * db::haltmsg()
+		 * 
+		 * @param mixed $msg
+		 * @return
+		 */
 		function haltmsg($msg)
 		{
 			billingd_log("Database error: $msg", __LINE__, __FILE__);
@@ -612,6 +809,11 @@
 			}
 		}
 
+		/**
+		 * db::table_names()
+		 * 
+		 * @return
+		 */
 		function table_names()
 		{
 			$return = array();
@@ -627,12 +829,24 @@
 			return $return;
 		}
 
+		/**
+		 * db::index_names()
+		 * 
+		 * @return
+		 */
 		function index_names()
 		{
 			$return = array();
 			return $return;
 		}
 
+		/**
+		 * db::create_database()
+		 * 
+		 * @param string $adminname
+		 * @param string $adminpasswd
+		 * @return
+		 */
 		function create_database($adminname = '', $adminpasswd = '')
 		{
 			$currentUser = $this->User;
