@@ -56,7 +56,7 @@ class db
 	 * @param string $query
 	 * @return
 	 */
-	function db($query = '')
+	public function __construct($query = '')
 	{
 		require_once (INCLUDE_ROOT . '/adodb5/adodb.inc.php');
 		$this->query($query);
@@ -68,7 +68,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function link_id()
+	public function link_id()
 	{
 		return $this->Link_ID;
 	}
@@ -78,7 +78,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function query_id()
+	public function query_id()
 	{
 		return $this->Query_ID;
 	}
@@ -93,7 +93,7 @@ class db
 	 * @param string $Password
 	 * @return
 	 */
-	function connect($Database = '', $Host = '', $User = '', $Password = '', $Driver = 'mysql')
+	public function connect($Database = '', $Host = '', $User = '', $Password = '', $Driver = 'mysql')
 	{
 		/* Handle defaults */
 		if ('' == $Database)
@@ -131,16 +131,16 @@ class db
 	 * 
 	 * @return
 	 */
-	function disconnect()
+	public function disconnect()
 	{
 	}
 
-	function real_escape($string)
+	public function real_escape($string)
 	{
 		return mysql_escape_string($string);
 	}
 
-	function escape($string)
+	public function escape($string)
 	{
 		return mysql_escape_string($string);
 	}
@@ -151,7 +151,7 @@ class db
 	 * @param mixed $str
 	 * @return
 	 */
-	function db_addslashes($str)
+	public function db_addslashes($str)
 	{
 		if (!isset($str) || $str == '')
 		{
@@ -167,7 +167,7 @@ class db
 	 * @param mixed $epoch
 	 * @return
 	 */
-	function to_timestamp($epoch)
+	public function to_timestamp($epoch)
 	{
 		return date('YmdHis', $epoch);
 	}
@@ -178,7 +178,7 @@ class db
 	 * @param mixed $timestamp
 	 * @return
 	 */
-	function from_timestamp($timestamp)
+	public function from_timestamp($timestamp)
 	{
 		if (strlen($timestamp) == 19)
 		{
@@ -198,7 +198,7 @@ class db
 	 * @param mixed $start
 	 * @return
 	 */
-	function limit($start)
+	public function limit($start)
 	{
 		echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
@@ -219,7 +219,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function free()
+	public function free()
 	{
 		//			@mysql_free_result($this->Query_ID);
 		//			$this->Query_ID = 0;
@@ -235,7 +235,7 @@ class db
 	 * @param string $file
 	 * @return
 	 */
-	function query($Query_String, $line = '', $file = '')
+	public function query($Query_String, $line = '', $file = '')
 	{
 		/* No empty queries, please, since PHP4 chokes on them. */
 		/* The empty query string is passed on from the constructor,
@@ -321,7 +321,7 @@ class db
 	 * @param string $num_rows
 	 * @return
 	 */
-	function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
+	public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
 	{
 		if (!$num_rows)
 		{
@@ -352,7 +352,7 @@ class db
 	 * @param mixed $result_type
 	 * @return
 	 */
-	function next_record($result_type = MYSQL_ASSOC)
+	public function next_record($result_type = MYSQL_ASSOC)
 	{
 		if (!$this->Query_ID)
 		{
@@ -378,7 +378,7 @@ class db
 	 * @param integer $pos
 	 * @return
 	 */
-	function seek($pos = 0)
+	public function seek($pos = 0)
 	{
 		if (isset($this->Rows[$pos]))
 		{
@@ -401,7 +401,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function transaction_begin()
+	public function transaction_begin()
 	{
 		return true;
 	}
@@ -411,7 +411,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function transaction_commit()
+	public function transaction_commit()
 	{
 		return true;
 	}
@@ -421,7 +421,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function transaction_abort()
+	public function transaction_abort()
 	{
 		return true;
 	}
@@ -433,7 +433,7 @@ class db
 	 * @param mixed $field
 	 * @return
 	 */
-	function get_last_insert_id($table, $field)
+	public function get_last_insert_id($table, $field)
 	{
 		return $this->Link_ID->Insert_ID($table, $field);
 	}
@@ -446,7 +446,7 @@ class db
 	 * @param string $mode
 	 * @return
 	 */
-	function lock($table, $mode = 'write')
+	public function lock($table, $mode = 'write')
 	{
 		/*			$this->connect();
 
@@ -485,7 +485,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function unlock()
+	public function unlock()
 	{
 		/*			$this->connect();
 
@@ -505,7 +505,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function affected_rows()
+	public function affected_rows()
 	{
 		return @$this->Link_ID->Affected_Rows();
 		//			return @$this->Query_ID->rowCount();
@@ -516,7 +516,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function num_rows()
+	public function num_rows()
 	{
 		return $this->Query_ID->NumRows();
 	}
@@ -526,7 +526,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function num_fields()
+	public function num_fields()
 	{
 		return $this->Query_ID->NumCols();
 	}
@@ -537,7 +537,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function nf()
+	public function nf()
 	{
 		return $this->num_rows();
 	}
@@ -547,7 +547,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function np()
+	public function np()
 	{
 		print $this->num_rows();
 	}
@@ -559,7 +559,7 @@ class db
 	 * @param string $strip_slashes
 	 * @return
 	 */
-	function f($Name, $strip_slashes = "")
+	public function f($Name, $strip_slashes = "")
 	{
 		if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes))
 		{
@@ -577,7 +577,7 @@ class db
 	 * @param mixed $Name
 	 * @return
 	 */
-	function p($Name)
+	public function p($Name)
 	{
 		print $this->Record[$Name];
 	}
@@ -589,7 +589,7 @@ class db
 	 * @param mixed $seq_name
 	 * @return
 	 */
-	function nextid($seq_name)
+	public function nextid($seq_name)
 	{
 		$this->connect();
 
@@ -633,7 +633,7 @@ class db
 	 * @param string $file
 	 * @return
 	 */
-	function halt($msg, $line = '', $file = '')
+	public function halt($msg, $line = '', $file = '')
 	{
 		$this->unlock();
  		/* Just in case there is a table currently locked */
@@ -669,7 +669,7 @@ class db
 	 * @param mixed $msg
 	 * @return
 	 */
-	function haltmsg($msg)
+	public function haltmsg($msg)
 	{
 		billingd_log("Database error: $msg", __line__, __file__);
 		printf("<b>Database error:</b> %s<br>\n", $msg);
@@ -685,7 +685,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function table_names()
+	public function table_names()
 	{
 		$return = array();
 		$this->query("SHOW TABLES");
@@ -705,7 +705,7 @@ class db
 	 * 
 	 * @return
 	 */
-	function index_names()
+	public function index_names()
 	{
 		$return = array();
 		return $return;
@@ -718,7 +718,7 @@ class db
 	 * @param string $adminpasswd
 	 * @return
 	 */
-	function create_database($adminname = '', $adminpasswd = '')
+	public function create_database($adminname = '', $adminpasswd = '')
 	{
 		$currentUser = $this->User;
 		$currentPassword = $this->Password;
