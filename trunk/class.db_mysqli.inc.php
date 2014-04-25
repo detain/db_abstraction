@@ -186,11 +186,11 @@
 		{
 			if (strlen($timestamp) == 19)
 			{
-				ereg('([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})',$timestamp,$parts);
+				preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/',$timestamp,$parts);
 			}
 			else
 			{
-				ereg('([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})',$timestamp,$parts);
+				preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/',$timestamp,$parts);
 			}
 			//_debug_array($parts);exit;
 			return mktime($parts[4],$parts[5],$parts[6],$parts[2],$parts[3],$parts[1]);
