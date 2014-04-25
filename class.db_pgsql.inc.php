@@ -13,6 +13,15 @@
 	* any later version.                                                       *
 	\**************************************************************************/
 
+	/**
+	 * db
+	 * 
+	 * @package   
+	 * @author cpaneldirect
+	 * @copyright Owner
+	 * @version 2011
+	 * @access public
+	 */
 	class db
 	{
 		public $Host     = '';
@@ -41,6 +50,13 @@
 		// PostgreSQL changed somethings from 6.x -> 7.x
 		public $db_version;
 
+		/**
+		 * db::ifadd()
+		 * 
+		 * @param mixed $add
+		 * @param mixed $me
+		 * @return
+		 */
 		function ifadd($add, $me)
 		{
 			if('' != $add)
@@ -50,11 +66,22 @@
 		}
 
 		/* public: constructor */
+		/**
+		 * db::db()
+		 * 
+		 * @param string $query
+		 * @return
+		 */
 		function db($query = '')
 		{
 			$this->query($query);
 		}
 
+		/**
+		 * db::connect()
+		 * 
+		 * @return
+		 */
 		function connect()
 		{
 			if (0 == $this->Link_ID)
@@ -89,6 +116,12 @@
 			}
 		}
 
+		/**
+		 * db::to_timestamp()
+		 * 
+		 * @param mixed $epoch
+		 * @return
+		 */
 		function to_timestamp($epoch)
 		{
 			$db_version = $this->db_version;
@@ -102,6 +135,12 @@
 			}
 		}
 
+		/**
+		 * db::from_timestamp()
+		 * 
+		 * @param mixed $timestamp
+		 * @return
+		 */
 		function from_timestamp($timestamp)
 		{
 			if (floor($this->db_version) == 6)
@@ -115,18 +154,36 @@
 		}
 
 		// For PostgreSQL 6.x
+		/**
+		 * db::to_timestamp_6()
+		 * 
+		 * @param mixed $epoch
+		 * @return
+		 */
 		function to_timestamp_6($epoch)
 		{
 
 		}
 
 		// For PostgreSQL 6.x
+		/**
+		 * db::from_timestamp_6()
+		 * 
+		 * @param mixed $timestamp
+		 * @return
+		 */
 		function from_timestamp_6($timestamp)
 		{
 
 		}
 
 		// For PostgreSQL 7.x
+		/**
+		 * db::to_timestamp_7()
+		 * 
+		 * @param mixed $epoch
+		 * @return
+		 */
 		function to_timestamp_7($epoch)
 		{
 			// This needs the GMT offset!
@@ -134,6 +191,12 @@
 		}
 
 		// For PostgreSQL 7.x
+		/**
+		 * db::from_timestamp_7()
+		 * 
+		 * @param mixed $timestamp
+		 * @return
+		 */
 		function from_timestamp_7($timestamp)
 		{
 			ereg('([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})',$timestamp,$parts);
@@ -142,11 +205,22 @@
 		}
 
 		/* This only affects systems not using persistant connections */
+		/**
+		 * db::disconnect()
+		 * 
+		 * @return
+		 */
 		function disconnect()
 		{
 			return @pg_close($this->Link_ID);
 		}
 
+		/**
+		 * db::db_addslashes()
+		 * 
+		 * @param mixed $str
+		 * @return
+		 */
 		function db_addslashes($str)
 		{
 			if (!IsSet($str) || $str == '')
@@ -158,6 +232,14 @@
 		}
 
 		/* I added the line and file section so we can have better error reporting. (jengo) */
+		/**
+		 * db::query()
+		 * 
+		 * @param mixed $Query_String
+		 * @param string $line
+		 * @param string $file
+		 * @return
+		 */
 		function query($Query_String, $line = '', $file = '')
 		{
 			if (! $line && ! $file)
@@ -196,6 +278,16 @@
 		}
 
 		/* public: perform a query with limited result set */
+		/**
+		 * db::limit_query()
+		 * 
+		 * @param mixed $Query_String
+		 * @param mixed $offset
+		 * @param string $line
+		 * @param string $file
+		 * @param string $num_rows
+		 * @return
+		 */
 		function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
 		{
 			if ($offset == 0)
@@ -216,12 +308,22 @@
 		}
 
 		// public: discard the query result
+		/**
+		 * db::free()
+		 * 
+		 * @return
+		 */
 		function free()
 		{
 			@pg_freeresult($this->Query_ID);
 			$this->Query_ID = 0;
 		}
 
+		/**
+		 * db::next_record()
+		 * 
+		 * @return
+		 */
 		function next_record()
 		{
 			$this->Record = @pg_fetch_array($this->Query_ID, $this->Row++);
@@ -238,16 +340,32 @@
 			return $stat;
 		}
 
+		/**
+		 * db::seek()
+		 * 
+		 * @param mixed $pos
+		 * @return
+		 */
 		function seek($pos)
 		{
 			$this->Row = $pos;
 		}
 
+		/**
+		 * db::transaction_begin()
+		 * 
+		 * @return
+		 */
 		function transaction_begin()
 		{
 			return $this->query('begin');
 		}
 
+		/**
+		 * db::transaction_commit()
+		 * 
+		 * @return
+		 */
 		function transaction_commit()
 		{
 			if (! $this->Errno)
@@ -260,11 +378,23 @@
 			}
 		}
 
+		/**
+		 * db::transaction_abort()
+		 * 
+		 * @return
+		 */
 		function transaction_abort()
 		{
 			return pg_Exec($this->Link_ID,'rollback');
 		}
 
+		/**
+		 * db::get_last_insert_id()
+		 * 
+		 * @param mixed $table
+		 * @param mixed $field
+		 * @return
+		 */
 		function get_last_insert_id($table, $field)
 		{
 			/* This will get the last insert ID created on the current connection.  Should only be called
@@ -300,6 +430,13 @@
 			return $Record[0];
 		}
 
+		/**
+		 * db::lock()
+		 * 
+		 * @param mixed $table
+		 * @param string $mode
+		 * @return
+		 */
 		function lock($table, $mode = 'write')
 		{
 			$result = $this->transaction_begin();
@@ -326,6 +463,11 @@
 			return $result;
 		}
 
+		/**
+		 * db::unlock()
+		 * 
+		 * @return
+		 */
 		function unlock()
 		{
 			return $this->transaction_commit();
@@ -333,6 +475,12 @@
 
 
 		/* public: sequence numbers */
+		/**
+		 * db::nextid()
+		 * 
+		 * @param mixed $seq_name
+		 * @return
+		 */
 		function nextid($seq_name)
 		{
 			$this->connect();
@@ -376,6 +524,12 @@
 			return $nextid;
 		}
 
+		/**
+		 * db::metadata()
+		 * 
+		 * @param mixed $table
+		 * @return
+		 */
 		function metadata($table)
 		{
 			$count = 0;
@@ -405,31 +559,63 @@
 			return $res;
 		}
 
+		/**
+		 * db::affected_rows()
+		 * 
+		 * @return
+		 */
 		function affected_rows()
 		{
 			return pg_cmdtuples($this->Query_ID);
 		}
 
+		/**
+		 * db::num_rows()
+		 * 
+		 * @return
+		 */
 		function num_rows()
 		{
 			return pg_numrows($this->Query_ID);
 		}
 
+		/**
+		 * db::num_fields()
+		 * 
+		 * @return
+		 */
 		function num_fields()
 		{
 			return pg_numfields($this->Query_ID);
 		}
 
+		/**
+		 * db::nf()
+		 * 
+		 * @return
+		 */
 		function nf()
 		{
 			return $this->num_rows();
 		}
 
+		/**
+		 * db::np()
+		 * 
+		 * @return
+		 */
 		function np()
 		{
 			print $this->num_rows();
 		}
 
+		/**
+		 * db::f()
+		 * 
+		 * @param mixed $Name
+		 * @param string $strip_slashes
+		 * @return
+		 */
 		function f($Name,$strip_slashes = '')
 		{
 			if ($strip_slashes || ($this->auto_stripslashes && ! $strip_slashes))
@@ -442,11 +628,25 @@
 			}
 		}
 
+		/**
+		 * db::p()
+		 * 
+		 * @param mixed $Name
+		 * @return
+		 */
 		function p($Name)
 		{
 			print $this->Record[$Name];
 		}
 
+		/**
+		 * db::halt()
+		 * 
+		 * @param mixed $msg
+		 * @param string $line
+		 * @param string $file
+		 * @return
+		 */
 		function halt($msg, $line = '', $file = '')
 		{
 			if ($this->Halt_On_Error == 'no')
@@ -513,6 +713,11 @@
 			}
 		}
 
+		/**
+		 * db::table_names()
+		 * 
+		 * @return
+		 */
 		function table_names()
 		{
 			$return = array();
@@ -528,6 +733,11 @@
 			return $return;
 		}
 
+		/**
+		 * db::index_names()
+		 * 
+		 * @return
+		 */
 		function index_names()
 		{
 			$return = array();
@@ -543,6 +753,13 @@
 			return $return;
 		}
 
+		/**
+		 * db::create_database()
+		 * 
+		 * @param string $adminname
+		 * @param string $adminpasswd
+		 * @return
+		 */
 		function create_database($adminname = '', $adminpasswd = '')
 		{
 			$currentUser = $this->User;
