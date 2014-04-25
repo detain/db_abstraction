@@ -646,11 +646,11 @@
 
 			if ($file)
 			{
-				printf("<br><b>File:</b> %s", $file);
+				error_log("File: $file");
 			}
 			if ($line)
 			{
-				printf("<br><b>Line:</b> %s", $line);
+				error_log("Line: $line");
 			}
 
 			if ($this->Halt_On_Error != "report")
@@ -670,11 +670,9 @@
 		public function haltmsg($msg)
 		{
 			billingd_log("Database error: $msg", __line__, __file__);
-			printf("<b>Database error:</b> %s<br>\n", $msg);
 			if ($this->Link_ID->ErrorNo() != "0" && $this->Link_ID->ErrorMsg() != "")
 			{
 				billingd_log("ADOdb MySQL Error: " . $this->Link_ID->ErrorMsg(), __line__, __file__);
-				printf("<b>ADOdb MySQL Error</b>: %s <br>\n", $this->Link_ID->ErrorMsg());
 			}
 		}
 
