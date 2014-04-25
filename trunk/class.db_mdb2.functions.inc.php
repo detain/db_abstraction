@@ -94,6 +94,7 @@ class db_mdb2
 	public $dns_hostmaster = 'hostmaster.interserver.net';
 	public $dns_ns1 = 'cdns1.interserver.net';
 	public $dns_ns2 = 'cdns2.interserver.net';
+	public $dns_ns3 = 'cdns3.interserver.net';
 
 	public $dbh = false;
 
