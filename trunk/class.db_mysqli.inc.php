@@ -43,6 +43,7 @@
 		public $revision = '1.2';
 
 		/* private: link and query handles */
+		public $Link_Init = false;
 		public $Link_ID  = 0;
 		public $Query_ID = 0;
 
@@ -55,6 +56,7 @@
 		 */
 		function db($query = '')
 		{
+			$this->Link_Init = mysqli_init();
 			$this->query($query);
 		}
 
@@ -111,14 +113,11 @@
 			/* establish connection, select database */
 			if ( !is_object($this->Link_ID) )
 			{
-/*				if ($GLOBALS['phpgw_info']['server']['db_persistent'])
+				$this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
+				if ($this->Link_ID)
 				{
-					$this->Link_ID=mysql_pconnect($Host, $User, $Password);
+					$this->Link_ID = $this->Link_Init;
 				}
-				else
-				{*/
-					$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
-				/* } */
 
 				if ($this->Link_ID->connect_error)
 				{
@@ -146,7 +145,7 @@
 
 		function escape($string)
 		{
-			return mysqli_escape_string($string);
+			return $this->Link_Init->real_escape_string($string);
 		}
 
 		/**
