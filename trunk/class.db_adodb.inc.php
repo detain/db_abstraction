@@ -57,6 +57,7 @@
 		 */
 		function db($query = '')
 		{
+			require_once(INCLUDE_ROOT . '/adodb5/adodb.inc.php');
 			$this->query($query);
 		}
 
@@ -115,15 +116,10 @@
 				$Driver     = $this->Driver;
 			}
 			/* establish connection, select database */
-			$DSN = "$Driver:dbname=$Database;host=$Host";
 			if ($this->Link_ID === false)
 			{
-				try {
-					$this->Link_ID =& new PDO($DSN, $User, $Password);
-				} catch (PDOException $e) {
-					$this->halt("Connection Failed " . $e->getMessage());
-					return 0;
-				}
+				$this->Link_ID = NewADOConnection($Driver);
+				$this->Link_ID->Connect($Host, $User, $Password, $Database);
 			}
 			return $this->Link_ID;
 		}
@@ -272,16 +268,12 @@
 				}
 //			}
 
-			$this->Query_ID = $this->Link_ID->prepare($Query_String);
-			$success = $this->Query_ID->execute();
-			$this->Rows = $this->Query_ID->fetchAll();
-			billingd_log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __LINE__, __FILE__);
-			$this->Row   = 0;
-			if ($success === false)
-			{
+			try {
+				$this->Query_ID = $this->Link_ID->Execute($Query_String);
+			} catch (exception $e) {
 				$email = "MySQL Error<br>\n"
 				. "Query: " . $Query_String . "<br>\n"
-				. "Error #" . print_r($this->Query_ID->errorInfo(), true) . "<br>\n"
+				. "Error #" . print_r($e, true) . "<br>\n"
 				. "Line: " . $line . "<br>\n"
 				. "File: " . $file . "<br>\n"
 				. "User: " . $GLOBALS['tf']->session->account_id . "<br>\n";
@@ -297,7 +289,7 @@
 				{
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
-				$subject = DOMAIN . ' PDO MySQL Error On ' . TITLE;
+				$subject = DOMAIN . ' ADOdb MySQL Error On ' . TITLE;
 				$headers = '';
 				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
 				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
@@ -310,6 +302,8 @@
 				admin_mail($subject, $email, $headers);
 				$this->halt("Invalid SQL: ".$Query_String, $line, $file);
 			}
+			billingd_log("ADOdb Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __LINE__, __FILE__);
+			$this->Row   = 0;
 
 			# Will return nada if it fails. That's fine.
 			return $this->Query_ID;
@@ -359,8 +353,6 @@
 		 */
 		function next_record($result_type = MYSQL_ASSOC)
 		{
-			// PDO result types so far seem to be +1
-			$result_type += 1;
 			if (!$this->Query_ID)
 			{
 				$this->halt('next_record called with no query pending.');
@@ -368,8 +360,7 @@
 			}
 			
 			$this->Row   += 1;
-			$this->Record = $this->Rows[$this->Row];
-
+			$this->Record = $this->Query_ID->FetchRow();;
 			$stat = is_array($this->Record);
 			if (!$stat && $this->Auto_Free)
 			{
@@ -442,11 +433,7 @@
 		 */
 		function get_last_insert_id($table, $field)
 		{
-			if (!isset($table) || $table == '' || !isset($field) || $field == '')
-			{
-				return -1;
-			}
-			return $this->Link_ID->lastInsertId();
+			return $this->Link_ID->Insert_ID($table, $field);
 		}
 
 		/* public: table locking */
@@ -519,7 +506,8 @@
 		 */
 		function affected_rows()
 		{
-			return @$this->Query_ID->rowCount();
+			return @$this->Link_ID->Affected_Rows();
+//			return @$this->Query_ID->rowCount();
 		}
 
 		/**
@@ -529,7 +517,7 @@
 		 */
 		function num_rows()
 		{
-			return sizeof($this->Rows);
+			return $this->Query_ID->NumRows();
 		}
 
 		/**
@@ -539,7 +527,7 @@
 		 */
 		function num_fields()
 		{
-			return sizeof($this->Rows[$this->Rows]);
+			return $this->Query_ID->NumCols();
 		}
 
 		/* public: shorthand notation */
@@ -691,10 +679,10 @@
 		{
 			billingd_log("Database error: $msg", __LINE__, __FILE__);
 			printf("<b>Database error:</b> %s<br>\n", $msg);
-			if ($this->Errno != "0" && $this->Error != "()")
+			if ($this->Link_ID->ErrorNo() != "0" && $this->Link_ID->ErrorMsg() != "")
 			{
-				billingd_log("PDO MySQL Error: " . print_r($this->Link_ID->errorInfo(), true), __LINE__, __FILE__);
-				printf("<b>POD MySQL Error</b>: %s <br>\n",print_r($this->Link_ID->errorInfo(), true));
+				billingd_log("ADOdb MySQL Error: " . $this->Link_ID->ErrorMsg(), __LINE__, __FILE__);
+				printf("<b>ADOdb MySQL Error</b>: %s <br>\n",$this->Link_ID->ErrorMsg());
 			}
 		}
 
@@ -707,11 +695,13 @@
 		{
 			$return = array();
 			$this->query("SHOW TABLES");
-			foreach ($this->Rows as $i => $info)
+			$i = 0;
+			while ($info = $this->Query_ID->FetchRow())
 			{
 				$return[$i]['table_name'] = $info[0];
 				$return[$i]['tablespace_name'] = $this->Database;
 				$return[$i]['database'] = $this->Database;
+				$i++;
 			}
 			return $return;
 		}
