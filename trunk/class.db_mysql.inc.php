@@ -286,7 +286,7 @@ class db
 		}
 		//			if (isset($GLOBALS['tf']))
 		//			{
-		if ($GLOBALS['log_queries'] !== false)
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
 		{
 			billingd_log($Query_String, $line, $file, false);
 		}
