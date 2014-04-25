@@ -157,7 +157,14 @@
 
 		public function real_escape($string)
 		{
-			return mysql_real_escape_string($string);
+			if ($this->Link_ID == 0)
+			{
+				return mysql_escape_string($string);
+			}
+			else
+			{
+				return mysql_real_escape_string($string);
+			}
 		}
 
 		public function escape($string)
