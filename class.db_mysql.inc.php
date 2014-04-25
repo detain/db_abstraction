@@ -199,9 +199,10 @@ class db
 
 	/**
 	 * db::from_timestamp()
+	 * converts a mysql timestamp into a unix timetsamp
 	 * 
-	 * @param mixed $timestamp
-	 * @return
+	 * @param string $timestamp mysql formatted timestamp
+	 * @return integer unix time
 	 */
 	public function from_timestamp($timestamp)
 	{
