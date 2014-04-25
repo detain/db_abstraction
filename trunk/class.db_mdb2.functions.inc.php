@@ -2,25 +2,17 @@
 
 /**
  * MDB2 Wrapper Made To Handle Liike Our Other ClasssesRelated Functionality
- * @author Joe Huss <detain@corpmail.interserver.net>
+ * Last Changed: $LastChangedDate$
+ * @author $Author$
+ * @version $Revision$
+ * @copyright 2012
  * @package MyAdmin
-
-
-SQL
-
- * @copyright 2010
+ * @category SQL 
  */
 
 /**
  * db_mdb2_result
  * 
- * @package MyAdmin
-
-
-
- * @author cpaneldirect
- * @copyright Owner
- * @version 2011
  * @access public
  */
 class db_mdb2_result

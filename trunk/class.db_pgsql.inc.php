@@ -2,36 +2,17 @@
 
 /**
  * PostgreSQL Related Functionality
- * @author Joe Huss <detain@corpmail.interserver.net>
+ * Last Changed: $LastChangedDate$
+ * @author $Author$
+ * @version $Revision$
+ * @copyright 2012
  * @package MyAdmin
-
-SQL
- * @copyright 2010
+ * @category SQL 
  */
-
-/**************************************************************************\
-* phpGroupWare API -                                                       *
-* Copyright (c) 1998,1999 SH Online Dienst GmbH Boris Erdmann,             *
-* Kristian Koehntopp                                                       *
-* ------------------------------------------------------------------------ *
-* This is not part of phpGroupWare, but is used by phpGroupWare.           * 
-* http://www.phpgroupware.org/                                             * 
-* ------------------------------------------------------------------------ *
-* This program is free software; you can redistribute it and/or modify it  *
-* under the terms of the GNU Lesser General Public License as published    *
-* by the Free Software Foundation; either version 2.1 of the License, or   *
-* any later version.                                                       *
-* \**************************************************************************/
 
 /**
  * db
  * 
- * @package MyAdmin
-
-
- * @author cpaneldirect
- * @copyright Owner
- * @version 2011
  * @access public
  */
 class db
