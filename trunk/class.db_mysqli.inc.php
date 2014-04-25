@@ -290,10 +290,10 @@
 			$this->Error = mysqli_error($this->Link_ID);
 			if ($this->Query_ID === false)
 			{
-				$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . "User: " . $GLOBALS['tf']->session->account_id . "<br>\n";
+				$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ? "User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= "<br><br>Request Variables:<br>";
-				foreach ($GLOBALS['tf']->variables->request as $key => $value)
+				foreach ($_REQUEST as $key => $value)
 				{
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
@@ -682,7 +682,8 @@
 			{
 				echo "<p><b>Session halted.</b>";
 				// FIXME! Add check for error levels
-				$GLOBALS['tf']->terminate();
+				if (isset($GLOBALS['tf']))
+					$GLOBALS['tf']->terminate();
 			}
 		}
 
