@@ -4,8 +4,8 @@
  * MySQL Related Functionality
  * @author Joe Huss <detain@corpmail.interserver.net>
  * @package MyAdmin
- * @subpackage MyAdmin
- * @subpackage SQL
+
+SQL
  * @copyright 2010
  */
 
@@ -13,8 +13,8 @@
  * db
  * 
  * @package MyAdmin
- * @subpackage MyAdmin
- * @subpackage   
+
+
  * @author cpaneldirect
  * @copyright Owner
  * @version 2011
