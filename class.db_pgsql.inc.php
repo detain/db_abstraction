@@ -532,41 +532,6 @@
 		}
 
 		/**
-		 * db::metadata()
-		 * 
-		 * @param mixed $table
-		 * @return
-		 */
-		function metadata($table)
-		{
-			$count = 0;
-			$id    = 0;
-			$res   = array();
-
-			$this->connect();
-			$id = pg_exec($this->Link_ID, "select * from $table");
-			if ($id < 0)
-			{
-				$this->Error = pg_ErrorMessage($id);
-				$this->Errno = 1;
-				$this->halt('Metadata query failed.');
-			}
-			$count = pg_NumFields($id);
-
-			for ($i=0; $i<$count; $i++)
-			{
-				$res[$i]['table'] = $table;
-				$res[$i]['name']  = pg_FieldName  ($id, $i); 
-				$res[$i]['type']  = pg_FieldType  ($id, $i);
-				$res[$i]['len']   = pg_FieldSize  ($id, $i);
-				$res[$i]['flags'] = '';
-			}
-
-			pg_FreeResult($id);
-			return $res;
-		}
-
-		/**
 		 * db::affected_rows()
 		 * 
 		 * @return
