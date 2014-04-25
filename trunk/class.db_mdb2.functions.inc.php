@@ -1,205 +1,203 @@
 <?php
-
-/**
- * MDB2 Wrapper Made To Handle Liike Our Other ClasssesRelated Functionality
- * Last Changed: $LastChangedDate$
- * @author $Author$
- * @version $Revision$
- * @copyright 2012
- * @package MyAdmin
- * @category SQL 
- */
-
-/**
- * db_mdb2_result
- * 
- * @access public
- */
-class db_mdb2_result
-{
-	public $query;
-	public $result;
-	public $error = false;
-	public $message = '';
+	/**
+	 * MDB2 Wrapper Made To Handle Liike Our Other ClasssesRelated Functionality
+	 * Last Changed: $LastChangedDate$
+	 * @author $Author$
+	 * @version $Revision$
+	 * @copyright 2012
+	 * @package MyAdmin
+	 * @category SQL 
+	 */
 
 	/**
-	 * db_mdb2_result::db_mdb2_result()
+	 * db_mdb2_result
 	 * 
-	 * @param mixed $query
-	 * @return
+	 * @access public
 	 */
-	public function __construct($query)
+	class db_mdb2_result
 	{
-		$this->query = $query;
-		$this->result = mysql_query($query);
-		if (mysql_errno())
+		public $query;
+		public $result;
+		public $error = false;
+		public $message = '';
+
+		/**
+		 * db_mdb2_result::db_mdb2_result()
+		 * 
+		 * @param mixed $query
+		 * @return
+		 */
+		public function __construct($query)
 		{
-			$this->message = "MySQL error " . mysql_errno() . ": " . mysql_error() . ' Query: ' . $this->query;
-			$this->error = true;
+			$this->query = $query;
+			$this->result = mysql_query($query);
+			if (mysql_errno())
+			{
+				$this->message = "MySQL error " . mysql_errno() . ": " . mysql_error() . ' Query: ' . $this->query;
+				$this->error = true;
+			}
+		}
+
+		/**
+		 * db_mdb2_result::numRows()
+		 * 
+		 * @return
+		 */
+		public function numRows()
+		{
+			return mysql_num_rows($this->result);
+		}
+
+		/**
+		 * db_mdb2_result::fetchRow()
+		 * 
+		 * @return
+		 */
+		public function fetchRow()
+		{
+			return mysql_fetch_array($this->result);
+		}
+
+		/**
+		 * db_mdb2_result::getMessage()
+		 * 
+		 * @return
+		 */
+		public function getMessage()
+		{
+			return $this->message;
 		}
 	}
 
 	/**
-	 * db_mdb2_result::numRows()
+	 * db_mdb2
 	 * 
-	 * @return
+	 * @package MyAdmin
+
+
+
+	 * @author cpaneldirect
+	 * @copyright Owner
+	 * @version 2011
+	 * @access public
 	 */
-	public function numRows()
+	class db_mdb2
 	{
-		return mysql_num_rows($this->result);
-	}
+		public $db_host = '209.159.155.28';
+		public $db_user = 'poweradmin';
+		public $db_pass = 'p0w3r4dm1n';
+		public $db_name = 'poweradmin';
+		public $db_type = 'mysql';
 
-	/**
-	 * db_mdb2_result::fetchRow()
-	 * 
-	 * @return
-	 */
-	public function fetchRow()
-	{
-		return mysql_fetch_array($this->result);
-	}
+		public $iface_lang = 'en_EN';
 
-	/**
-	 * db_mdb2_result::getMessage()
-	 * 
-	 * @return
-	 */
-	public function getMessage()
-	{
-		return $this->message;
-	}
-}
+		public $dns_hostmaster = 'hostmaster.interserver.net';
+		public $dns_ns1 = 'cdns1.interserver.net';
+		public $dns_ns2 = 'cdns2.interserver.net';
+		public $dns_ns3 = 'cdns3.interserver.net';
 
-/**
- * db_mdb2
- * 
- * @package MyAdmin
+		public $dbh = false;
 
-
-
- * @author cpaneldirect
- * @copyright Owner
- * @version 2011
- * @access public
- */
-class db_mdb2
-{
-	public $db_host = '209.159.155.28';
-	public $db_user = 'poweradmin';
-	public $db_pass = 'p0w3r4dm1n';
-	public $db_name = 'poweradmin';
-	public $db_type = 'mysql';
-
-	public $iface_lang = 'en_EN';
-
-	public $dns_hostmaster = 'hostmaster.interserver.net';
-	public $dns_ns1 = 'cdns1.interserver.net';
-	public $dns_ns2 = 'cdns2.interserver.net';
-	public $dns_ns3 = 'cdns3.interserver.net';
-
-	public $dbh = false;
-
-	/**
-	 * db_mdb2::db_mdb2()
-	 * 
-	 * @return
-	 */
-	public function db_mdb2()
-	{
-		$this->dbh = mysql_connect($this->db_host, $this->db_user, $this->db_pass);
-		mysql_select_db($this->db_name, $this->dbh);
-	}
-
-	/**
-	 * db_mdb2::quote()
-	 * 
-	 * @param string $text
-	 * @param string $type
-	 * @return
-	 */
-	public function quote($text = '', $type = 'text')
-	{
-		switch ($type)
+		/**
+		 * db_mdb2::db_mdb2()
+		 * 
+		 * @return
+		 */
+		public function db_mdb2()
 		{
-			case 'text':
-				return "'" . mysql_real_escape_string($text) . "'";
-				break;
-			case 'integer':
-			default:
-				return $text;
-				break;
+			$this->dbh = mysql_connect($this->db_host, $this->db_user, $this->db_pass);
+			mysql_select_db($this->db_name, $this->dbh);
 		}
-	}
 
-	/**
-	 * db_mdb2::queryOne()
-	 * 
-	 * @param mixed $query
-	 * @return
-	 */
-	public function queryOne($query)
-	{
-		$result = mysql_query($query);
-		if (mysql_num_rows($result) > 0)
+		/**
+		 * db_mdb2::quote()
+		 * 
+		 * @param string $text
+		 * @param string $type
+		 * @return
+		 */
+		public function quote($text = '', $type = 'text')
 		{
-			$row = mysql_fetch_array($result);
-			return $row[0];
+			switch ($type)
+			{
+				case 'text':
+					return "'" . mysql_real_escape_string($text) . "'";
+					break;
+				case 'integer':
+				default:
+					return $text;
+					break;
+			}
 		}
-		else
-			return false;
-	}
 
-	/**
-	 * db_mdb2::queryRow()
-	 * 
-	 * @param mixed $query
-	 * @return
-	 */
-	public function queryRow($query)
-	{
-		$result = mysql_query($query);
-		if (mysql_num_rows($result) > 0)
+		/**
+		 * db_mdb2::queryOne()
+		 * 
+		 * @param mixed $query
+		 * @return
+		 */
+		public function queryOne($query)
 		{
-			$row = mysql_fetch_array($result);
-			return $row;
+			$result = mysql_query($query);
+			if (mysql_num_rows($result) > 0)
+			{
+				$row = mysql_fetch_array($result);
+				return $row[0];
+			}
+			else
+				return false;
 		}
-		else
-			return false;
+
+		/**
+		 * db_mdb2::queryRow()
+		 * 
+		 * @param mixed $query
+		 * @return
+		 */
+		public function queryRow($query)
+		{
+			$result = mysql_query($query);
+			if (mysql_num_rows($result) > 0)
+			{
+				$row = mysql_fetch_array($result);
+				return $row;
+			}
+			else
+				return false;
+		}
+
+		/**
+		 * db_mdb2::query()
+		 * 
+		 * @param mixed $query
+		 * @return
+		 */
+		public function query($query)
+		{
+			return new db_mdb2_result($query);
+		}
+
+		/**
+		 * db_mdb2::lastInsertId()
+		 * 
+		 * @param mixed $table
+		 * @param mixed $field
+		 * @return
+		 */
+		public function lastInsertId($table, $field)
+		{
+			return mysql_insert_id();
+		}
+
+		/**
+		 * db_mdb2::disconnect()
+		 * 
+		 * @return
+		 */
+		public function disconnect()
+		{
+			mysql_close();
+		}
+
 	}
-
-	/**
-	 * db_mdb2::query()
-	 * 
-	 * @param mixed $query
-	 * @return
-	 */
-	public function query($query)
-	{
-		return new db_mdb2_result($query);
-	}
-
-	/**
-	 * db_mdb2::lastInsertId()
-	 * 
-	 * @param mixed $table
-	 * @param mixed $field
-	 * @return
-	 */
-	public function lastInsertId($table, $field)
-	{
-		return mysql_insert_id();
-	}
-
-	/**
-	 * db_mdb2::disconnect()
-	 * 
-	 * @return
-	 */
-	public function disconnect()
-	{
-		mysql_close();
-	}
-
-}
-
 ?>
