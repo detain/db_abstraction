@@ -282,7 +282,7 @@
 			;
 
 			# New query, discard previous result.
-			if ($this->Query_ID)
+			if (is_resource($this->Query_ID))
 			{
 				$this->free();
 			}
@@ -392,7 +392,7 @@
 			$this->Error = mysql_error();
 
 			$stat = is_array($this->Record);
-			if (!$stat && $this->Auto_Free)
+			if (!$stat && $this->Auto_Free && is_resource($this->Query_ID))
 			{
 				$this->free();
 			}
