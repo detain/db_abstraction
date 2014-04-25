@@ -283,6 +283,10 @@
 			{
 				printf("Debug: query = %s<br>\n", $Query_String);
 			}
+//			if (isset($GLOBALS['tf']))
+//			{
+//				billingd_log($Query_String, $line, $file);
+//			}
 
 			$this->Query_ID = @mysql_query($Query_String,$this->Link_ID);
 			$this->Row   = 0;
