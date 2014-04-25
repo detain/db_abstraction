@@ -1,4 +1,11 @@
 <?php
+/**
+* PostgreSQL Related Functionality
+* @author Joe Huss <detain@corpmail.interserver.net>
+* @package SQL
+* @copyright 2010
+*/
+
 	/**************************************************************************\
 	* phpGroupWare API -                                                       *
 	* Copyright (c) 1998,1999 SH Online Dienst GmbH Boris Erdmann,             *

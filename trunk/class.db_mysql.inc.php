@@ -1,4 +1,10 @@
 <?php
+/**
+* MySQL Related Functionality
+* @author Joe Huss <detain@corpmail.interserver.net>
+* @package SQL
+* @copyright 2010
+*/
 	/**************************************************************************\
 	* phpGroupWare API - MySQL database support                                *
 	* Copyright (c) 1998-2000 NetUSE AG Boris Erdmann, Kristian Koehntopp      *
