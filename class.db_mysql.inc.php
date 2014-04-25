@@ -603,11 +603,11 @@
 
 		function haltmsg($msg)
 		{
-			billingd_log("Database error: $msg");
+			billingd_log("Database error: $msg", __LINE__, __FILE__);
 			printf("<b>Database error:</b> %s<br>\n", $msg);
 			if ($this->Errno != "0" && $this->Error != "()")
 			{
-				billingd_log("MySQL Error: " . $this->Errno . " (" . $this->Error . ")");
+				billingd_log("MySQL Error: " . $this->Errno . " (" . $this->Error . ")", __LINE__, __FILE__);
 				printf("<b>MySQL Error</b>: %s (%s)<br>\n",$this->Errno,$this->Error);
 			}
 		}
