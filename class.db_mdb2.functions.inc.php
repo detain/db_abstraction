@@ -6,12 +6,12 @@
 	 * @version $Revision$
 	 * @copyright 2012
 	 * @package MyAdmin
-	 * @category SQL 
+	 * @category SQL
 	 */
 
 	/**
 	 * db_mdb2_result
-	 * 
+	 *
 	 * @access public
 	 */
 	class db_mdb2_result
@@ -23,7 +23,7 @@
 
 		/**
 		 * db_mdb2_result::db_mdb2_result()
-		 * 
+		 *
 		 * @param mixed $query
 		 * @return
 		 */
@@ -38,9 +38,14 @@
 			}
 		}
 
+		public function log($message, $line = '', $file = '')
+		{
+			billingd_log($message, $line, $file, false);
+		}
+
 		/**
 		 * db_mdb2_result::numRows()
-		 * 
+		 *
 		 * @return
 		 */
 		public function numRows()
@@ -50,7 +55,7 @@
 
 		/**
 		 * db_mdb2_result::fetchRow()
-		 * 
+		 *
 		 * @return
 		 */
 		public function fetchRow()
@@ -60,7 +65,7 @@
 
 		/**
 		 * db_mdb2_result::getMessage()
-		 * 
+		 *
 		 * @return
 		 */
 		public function getMessage()
@@ -71,7 +76,7 @@
 
 	/**
 	 * db_mdb2
-	 * 
+	 *
 	 * @package MyAdmin
 
 
@@ -100,7 +105,7 @@
 
 		/**
 		 * db_mdb2::db_mdb2()
-		 * 
+		 *
 		 * @return
 		 */
 		public function db_mdb2()
@@ -115,7 +120,7 @@
 
 		/**
 		 * db_mdb2::quote()
-		 * 
+		 *
 		 * @param string $text
 		 * @param string $type
 		 * @return
@@ -136,7 +141,7 @@
 
 		/**
 		 * db_mdb2::queryOne()
-		 * 
+		 *
 		 * @param mixed $query
 		 * @return
 		 */
@@ -158,7 +163,7 @@
 
 		/**
 		 * db_mdb2::queryRow()
-		 * 
+		 *
 		 * @param mixed $query
 		 * @return
 		 */
@@ -180,7 +185,7 @@
 
 		/**
 		 * db_mdb2::query()
-		 * 
+		 *
 		 * @param mixed $query
 		 * @return
 		 */
@@ -195,7 +200,7 @@
 
 		/**
 		 * db_mdb2::lastInsertId()
-		 * 
+		 *
 		 * @param mixed $table
 		 * @param mixed $field
 		 * @return
@@ -207,7 +212,7 @@
 
 		/**
 		 * db_mdb2::disconnect()
-		 * 
+		 *
 		 * @return
 		 */
 		public function disconnect()

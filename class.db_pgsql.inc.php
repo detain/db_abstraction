@@ -6,12 +6,12 @@
 	 * @version $Revision$
 	 * @copyright 2012
 	 * @package MyAdmin
-	 * @category SQL 
+	 * @category SQL
 	 */
 
 	/**
 	 * db
-	 * 
+	 *
 	 * @access public
 	 */
 	class db
@@ -44,7 +44,7 @@
 
 		/**
 		 * db::ifadd()
-		 * 
+		 *
 		 * @param mixed $add
 		 * @param mixed $me
 		 * @return
@@ -60,7 +60,7 @@
 		/* public: constructor */
 		/**
 		 * db::db()
-		 * 
+		 *
 		 * @param string $query
 		 * @return
 		 */
@@ -69,9 +69,14 @@
 			$this->query($query);
 		}
 
+		public function log($message, $line = '', $file = '')
+		{
+			billingd_log($message, $line, $file, false);
+		}
+
 		/**
 		 * db::connect()
-		 * 
+		 *
 		 * @return
 		 */
 		public function connect()
@@ -106,7 +111,7 @@
 
 		/**
 		 * db::to_timestamp()
-		 * 
+		 *
 		 * @param mixed $epoch
 		 * @return
 		 */
@@ -125,7 +130,7 @@
 
 		/**
 		 * db::from_timestamp()
-		 * 
+		 *
 		 * @param mixed $timestamp
 		 * @return
 		 */
@@ -144,7 +149,7 @@
 		// For PostgreSQL 6.x
 		/**
 		 * db::to_timestamp_6()
-		 * 
+		 *
 		 * @param mixed $epoch
 		 * @return
 		 */
@@ -156,7 +161,7 @@
 		// For PostgreSQL 6.x
 		/**
 		 * db::from_timestamp_6()
-		 * 
+		 *
 		 * @param mixed $timestamp
 		 * @return
 		 */
@@ -168,7 +173,7 @@
 		// For PostgreSQL 7.x
 		/**
 		 * db::to_timestamp_7()
-		 * 
+		 *
 		 * @param mixed $epoch
 		 * @return
 		 */
@@ -181,7 +186,7 @@
 		// For PostgreSQL 7.x
 		/**
 		 * db::from_timestamp_7()
-		 * 
+		 *
 		 * @param mixed $timestamp
 		 * @return
 		 */
@@ -195,7 +200,7 @@
 		/* This only affects systems not using persistant connections */
 		/**
 		 * db::disconnect()
-		 * 
+		 *
 		 * @return
 		 */
 		public function disconnect()
@@ -205,7 +210,7 @@
 
 		/**
 		 * db::db_addslashes()
-		 * 
+		 *
 		 * @param mixed $str
 		 * @return
 		 */
@@ -222,7 +227,7 @@
 		/* I added the line and file section so we can have better error reporting. (jengo) */
 		/**
 		 * db::query()
-		 * 
+		 *
 		 * @param mixed $Query_String
 		 * @param string $line
 		 * @param string $file
@@ -268,7 +273,7 @@
 		/* public: perform a query with limited result set */
 		/**
 		 * db::limit_query()
-		 * 
+		 *
 		 * @param mixed $Query_String
 		 * @param mixed $offset
 		 * @param string $line
@@ -298,7 +303,7 @@
 		// public: discard the query result
 		/**
 		 * db::free()
-		 * 
+		 *
 		 * @return
 		 */
 		public function free()
@@ -309,7 +314,7 @@
 
 		/**
 		 * db::next_record()
-		 * 
+		 *
 		 * @return
 		 */
 		public function next_record()
@@ -330,7 +335,7 @@
 
 		/**
 		 * db::seek()
-		 * 
+		 *
 		 * @param mixed $pos
 		 * @return
 		 */
@@ -341,7 +346,7 @@
 
 		/**
 		 * db::transaction_begin()
-		 * 
+		 *
 		 * @return
 		 */
 		public function transaction_begin()
@@ -351,7 +356,7 @@
 
 		/**
 		 * db::transaction_commit()
-		 * 
+		 *
 		 * @return
 		 */
 		public function transaction_commit()
@@ -368,7 +373,7 @@
 
 		/**
 		 * db::transaction_abort()
-		 * 
+		 *
 		 * @return
 		 */
 		public function transaction_abort()
@@ -378,7 +383,7 @@
 
 		/**
 		 * db::get_last_insert_id()
-		 * 
+		 *
 		 * @param mixed $table
 		 * @param mixed $field
 		 * @return
@@ -420,7 +425,7 @@
 
 		/**
 		 * db::lock()
-		 * 
+		 *
 		 * @param mixed $table
 		 * @param string $mode
 		 * @return
@@ -453,7 +458,7 @@
 
 		/**
 		 * db::unlock()
-		 * 
+		 *
 		 * @return
 		 */
 		public function unlock()
@@ -464,7 +469,7 @@
 		/* public: sequence numbers */
 		/**
 		 * db::nextid()
-		 * 
+		 *
 		 * @param mixed $seq_name
 		 * @return
 		 */
@@ -505,7 +510,7 @@
 
 		/**
 		 * db::affected_rows()
-		 * 
+		 *
 		 * @return
 		 */
 		public function affected_rows()
@@ -515,7 +520,7 @@
 
 		/**
 		 * db::num_rows()
-		 * 
+		 *
 		 * @return
 		 */
 		public function num_rows()
@@ -525,7 +530,7 @@
 
 		/**
 		 * db::num_fields()
-		 * 
+		 *
 		 * @return
 		 */
 		public function num_fields()
@@ -535,7 +540,7 @@
 
 		/**
 		 * db::nf()
-		 * 
+		 *
 		 * @return
 		 */
 		public function nf()
@@ -545,7 +550,7 @@
 
 		/**
 		 * db::np()
-		 * 
+		 *
 		 * @return
 		 */
 		public function np()
@@ -555,7 +560,7 @@
 
 		/**
 		 * db::f()
-		 * 
+		 *
 		 * @param mixed $Name
 		 * @param string $strip_slashes
 		 * @return
@@ -574,7 +579,7 @@
 
 		/**
 		 * db::p()
-		 * 
+		 *
 		 * @param mixed $Name
 		 * @return
 		 */
@@ -585,7 +590,7 @@
 
 		/**
 		 * db::halt()
-		 * 
+		 *
 		 * @param mixed $msg
 		 * @param string $line
 		 * @param string $file
@@ -658,7 +663,7 @@
 
 		/**
 		 * db::table_names()
-		 * 
+		 *
 		 * @return
 		 */
 		public function table_names()
@@ -678,7 +683,7 @@
 
 		/**
 		 * db::index_names()
-		 * 
+		 *
 		 * @return
 		 */
 		public function index_names()
@@ -698,7 +703,7 @@
 
 		/**
 		 * db::create_database()
-		 * 
+		 *
 		 * @param string $adminname
 		 * @param string $adminpasswd
 		 * @return

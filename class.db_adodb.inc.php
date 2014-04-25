@@ -6,12 +6,12 @@
 	 * @version $Revision$
 	 * @copyright 2012
 	 * @package MyAdmin
-	 * @category SQL 
+	 * @category SQL
 	 */
 
 	/**
 	 * db
-	 * 
+	 *
 	 * @access public
 	 */
 	class db
@@ -50,7 +50,7 @@
 		/* public: constructor */
 		/**
 		 * db::db()
-		 * 
+		 *
 		 * @param string $query
 		 * @return
 		 */
@@ -60,10 +60,15 @@
 			$this->query($query);
 		}
 
+		public function log($message, $line = '', $file = '')
+		{
+			billingd_log($message, $line, $file, false);
+		}
+
 		/* public: some trivial reporting */
 		/**
 		 * db::link_id()
-		 * 
+		 *
 		 * @return
 		 */
 		public function link_id()
@@ -73,7 +78,7 @@
 
 		/**
 		 * db::query_id()
-		 * 
+		 *
 		 * @return
 		 */
 		public function query_id()
@@ -84,7 +89,7 @@
 		/* public: connection management */
 		/**
 		 * db::connect()
-		 * 
+		 *
 		 * @param string $Database
 		 * @param string $Host
 		 * @param string $User
@@ -126,7 +131,7 @@
 		/* This only affects systems not using persistant connections */
 		/**
 		 * db::disconnect()
-		 * 
+		 *
 		 * @return
 		 */
 		public function disconnect()
@@ -145,7 +150,7 @@
 
 		/**
 		 * db::db_addslashes()
-		 * 
+		 *
 		 * @param mixed $str
 		 * @return
 		 */
@@ -161,7 +166,7 @@
 
 		/**
 		 * db::to_timestamp()
-		 * 
+		 *
 		 * @param mixed $epoch
 		 * @return
 		 */
@@ -172,7 +177,7 @@
 
 		/**
 		 * db::from_timestamp()
-		 * 
+		 *
 		 * @param mixed $timestamp
 		 * @return
 		 */
@@ -192,7 +197,7 @@
 
 		/**
 		 * db::limit()
-		 * 
+		 *
 		 * @param mixed $start
 		 * @return
 		 */
@@ -214,7 +219,7 @@
 		/* public: discard the query result */
 		/**
 		 * db::free()
-		 * 
+		 *
 		 * @return
 		 */
 		public function free()
@@ -227,7 +232,7 @@
 		/* I added the line and file section so we can have better error reporting. (jengo) */
 		/**
 		 * db::query()
-		 * 
+		 *
 		 * @param mixed $Query_String
 		 * @param string $line
 		 * @param string $file
@@ -249,7 +254,6 @@
 				return 0;
 				/* we already complained in connect() about that. */
 			}
-			;
 
 			# New query, discard previous result.
 			if ($this->Query_ID !== false)
@@ -265,7 +269,8 @@
 			//			{
 			if ($GLOBALS['log_queries'] !== false)
 			{
-				billingd_log($Query_String, $line, $file, false);
+				$this->log($Query_String, $line, $file);
+
 			}
 			//			}
 
@@ -301,7 +306,7 @@
 				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
 				$this->halt("Invalid SQL: " . $Query_String, $line, $file);
 			}
-			billingd_log("ADOdb Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __line__, __file__);
+			$this->log("ADOdb Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __line__, __file__);
 			$this->Row = 0;
 
 			# Will return nada if it fails. That's fine.
@@ -311,7 +316,7 @@
 		// public: perform a query with limited result set
 		/**
 		 * db::limit_query()
-		 * 
+		 *
 		 * @param mixed $Query_String
 		 * @param mixed $offset
 		 * @param string $line
@@ -346,7 +351,7 @@
 		/* public: walk result set */
 		/**
 		 * db::next_record()
-		 * 
+		 *
 		 * @param mixed $result_type
 		 * @return
 		 */
@@ -372,7 +377,7 @@
 		/* public: position in result set */
 		/**
 		 * db::seek()
-		 * 
+		 *
 		 * @param integer $pos
 		 * @return
 		 */
@@ -396,7 +401,7 @@
 
 		/**
 		 * db::transaction_begin()
-		 * 
+		 *
 		 * @return
 		 */
 		public function transaction_begin()
@@ -406,7 +411,7 @@
 
 		/**
 		 * db::transaction_commit()
-		 * 
+		 *
 		 * @return
 		 */
 		public function transaction_commit()
@@ -416,7 +421,7 @@
 
 		/**
 		 * db::transaction_abort()
-		 * 
+		 *
 		 * @return
 		 */
 		public function transaction_abort()
@@ -426,7 +431,7 @@
 
 		/**
 		 * db::get_last_insert_id()
-		 * 
+		 *
 		 * @param mixed $table
 		 * @param mixed $field
 		 * @return
@@ -439,7 +444,7 @@
 		/* public: table locking */
 		/**
 		 * db::lock()
-		 * 
+		 *
 		 * @param mixed $table
 		 * @param string $mode
 		 * @return
@@ -480,7 +485,7 @@
 
 		/**
 		 * db::unlock()
-		 * 
+		 *
 		 * @return
 		 */
 		public function unlock()
@@ -500,7 +505,7 @@
 		/* public: evaluate the result (size, width) */
 		/**
 		 * db::affected_rows()
-		 * 
+		 *
 		 * @return
 		 */
 		public function affected_rows()
@@ -511,7 +516,7 @@
 
 		/**
 		 * db::num_rows()
-		 * 
+		 *
 		 * @return
 		 */
 		public function num_rows()
@@ -521,7 +526,7 @@
 
 		/**
 		 * db::num_fields()
-		 * 
+		 *
 		 * @return
 		 */
 		public function num_fields()
@@ -532,7 +537,7 @@
 		/* public: shorthand notation */
 		/**
 		 * db::nf()
-		 * 
+		 *
 		 * @return
 		 */
 		public function nf()
@@ -542,7 +547,7 @@
 
 		/**
 		 * db::np()
-		 * 
+		 *
 		 * @return
 		 */
 		public function np()
@@ -552,7 +557,7 @@
 
 		/**
 		 * db::f()
-		 * 
+		 *
 		 * @param mixed $Name
 		 * @param string $strip_slashes
 		 * @return
@@ -571,7 +576,7 @@
 
 		/**
 		 * db::p()
-		 * 
+		 *
 		 * @param mixed $Name
 		 * @return
 		 */
@@ -583,7 +588,7 @@
 		/* public: sequence numbers */
 		/**
 		 * db::nextid()
-		 * 
+		 *
 		 * @param mixed $seq_name
 		 * @return
 		 */
@@ -625,7 +630,7 @@
 		/* private: error handling */
 		/**
 		 * db::halt()
-		 * 
+		 *
 		 * @param mixed $msg
 		 * @param string $line
 		 * @param string $file
@@ -663,22 +668,22 @@
 
 		/**
 		 * db::haltmsg()
-		 * 
+		 *
 		 * @param mixed $msg
 		 * @return
 		 */
 		public function haltmsg($msg)
 		{
-			billingd_log("Database error: $msg", __line__, __file__);
+			$this->log("Database error: $msg", __line__, __file__);
 			if ($this->Link_ID->ErrorNo() != "0" && $this->Link_ID->ErrorMsg() != "")
 			{
-				billingd_log("ADOdb MySQL Error: " . $this->Link_ID->ErrorMsg(), __line__, __file__);
+				$this->log("ADOdb MySQL Error: " . $this->Link_ID->ErrorMsg(), __line__, __file__);
 			}
 		}
 
 		/**
 		 * db::table_names()
-		 * 
+		 *
 		 * @return
 		 */
 		public function table_names()
@@ -698,7 +703,7 @@
 
 		/**
 		 * db::index_names()
-		 * 
+		 *
 		 * @return
 		 */
 		public function index_names()
@@ -709,7 +714,7 @@
 
 		/**
 		 * db::create_database()
-		 * 
+		 *
 		 * @param string $adminname
 		 * @param string $adminpasswd
 		 * @return
