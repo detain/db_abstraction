@@ -119,7 +119,7 @@
 			if ($this->Link_ID === false)
 			{
 				try {
-					$this->Link_ID= new PDO($DSN, $User, $Password);
+					$this->Link_ID =& new PDO($DSN, $User, $Password);
 				} catch (PDOException $e) {
 					$this->halt("Connection Failed " . $e->getMessage());
 					return 0;
