@@ -240,9 +240,9 @@
 		{
 			if (!$line && !$file)
 			{
-				if ($GLOBALS['tf'])
+				if (isset($GLOBALS['tf']))
 				{
-					$GLOBALS['tf']->warning(__line__, __file__, "Lazy developer didn't pass __LINE__ and __FILE__ to db->query() - Actually query: $Query_String");
+					$GLOBALS['tf']->warning(__line__, __file__, "Lazy developer didnt pass __LINE__ and __FILE__ to db->query() - Actually query: $Query_String");
 				}
 			}
 
@@ -660,7 +660,8 @@
 			else
 			{
 				error_log($s);
-				$GLOBALS['tf']->terminate();
+				if (isset($GLOBALS['tf']))
+					$GLOBALS['tf']->terminate();
 			}
 		}
 

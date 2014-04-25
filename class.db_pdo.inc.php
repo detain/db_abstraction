@@ -276,13 +276,10 @@
 			{
 				printf("Debug: query = %s<br>\n", $Query_String);
 			}
-			//			if (isset($GLOBALS['tf']))
-			//			{
 			if ($GLOBALS['log_queries'] !== false)
 			{
 				$this->log($Query_String, $line, $file);
 			}
-			//			}
 
 			$this->Query_ID = $this->Link_ID->prepare($Query_String);
 			$success = $this->Query_ID->execute();
@@ -291,10 +288,10 @@
 			$this->Row = 0;
 			if ($success === false)
 			{
-				$email = "MySQL Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . "User: " . $GLOBALS['tf']->session->account_id . "<br>\n";
+				$email = "MySQL Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ? "User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= "<br><br>Request Variables:<br>";
-				foreach ($GLOBALS['tf']->variables->request as $key => $value)
+				foreach ($_REQUEST as $key => $value)
 				{
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
@@ -676,7 +673,8 @@
 			{
 				echo "<p><b>Session halted.</b>";
 				// FIXME! Add check for error levels
-				$GLOBALS['tf']->terminate();
+				if (isset($GLOBALS['tf']))
+					$GLOBALS['tf']->terminate();
 			}
 		}
 
