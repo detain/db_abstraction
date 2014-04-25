@@ -249,7 +249,7 @@
 		}
 
 		/* public: walk result set */
-		function next_record()
+		function next_record($result_type = MYSQL_BOTH)
 		{
 			if (!$this->Query_ID)
 			{
@@ -257,7 +257,7 @@
 				return 0;
 			}
 
-			$this->Record = @mysql_fetch_array($this->Query_ID);
+			$this->Record = @mysql_fetch_array($this->Query_ID, $result_type);
 			$this->Row   += 1;
 			$this->Errno  = mysql_errno();
 			$this->Error  = mysql_error();
