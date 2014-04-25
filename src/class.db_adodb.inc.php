@@ -56,7 +56,8 @@
 		 */
 		public function __construct($query = '')
 		{
-			require_once (INCLUDE_ROOT . '/adodb5/adodb.inc.php');
+			require_once('../vendor/adodb/adodb-php/adodb.inc.php');
+			//require_once (INCLUDE_ROOT . '/adodb5/adodb.inc.php');
 			$this->query($query);
 		}
 
