@@ -5,18 +5,6 @@
 * @package SQL
 * @copyright 2010
 */
-	/**************************************************************************\
-	* phpGroupWare API - MySQL database support                                *
-	* Copyright (c) 1998-2000 NetUSE AG Boris Erdmann, Kristian Koehntopp      *
-	* ------------------------------------------------------------------------ *
-	* This is not part of phpGroupWare, but is used by phpGroupWare.           * 
-	* http://www.phpgroupware.org/                                             * 
-	* ------------------------------------------------------------------------ *
-	* This program is free software; you can redistribute it and/or modify it  *
-	* under the terms of the GNU Lesser General Public License as published    *
-	* by the Free Software Foundation; either version 2.1 of the License, or   *
-	* any later version.                                                       *
-	\**************************************************************************/
 
 	/**
 	 * db
