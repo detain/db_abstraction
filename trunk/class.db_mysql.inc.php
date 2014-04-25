@@ -127,7 +127,7 @@ class db
 
 			if (!$this->Link_ID)
 			{
-				$this->halt(($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '') . "connect($Host, $User, \$Password) failed.");
+				$this->halt("connect($Host, $User, \$Password) failed.");
 				return 0;
 			}
 
