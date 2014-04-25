@@ -83,9 +83,9 @@
 	 */
 	class db_mdb2
 	{
-		public $db_host = '209.159.155.28';
+		public $db_host = POWERADMIN_HOST;
 		public $db_user = 'poweradmin';
-		public $db_pass = 'p0w3r4dm1n';
+		public $db_pass = POWERADMIN_PASSWORD;
 		public $db_name = 'poweradmin';
 		public $db_type = 'mysql';
 
