@@ -1,0 +1,16 @@
+{
+	"name": "detain/db_abstraction",
+	"version": "1.0",
+    "description": "Database Abstraction layer supporting a variety of databases.   Been in use and growing for over 14 years now.",
+    "license": "LGPLv3",
+    "authors": [
+        {
+            "name": "Joe Huss",
+            "homepage": "http://interserver.net/",
+            "role": "Developer"
+        }
+    ],
+    "suggest": {
+        "ADOdb/ADOdb": "Allows use of additional DB Types"
+    }
+}
