@@ -109,7 +109,7 @@
 				$Password = $this->Password;
 			}
 			/* establish connection, select database */
-			if ( 0 == $this->Link_ID )
+			if ( !is_object($this->Link_ID) )
 			{
 /*				if ($GLOBALS['phpgw_info']['server']['db_persistent'])
 				{
@@ -117,18 +117,11 @@
 				}
 				else
 				{*/
-					$this->Link_ID=mysql_connect($Host, $User, $Password);
+					$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
 				/* } */
 
-				if (!$this->Link_ID)
+				if ($this->Link_ID->connect_error)
 				{
-					$this->halt(($GLOBALS['phpgw_info']['server']['db_persistent']?'p':'')."connect($Host, $User, \$Password) failed.");
-					return 0;
-				}
-
-				if (!@mysql_select_db($Database,$this->Link_ID))
-				{
-					$this->halt("cannot use database ".$this->Database);
 					return 0;
 				}
 			}
@@ -143,26 +136,17 @@
 		 */
 		function disconnect()
 		{
-			if($this->Link_ID <> 0)
-			{
-				@mysql_close($this->Link_ID);
-				$this->Link_ID = 0;
-				return 1;
-			}
-			else
-			{
-				return 0;
-			}
+			return $this->Link_ID->close();
 		}
 
 		function real_escape($string)
 		{
-			return mysql_real_escape_string($string);
+			return $this->Link_ID->real_escape_string($string);
 		}
 
 		function escape($string)
 		{
-			return mysql_escape_string($string);
+			return mysqli_escape_string($string);
 		}
 
 		/**
@@ -241,7 +225,7 @@
 		 */
 		function free()
 		{
-			@mysql_free_result($this->Query_ID);
+			@mysqli_free_result($this->Query_ID);
 			$this->Query_ID = 0;
 		}
 
@@ -270,9 +254,8 @@
 			{
 				return 0; /* we already complained in connect() about that. */
 			};
-
-			# New query, discard previous result.
-			if ($this->Query_ID)
+			// New query, discard previous result.
+			if (is_object($this->Query_ID))
 			{
 				$this->free();
 			}
@@ -289,13 +272,27 @@
 				}
 //			}
 
-			$this->Query_ID = @mysql_query($Query_String,$this->Link_ID);
+			$this->Query_ID = $this->Link_ID->query($Query_String);
+/*
+echo '<pre>';
+echo "Query String: $Query_String<br>";
+echo "Query<br>";
+echo var_dump($this->Link_ID);
+echo "Query ID<br>";
+echo var_dump($this->Query_ID);
+echo '<br>';
+echo "Result ID<br>";
+echo var_dump($this->Query_ID);
+*/
+/*
+*/
+
 			$this->Row   = 0;
-			$this->Errno = mysql_errno();
-			$this->Error = mysql_error();
-			if (! $this->Query_ID)
+			$this->Errno = $this->Link_ID->errno;
+			$this->Error = $this->Link_ID->error;
+			if ($this->Query_ID === FALSE)
 			{
-				$email = "MySQL Error<br>\n"
+				$email = "MySQLi Error<br>\n"
 				. "Query: " . $Query_String . "<br>\n"
 				. "Error #" . $this->Errno . ": " . $this->Error . "<br>\n"
 				. "Line: " . $line . "<br>\n"
@@ -313,7 +310,7 @@
 				{
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
-				$subject = DOMAIN . ' MySQL Error On ' . TITLE;
+				$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
 				$headers = '';
 				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
 				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
@@ -348,7 +345,6 @@
 			{
 				$num_rows = $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
 			}
-
 			if ($offset == 0)
 			{
 				$Query_String .= ' LIMIT ' . $num_rows;
@@ -373,18 +369,18 @@
 		 * @param mixed $result_type
 		 * @return
 		 */
-		function next_record($result_type = MYSQL_BOTH)
+		function next_record($result_type = MYSQLI_BOTH)
 		{
-			if (!$this->Query_ID)
+			if ($this->Query_ID === FALSE)
 			{
 				$this->halt('next_record called with no query pending.');
 				return 0;
 			}
 
-			$this->Record = @mysql_fetch_array($this->Query_ID, $result_type);
+			$this->Record = @$this->Query_ID->fetch_array($result_type);
 			$this->Row   += 1;
-			$this->Errno  = mysql_errno();
-			$this->Error  = mysql_error();
+			$this->Errno  = $this->Link_ID->errno;
+			$this->Error  = $this->Link_ID->error;
 
 			$stat = is_array($this->Record);
 			if (!$stat && $this->Auto_Free)
@@ -403,7 +399,7 @@
 		 */
 		function seek($pos = 0)
 		{
-			$status = @mysql_data_seek($this->Query_ID, $pos);
+			$status = @$this->Query_ID->data_seek($pos);
 			if ($status)
 			{
 				$this->Row = $pos;
@@ -415,7 +411,7 @@
 				* but do not consider this documented or even
 				* desireable behaviour.
 				*/
-				@mysql_data_seek($this->Query_ID, $this->num_rows());
+				@$this->Query_ID->data_seek($this->num_rows());
 				$this->Row = $this->num_rows;
 				return 0;
 			}
@@ -472,7 +468,7 @@
 				return -1;
 			}
 
-			return @mysql_insert_id($this->Link_ID);
+			return @$this->Link_ID->insert_id;
 		}
 
 		/* public: table locking */
@@ -507,7 +503,7 @@
 			{
 				$query .= "$table $mode";
 			}
-			$res = @mysql_query($query, $this->Link_ID);
+			$res = @$this->Link_ID->query($query);
 			if (!$res)
 			{
 				$this->halt("lock($table, $mode) failed.");
@@ -525,7 +521,7 @@
 		{
 			$this->connect();
 
-			$res = @mysql_query("unlock tables");
+			$res = @$this->Link_ID->query("unlock tables");
 			if (!$res)
 			{
 				$this->halt("unlock() failed.");
@@ -543,7 +539,7 @@
 		 */
 		function affected_rows()
 		{
-			return @mysql_affected_rows($this->Link_ID);
+			return $this->Link_ID->affected_rows;
 		}
 
 		/**
@@ -553,7 +549,7 @@
 		 */
 		function num_rows()
 		{
-			return @mysql_num_rows($this->Query_ID);
+			return $this->Query_ID->num_rows;
 		}
 
 		/**
@@ -563,7 +559,7 @@
 		 */
 		function num_fields()
 		{
-			return @mysql_num_fields($this->Query_ID);
+			return $this->Query_ID->field_count;
 		}
 
 		/* public: shorthand notation */
@@ -634,8 +630,8 @@
 				$q  = sprintf("select nextid from %s where seq_name = '%s'",
 					$this->Seq_Table,
 					$seq_name);
-				$id  = @mysql_query($q, $this->Link_ID);
-				$res = @mysql_fetch_array($id);
+				$id  = @$this->Link_ID->query($q);
+				$res = @$id->fetch_array();
 
 				/* No current value, make one */
 				if (!is_array($res))
@@ -645,7 +641,7 @@
 						$this->Seq_Table,
 						$seq_name,
 						$currentid);
-					$id = @mysql_query($q, $this->Link_ID);
+					$id = @$this->Link_ID->query($q);
 				}
 				else
 				{
@@ -656,7 +652,7 @@
 					$this->Seq_Table,
 					$nextid,
 					$seq_name);
-				$id = @mysql_query($q, $this->Link_ID);
+				$id = @$this->Link_ID->query($q);
 				$this->unlock();
 			}
 			else
@@ -680,8 +676,8 @@
 		{
 			$this->unlock();	/* Just in case there is a table currently locked */
 
-			//$this->Error = @mysql_error($this->Link_ID);
-			//$this->Errno = @mysql_errno($this->Link_ID);
+			//$this->Error = @$this->Link_ID->error;
+			//$this->Errno = @$this->Link_ID->errno;
 			if ($this->Halt_On_Error == "no")
 			{
 				return;
@@ -717,8 +713,8 @@
 			printf("<b>Database error:</b> %s<br>\n", $msg);
 			if ($this->Errno != "0" && $this->Error != "()")
 			{
-				billingd_log("MySQL Error: " . $this->Errno . " (" . $this->Error . ")", __LINE__, __FILE__);
-				printf("<b>MySQL Error</b>: %s (%s)<br>\n",$this->Errno,$this->Error);
+				billingd_log("MySQLi Error: " . $this->Errno . " (" . $this->Error . ")", __LINE__, __FILE__);
+				printf("<b>MySQLi Error</b>: %s (%s)<br>\n",$this->Errno,$this->Error);
 			}
 		}
 
@@ -732,7 +728,7 @@
 			$return = array();
 			$this->query("SHOW TABLES");
 			$i=0;
-			while ($info=mysql_fetch_row($this->Query_ID))
+			while ($info= $this->Query_ID->fetch_row())
 			{
 				$return[$i]['table_name'] = $info[0];
 				$return[$i]['tablespace_name'] = $this->Database;
