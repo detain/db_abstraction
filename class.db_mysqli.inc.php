@@ -144,7 +144,7 @@
 
 		public function real_escape($string)
 		{
-			if ((is_null($this->Link_ID) || $this->Link_ID == 0) && !$this->connect())
+			if ((!is_resource($this->Link_ID) || $this->Link_ID == 0) && !$this->connect())
 			{
 				return mysqli_escape_string($string);
 			}
