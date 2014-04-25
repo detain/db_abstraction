@@ -214,12 +214,19 @@
 				. "Line: " . $line . "<br>\n"
 				. "File: " . $file . "<br>\n"
 				. "User: " . $GLOBALS['tf']->session->account_id . "<br>\n";
-				$email .= "<br><br>Server Variables:<br>";
+
+				$email .= "<br><br>Request Variables:<br>";
 				foreach ($GLOBALS['tf']->variables->request as $key => $value)
 				{
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
-				$subject = 'MySQL Error On ' . TITLE;
+
+				$email .= "<br><br>Server Variables:<br>";
+				foreach ($_SERVER as $key => $value)
+				{
+					$email .= $key . ': ' . $value . "<br>\n";
+				}
+				$subject = DOMAIN . 'MySQL Error On ' . TITLE;
 				$headers = '';
 				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
 				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
