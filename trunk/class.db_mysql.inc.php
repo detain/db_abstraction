@@ -285,7 +285,10 @@
 			}
 //			if (isset($GLOBALS['tf']))
 //			{
-				billingd_log($Query_String, $line, $file, false);
+				if ($GLOBALS['log_queries'] !== false)
+				{
+					billingd_log($Query_String, $line, $file, false);
+				}
 //			}
 
 			$this->Query_ID = @mysql_query($Query_String,$this->Link_ID);
