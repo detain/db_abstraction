@@ -81,7 +81,7 @@ class db_mdb2_result
  */
 class db_mdb2
 {
-	public $db_host        = '209.159.155.29';
+	public $db_host        = '209.159.155.28';
 	public $db_user        = 'poweradmin';
 	public $db_pass        = 'p0w3r4dm1n';
 	public $db_name        = 'poweradmin';
