@@ -727,7 +727,7 @@ class db
 			$return[$i]['table_name'] = $info[0];
 			$return[$i]['tablespace_name'] = $this->Database;
 			$return[$i]['database'] = $this->Database;
-			$i++;
+			++$i;
 		}
 		return $return;
 	}

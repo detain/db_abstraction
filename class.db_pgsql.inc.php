@@ -671,7 +671,7 @@ class db
 			$return[$i]['table_name'] = $this->f(0);
 			$return[$i]['tablespace_name'] = $this->Database;
 			$return[$i]['database'] = $this->Database;
-			$i++;
+			++$i;
 		}
 		return $return;
 	}
@@ -691,7 +691,7 @@ class db
 			$return[$i]['index_name'] = $this->f(0);
 			$return[$i]['tablespace_name'] = $this->Database;
 			$return[$i]['database'] = $this->Database;
-			$i++;
+			++$i;
 		}
 		return $return;
 	}
