@@ -48,8 +48,8 @@ class db_mdb2
 	var $iface_lang     = 'en_EN';
 
 	var $dns_hostmaster     = 'hostmaster.interserver.net';
-	var $dns_ns1        = 'vpsdns1.interserver.net';
-	var $dns_ns2        = 'vpsdns2.interserver.net';
+	var $dns_ns1        = 'cdns1.interserver.net';
+	var $dns_ns2        = 'cdns2.interserver.net';
 
 	var $dbh			= false;
 
