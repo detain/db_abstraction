@@ -270,6 +270,21 @@
 				return $out;
 			}
 		}
+		
+		/**
+		* db:qr()
+		* 
+		*  alias of query_return()
+		* 
+		* @param mixed $query SQL Query to be used
+		* @param string $line optionally pass __LINE__ calling the query for logging  
+		* @param string $file optionally pass __FILE__ calling the query for logging
+		* @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		*/
+		public function qr($query, $line = '', $file = '')
+		{
+			return $this->query_return($query, $line, $file);
+		}
 
 		/**
 		 * db::query()
