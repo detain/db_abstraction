@@ -187,10 +187,48 @@
 		}
 
 		/**
-		 * db_mdb2::query()
+		 * db::query_return()
+		 * 
+		 * Sends an SQL query to the server like the normal query() command but iterates through
+		 * any rows and returns the row or rows immediately or false on error
 		 *
-		 * @param mixed $query
-		 * @return
+		 * @param mixed $query SQL Query to be used
+		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $file optionally pass __FILE__ calling the query for logging
+		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 */
+		public function query_return($query, $line = '', $file = '')
+		{
+			$this->query($query, $line, $file);
+			if ($db->num_rows() == 0)
+			{	
+				return false;
+			}
+			elseif ($db->num_rows() == 1)
+			{
+				$db->next_record(MYSQL_ASSOC);
+				return $db->Record;
+			}
+			else
+			{
+				$out = array();
+				while ($db->next_record(MYSQL_ASSOC))
+				{
+					$out[] = $db->Record;
+				}
+				return $out;
+			}
+		}
+
+		/**
+		 * db::query()
+		 * 
+		 *  Sends an SQL query to the database
+		 *
+		 * @param mixed $Query_String
+		 * @param string $line
+		 * @param string $file
+		 * @return mixed 0 if no query or query id handler, safe to ignore this return
 		 */
 		public function query($query)
 		{
