@@ -276,21 +276,21 @@
 		public function query_return($query, $line = '', $file = '')
 		{
 			$this->query($query, $line, $file);
-			if ($db->num_rows() == 0)
+			if ($this->num_rows() == 0)
 			{	
 				return false;
 			}
-			elseif ($db->num_rows() == 1)
+			elseif ($this->num_rows() == 1)
 			{
-				$db->next_record(MYSQL_ASSOC);
-				return $db->Record;
+				$this->next_record(MYSQL_ASSOC);
+				return $this->Record;
 			}
 			else
 			{
 				$out = array();
-				while ($db->next_record(MYSQL_ASSOC))
+				while ($this->next_record(MYSQL_ASSOC))
 				{
-					$out[] = $db->Record;
+					$out[] = $this->Record;
 				}
 				return $out;
 			}
