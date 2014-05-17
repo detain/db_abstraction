@@ -38,8 +38,7 @@
 		public $Error = '';
 
 		/* public: this is an api revision, not a CVS revision. */
-		public $type = 'mysql';
-		public $revision = '1.2';
+		public $type = 'mysqli';
 
 		/* private: link and query handles */
 		public $Link_ID = 0;

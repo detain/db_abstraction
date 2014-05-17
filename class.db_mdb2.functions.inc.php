@@ -95,7 +95,7 @@
 		public $User = 'poweradmin';
 		public $Password = '';
 		public $Database = 'poweradmin';
-		public $db_type = 'mysql';
+		public $type = 'mdb2';
 
 		public $iface_lang = 'en_EN';
 
