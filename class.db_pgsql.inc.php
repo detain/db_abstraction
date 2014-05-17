@@ -57,16 +57,25 @@
 			}
 		}
 
-		/* public: constructor */
 		/**
-		 * db::db()
-		 *
-		 * @param string $query
-		 * @return
-		 */
-		public function __construct($query = '')
+		* Constructs the db handler, can optionally specify connection parameters
+		* 
+		* @param string $Database Optional The database name
+		* @param string $User Optional The username to connect with
+		* @param string $Password Optional The password to use
+		* @param string $Host Optional The hostname where the server is, or default to localhost
+		* @param string $query Optional query to perform immediately 
+		*/
+		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
-			$this->query($query);
+			$this->Database = $Database;
+			$this->User = $User;
+			$this->Password = $Password;
+			$this->Host = $Host;
+			if ($query != '')
+			{
+				$this->query($query);
+			}
 		}
 
 		public function log($message, $line = '', $file = '')

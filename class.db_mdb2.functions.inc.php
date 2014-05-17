@@ -91,10 +91,10 @@
 	 */
 	class db_mdb2
 	{
-		public $db_host = POWERADMIN_HOST;
-		public $db_user = 'poweradmin';
-		public $db_pass = POWERADMIN_PASSWORD;
-		public $db_name = 'poweradmin';
+		public $Host = 'localhost';
+		public $User = 'poweradmin';
+		public $Password = '';
+		public $Database = 'poweradmin';
 		public $db_type = 'mysql';
 
 		public $iface_lang = 'en_EN';
@@ -107,18 +107,30 @@
 		public $dbh = false;
 
 		/**
-		 * db_mdb2::db_mdb2()
-		 *
-		 * @return
-		 */
-		public function db_mdb2()
+		* Constructs the db handler, can optionally specify connection parameters
+		* 
+		* @param string $Database Optional The database name
+		* @param string $User Optional The username to connect with
+		* @param string $Password Optional The password to use
+		* @param string $Host Optional The hostname where the server is, or default to localhost
+		* @param string $query Optional query to perform immediately 
+		*/
+		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
+			$this->Database = $Database;
+			$this->User = $User;
+			$this->Password = $Password;
+			$this->Host = $Host;
+			if ($query != '')
+			{
+				$this->query($query);
+			}
 		}
 
 		public function connect()
 		{
-			$this->dbh = mysql_connect($this->db_host, $this->db_user, $this->db_pass);
-			mysql_select_db($this->db_name, $this->dbh);
+			$this->dbh = mysql_connect($this->Host, $this->User, $this->Password);
+			mysql_select_db($this->Database, $this->dbh);
 		}
 
 		/**
