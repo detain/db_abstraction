@@ -36,6 +36,9 @@
 		public $Errno = 0;
 		public $Error = '';
 
+		/* public: this is an api revision, not a CVS revision. */
+		public $type = 'pgsql';
+
 		/* Set this to 1 for automatic pg_freeresult on last record. */
 		public $Auto_Free = 0;
 

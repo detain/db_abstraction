@@ -39,7 +39,6 @@
 
 		/* public: this is an api revision, not a CVS revision. */
 		public $type = 'mysql';
-		public $revision = '1.2';
 
 		/* private: link and query handles */
 		public $Link_ID = 0;
