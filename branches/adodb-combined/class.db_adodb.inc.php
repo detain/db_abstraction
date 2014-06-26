@@ -62,8 +62,8 @@
 					require_once('adodb5/adodb.inc.php');
 				elseif (defined('INCLUE_ROOT') && file_exists(INCLUDE_ROOT . '/database/adodb5/adodb.inc.php'))
 					require_once (INCLUDE_ROOT . '/database/adodb5/adodb.inc.php');
-				elseif (file_exists(realpath(dirname(__file__)) . '/../vendor/adodb/adodb-php/adodb.inc.php'))
-					require_once(realpath(dirname(__file__)) . '/../vendor/adodb/adodb-php/adodb.inc.php');
+				elseif (file_exists(realpath(dirname(__FILE__)) . '/../vendor/adodb/adodb-php/adodb.inc.php'))
+					require_once(realpath(dirname(__FILE__)) . '/../vendor/adodb/adodb-php/adodb.inc.php');
 			}
 			$this->Database = $Database;
 			$this->User = $User;
@@ -369,7 +369,7 @@
 				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
 				$this->halt("Invalid SQL: " . $Query_String, $line, $file);
 			}
-			$this->log("ADOdb Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __line__, __file__);
+			$this->log("ADOdb Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __LINE__, __FILE__);
 			$this->Row = 0;
 
 			# Will return nada if it fails. That's fine.
@@ -738,10 +738,10 @@
 		 */
 		public function haltmsg($msg)
 		{
-			$this->log("Database error: $msg", __line__, __file__);
+			$this->log("Database error: $msg", __LINE__, __FILE__);
 			if ($this->Link_ID->ErrorNo() != "0" && $this->Link_ID->ErrorMsg() != "")
 			{
-				$this->log("ADOdb MySQL Error: " . $this->Link_ID->ErrorMsg(), __line__, __file__);
+				$this->log("ADOdb MySQL Error: " . $this->Link_ID->ErrorMsg(), __LINE__, __FILE__);
 			}
 		}
 
