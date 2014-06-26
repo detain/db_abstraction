@@ -224,16 +224,19 @@
 		 */
 		public function from_timestamp($timestamp)
 		{
-			if (strlen($timestamp) == 19)
-			{
-				preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts);
-			}
+			if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
+				return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
+			elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
+				return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
+			elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
+				return mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
+			elseif (is_numeric($timestamp) && $timestamp >= 943938000)
+				return $timestamp;
 			else
 			{
-				preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts);
+				$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
+				return false;
 			}
-			//_debug_array($parts);exit;
-			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 		}
 
 		/**
