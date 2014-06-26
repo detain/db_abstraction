@@ -341,7 +341,7 @@
 			$this->Query_ID = $this->Link_ID->prepare($Query_String);
 			$success = $this->Query_ID->execute();
 			$this->Rows = $this->Query_ID->fetchAll();
-			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __line__, __file__);
+			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __LINE__, __FILE__);
 			$this->Row = 0;
 			if ($success === false)
 			{
@@ -743,10 +743,10 @@
 		 */
 		public function haltmsg($msg)
 		{
-			$this->log("Database error: $msg", __line__, __file__);
+			$this->log("Database error: $msg", __LINE__, __FILE__);
 			if ($this->Errno != "0" && $this->Error != "()")
 			{
-				$this->log("PDO MySQL Error: " . print_r($this->Link_ID->errorInfo(), true), __line__, __file__);
+				$this->log("PDO MySQL Error: " . print_r($this->Link_ID->errorInfo(), true), __LINE__, __FILE__);
 			}
 		}
 

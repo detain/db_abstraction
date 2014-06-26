@@ -114,7 +114,7 @@
 				}
 				else
 				{
-					$this->query("select version()", __line__, __file__);
+					$this->query("select version()", __LINE__, __FILE__);
 					$this->next_record();
 
 					$version = $this->f('version');
@@ -304,7 +304,7 @@
 			{
 				if (isset($GLOBALS['tf']))
 				{
-					$GLOBALS['tf']->warning(__line__, __file__, "Lazy developer didnt pass __LINE__ and __FILE__ to db->query() - Actually query: $Query_String");
+					$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didnt pass __LINE__ and __FILE__ to db->query() - Actually query: $Query_String");
 				}
 			}
 
