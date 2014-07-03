@@ -50,7 +50,7 @@
 		 *
 		 * @param mixed $add
 		 * @param mixed $me
-		 * @return
+		 * @return string
 		 */
 		public function ifadd($add, $me)
 		{
@@ -58,6 +58,7 @@
 			{
 				return ' ' . $me . $add;
 			}
+            return '';
 		}
 
 		/**

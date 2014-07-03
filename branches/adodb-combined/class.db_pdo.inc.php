@@ -197,7 +197,7 @@
 		 * db::from_timestamp()
 		 *
 		 * @param mixed $timestamp
-		 * @return
+		 * @return mixed
 		 */
 		public function from_timestamp($timestamp)
 		{
@@ -215,6 +215,7 @@
 				$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
 				return false;
 			}
+            return false;
 		}
 
 		/**
