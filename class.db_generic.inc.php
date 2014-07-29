@@ -1,14 +1,14 @@
 <?php
 	/**
-	* Generic SQL Driver Related Functionality
-	* Last Changed: $LastChangedDate: 2014-05-17 03:14:39 -0400 (Sat, 17 May 2014) $
-	* @author $Author: detain $
-	* @version $Revision: 68 $
-	* @copyright 2012
-	* @package MyAdmin
-	* @category SQL
-	*/
-	
+	 * Generic SQL Driver Related Functionality
+	 * Last Changed: $LastChangedDate: 2014-05-17 03:14:39 -0400 (Sat, 17 May 2014) $
+	 * @author $Author: detain $
+	 * @version $Revision: 68 $
+	 * @copyright 2012
+	 * @package MyAdmin
+	 * @category SQL
+	 */
+
 	abstract class db_generic
 	{
 		/* public: connection parameters */
@@ -38,14 +38,14 @@
 		public $Query_ID = 0;
 
 		/**
-		* Constructs the db handler, can optionally specify connection parameters
-		* 
-		* @param string $Database Optional The database name
-		* @param string $User Optional The username to connect with
-		* @param string $Password Optional The password to use
-		* @param string $Host Optional The hostname where the server is, or default to localhost
-		* @param string $query Optional query to perform immediately 
-		*/
+		 * Constructs the db handler, can optionally specify connection parameters
+		 * 
+		 * @param string $Database Optional The database name
+		 * @param string $User Optional The username to connect with
+		 * @param string $Password Optional The password to use
+		 * @param string $Host Optional The hostname where the server is, or default to localhost
+		 * @param string $query Optional query to perform immediately 
+		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
 			$this->Database = $Database;
@@ -87,33 +87,32 @@
 		}
 
 		/**
-		* db:qr()
-		* 
-		*  alias of query_return()
-		* 
-		* @param mixed $query SQL Query to be used
-		* @param string $line optionally pass __LINE__ calling the query for logging  
-		* @param string $file optionally pass __FILE__ calling the query for logging
-		* @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
-		*/
+		 * db:qr()
+		 * 
+		 *  alias of query_return()
+		 * 
+		 * @param mixed $query SQL Query to be used
+		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $file optionally pass __FILE__ calling the query for logging
+		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 */
 		public function qr($query, $line = '', $file = '')
 		{
 			return $this->query_return($query, $line, $file);
 		}
 
-
 		/**
-		* error handling
-		*
-		* @param mixed $msg
-		* @param string $line
-		* @param string $file
-		* @return void
-		*/
+		 * error handling
+		 *
+		 * @param mixed $msg
+		 * @param string $line
+		 * @param string $file
+		 * @return void
+		 */
 		public function halt($msg, $line = '', $file = '')
 		{
 			$this->unlock();
-			
+
 			if ($this->Halt_On_Error == "no")
 			{
 				return;
