@@ -107,14 +107,14 @@
 		public $dbh = false;
 
 		/**
-		* Constructs the db handler, can optionally specify connection parameters
-		* 
-		* @param string $Database Optional The database name
-		* @param string $User Optional The username to connect with
-		* @param string $Password Optional The password to use
-		* @param string $Host Optional The hostname where the server is, or default to localhost
-		* @param string $query Optional query to perform immediately 
-		*/
+		 * Constructs the db handler, can optionally specify connection parameters
+		 * 
+		 * @param string $Database Optional The database name
+		 * @param string $User Optional The username to connect with
+		 * @param string $Password Optional The password to use
+		 * @param string $Host Optional The hostname where the server is, or default to localhost
+		 * @param string $query Optional query to perform immediately 
+		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
 			$this->Database = $Database;
@@ -213,7 +213,7 @@
 		{
 			$this->query($query, $line, $file);
 			if ($this->num_rows() == 0)
-			{	
+			{
 				return false;
 			}
 			elseif ($this->num_rows() == 1)
@@ -233,15 +233,15 @@
 		}
 
 		/**
-		* db:qr()
-		* 
-		*  alias of query_return()
-		* 
-		* @param mixed $query SQL Query to be used
-		* @param string $line optionally pass __LINE__ calling the query for logging  
-		* @param string $file optionally pass __FILE__ calling the query for logging
-		* @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
-		*/
+		 * db:qr()
+		 * 
+		 *  alias of query_return()
+		 * 
+		 * @param mixed $query SQL Query to be used
+		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $file optionally pass __FILE__ calling the query for logging
+		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 */
 		public function qr($query, $line = '', $file = '')
 		{
 			return $this->query_return($query, $line, $file);
