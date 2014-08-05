@@ -354,11 +354,7 @@
 					"User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= "<br><br>Request Variables:<br>" . print_r($_REQUEST, true);
-				$email .= "<br><br>Server Variables:<br>";
-				foreach ($_SERVER as $key => $value)
-				{
-					$email .= $key . ': ' . $value . "<br>\n";
-				}
+				$email .= "<br><br>Server Variables:<br>" . print_r($_SERVER, true);
 				$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
 				$headers = '';
 				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
