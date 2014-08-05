@@ -353,12 +353,7 @@
 				$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
 					"User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
-				$email .= "<br><br>Request Variables:<br>";
-				foreach ($_REQUEST as $key => $value)
-				{
-					$email .= $key . ': ' . $value . "<br>\n";
-				}
-
+				$email .= "<br><br>Request Variables:<br>" . print_r($_REQUEST, true);
 				$email .= "<br><br>Server Variables:<br>";
 				foreach ($_SERVER as $key => $value)
 				{
