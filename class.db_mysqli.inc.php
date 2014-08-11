@@ -65,6 +65,11 @@
 			}
 		}
 
+		/**
+		 * @param        $message
+		 * @param string $line
+		 * @param string $file
+		 */
 		public function log($message, $line = '', $file = '')
 		{
 			if (function_exists('billingd_log'))
@@ -76,8 +81,7 @@
 		/* public: some trivial reporting */
 		/**
 		 * db::link_id()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function link_id()
 		{
@@ -86,8 +90,7 @@
 
 		/**
 		 * db::query_id()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function query_id()
 		{
@@ -97,12 +100,11 @@
 		/* public: connection management */
 		/**
 		 * db::connect()
-		 *
 		 * @param string $Database
 		 * @param string $Host
 		 * @param string $User
 		 * @param string $Password
-		 * @return
+		 * @return int|\mysqli
 		 */
 		public function connect($Database = '', $Host = '', $User = '', $Password = '')
 		{
@@ -147,8 +149,7 @@
 		/* This only affects systems not using persistant connections */
 		/**
 		 * db::disconnect()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function disconnect()
 		{
@@ -158,6 +159,10 @@
 				return 0;
 		}
 
+		/**
+		 * @param $string
+		 * @return string
+		 */
 		public function real_escape($string)
 		{
 			if ((!is_resource($this->Link_ID) || $this->Link_ID == 0) && !$this->connect())
@@ -167,6 +172,10 @@
 			return mysqli_real_escape_string($this->Link_ID, $string);
 		}
 
+		/**
+		 * @param $string
+		 * @return string
+		 */
 		public function escape($string)
 		{
 			return mysql_escape_string($string);
@@ -174,9 +183,8 @@
 
 		/**
 		 * db::db_addslashes()
-		 *
 		 * @param mixed $str
-		 * @return
+		 * @return string
 		 */
 		public function db_addslashes($str)
 		{
@@ -190,9 +198,8 @@
 
 		/**
 		 * db::to_timestamp()
-		 *
 		 * @param mixed $epoch
-		 * @return
+		 * @return bool|string
 		 */
 		public function to_timestamp($epoch)
 		{
@@ -201,9 +208,8 @@
 
 		/**
 		 * db::from_timestamp()
-		 *
 		 * @param mixed $timestamp
-		 * @return
+		 * @return bool|int|mixed
 		 */
 		public function from_timestamp($timestamp)
 		{
@@ -224,9 +230,8 @@
 
 		/**
 		 * db::limit()
-		 *
 		 * @param mixed $start
-		 * @return
+		 * @return string
 		 */
 		public function limit($start)
 		{
@@ -246,8 +251,7 @@
 		/* public: discard the query result */
 		/**
 		 * db::free()
-		 *
-		 * @return
+		 * @return void
 		 */
 		public function free()
 		{
@@ -376,13 +380,12 @@
 		// public: perform a query with limited result set
 		/**
 		 * db::limit_query()
-		 *
-		 * @param mixed $Query_String
-		 * @param mixed $offset
+		 * @param mixed  $Query_String
+		 * @param mixed  $offset
 		 * @param string $line
 		 * @param string $file
 		 * @param string $num_rows
-		 * @return
+		 * @return mixed
 		 */
 		public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
 		{
@@ -412,7 +415,7 @@
 		 * db::next_record()
 		 *
 		 * @param mixed $result_type
-		 * @return
+		 * @return bool
 		 */
 		public function next_record($result_type = MYSQLI_BOTH)
 		{
@@ -438,9 +441,8 @@
 		/* public: position in result set */
 		/**
 		 * db::seek()
-		 *
 		 * @param integer $pos
-		 * @return
+		 * @return int
 		 */
 		public function seek($pos = 0)
 		{
@@ -465,8 +467,7 @@
 
 		/**
 		 * db::transaction_begin()
-		 *
-		 * @return
+		 * @return bool
 		 */
 		public function transaction_begin()
 		{
@@ -475,8 +476,7 @@
 
 		/**
 		 * db::transaction_commit()
-		 *
-		 * @return
+		 * @return bool
 		 */
 		public function transaction_commit()
 		{
@@ -485,8 +485,7 @@
 
 		/**
 		 * db::transaction_abort()
-		 *
-		 * @return
+		 * @return bool
 		 */
 		public function transaction_abort()
 		{
@@ -495,10 +494,9 @@
 
 		/**
 		 * db::get_last_insert_id()
-		 *
 		 * @param mixed $table
 		 * @param mixed $field
-		 * @return
+		 * @return int|string
 		 */
 		public function get_last_insert_id($table, $field)
 		{
@@ -519,10 +517,9 @@
 		/* public: table locking */
 		/**
 		 * db::lock()
-		 *
-		 * @param mixed $table
+		 * @param mixed  $table
 		 * @param string $mode
-		 * @return
+		 * @return bool|int|\mysqli_result
 		 */
 		public function lock($table, $mode = 'write')
 		{
@@ -559,8 +556,7 @@
 
 		/**
 		 * db::unlock()
-		 *
-		 * @return
+		 * @return bool|int|\mysqli_result
 		 */
 		public function unlock()
 		{
@@ -578,8 +574,7 @@
 		/* public: evaluate the result (size, width) */
 		/**
 		 * db::affected_rows()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function affected_rows()
 		{
@@ -588,8 +583,7 @@
 
 		/**
 		 * db::num_rows()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function num_rows()
 		{
@@ -598,8 +592,7 @@
 
 		/**
 		 * db::num_fields()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function num_fields()
 		{
@@ -609,8 +602,7 @@
 		/* public: shorthand notation */
 		/**
 		 * db::nf()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function nf()
 		{
@@ -619,8 +611,7 @@
 
 		/**
 		 * db::np()
-		 *
-		 * @return
+		 * @return void
 		 */
 		public function np()
 		{
@@ -630,9 +621,9 @@
 		/**
 		 * db::f()
 		 *
-		 * @param mixed $Name
+		 * @param mixed  $Name
 		 * @param string $strip_slashes
-		 * @return
+		 * @return string
 		 */
 		public function f($Name, $strip_slashes = "")
 		{
@@ -650,7 +641,7 @@
 		 * db::p()
 		 *
 		 * @param mixed $Name
-		 * @return
+		 * @return void
 		 */
 		public function p($Name)
 		{
@@ -662,7 +653,7 @@
 		 * db::nextid()
 		 *
 		 * @param mixed $seq_name
-		 * @return
+		 * @return int
 		 */
 		public function nextid($seq_name)
 		{
@@ -703,10 +694,10 @@
 		/**
 		 * db::halt()
 		 *
-		 * @param mixed $msg
+		 * @param mixed  $msg
 		 * @param string $line
 		 * @param string $file
-		 * @return
+		 * @return void
 		 */
 		public function halt($msg, $line = '', $file = '')
 		{
@@ -743,7 +734,7 @@
 		 * db::haltmsg()
 		 *
 		 * @param mixed $msg
-		 * @return
+		 * @return void
 		 */
 		public function haltmsg($msg)
 		{
@@ -757,7 +748,7 @@
 		/**
 		 * db::table_names()
 		 *
-		 * @return
+		 * @return array
 		 */
 		public function table_names()
 		{
@@ -777,7 +768,7 @@
 		/**
 		 * db::index_names()
 		 *
-		 * @return
+		 * @return array
 		 */
 		public function index_names()
 		{
@@ -790,7 +781,7 @@
 		 *
 		 * @param string $adminname
 		 * @param string $adminpasswd
-		 * @return
+		 * @return void
 		 */
 		public function create_database($adminname = '', $adminpasswd = '')
 		{
