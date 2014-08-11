@@ -53,7 +53,30 @@
 			$this->Type = $Type;
 			if (!defined('db'))
 			{
-				include_once ('class.db_' . $this->Type . '.inc.php');
+				switch ($this->Type)
+				{
+					case 'mysqli':
+						include_once ('class.db_mysqli.inc.php');
+						break;					 
+					case 'mysql':
+						include_once ('class.db_mysql.inc.php');
+						break;					 
+					case 'adodb':
+						include_once ('class.db_adodb.inc.php');
+						break;					 
+					case 'mdb2':
+						include_once ('class.db_mdb2.inc.php');
+						break;					 
+					case 'pdo':
+						include_once ('class.db_pdo.inc.php');
+						break;					 
+					case 'pgsql':
+						include_once ('class.db_pgsql.inc.php');
+						break;
+					default:
+						$this->log('Could not find DB clas ' . $this->Type, __LINE__, __FILE__);
+						break;					 
+				}
 			}
 			$this->Database = $Database;
 			$this->User = $User;
