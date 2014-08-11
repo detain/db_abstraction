@@ -23,9 +23,8 @@
 
 		/**
 		 * db_mdb2_result::db_mdb2_result()
-		 *
 		 * @param mixed $query
-		 * @return
+		 * @return \db_mdb2_result
 		 */
 		public function __construct($query)
 		{
@@ -38,6 +37,11 @@
 			}
 		}
 
+		/**
+		 * @param        $message
+		 * @param string $line
+		 * @param string $file
+		 */
 		public function log($message, $line = '', $file = '')
 		{
 			if (function_exists('billingd_log'))
@@ -48,8 +52,7 @@
 
 		/**
 		 * db_mdb2_result::numRows()
-		 *
-		 * @return
+		 * @return int
 		 */
 		public function numRows()
 		{
@@ -58,8 +61,7 @@
 
 		/**
 		 * db_mdb2_result::fetchRow()
-		 *
-		 * @return
+		 * @return array
 		 */
 		public function fetchRow()
 		{
@@ -68,8 +70,7 @@
 
 		/**
 		 * db_mdb2_result::getMessage()
-		 *
-		 * @return
+		 * @return string
 		 */
 		public function getMessage()
 		{
@@ -135,10 +136,9 @@
 
 		/**
 		 * db_mdb2::quote()
-		 *
 		 * @param string $text
 		 * @param string $type
-		 * @return
+		 * @return string
 		 */
 		public function quote($text = '', $type = 'text')
 		{
@@ -156,9 +156,8 @@
 
 		/**
 		 * db_mdb2::queryOne()
-		 *
 		 * @param mixed $query
-		 * @return
+		 * @return bool
 		 */
 		public function queryOne($query)
 		{
@@ -178,9 +177,8 @@
 
 		/**
 		 * db_mdb2::queryRow()
-		 *
 		 * @param mixed $query
-		 * @return
+		 * @return array|bool
 		 */
 		public function queryRow($query)
 		{
@@ -249,12 +247,11 @@
 
 		/**
 		 * db::query()
-		 * 
 		 *  Sends an SQL query to the database
-		 *
-		 * @param mixed $Query_String
-		 * @param string $line
-		 * @param string $file
+		 * @param $query
+		 * @internal param mixed $Query_String
+		 * @internal param string $line
+		 * @internal param string $file
 		 * @return mixed 0 if no query or query id handler, safe to ignore this return
 		 */
 		public function query($query)
@@ -268,10 +265,9 @@
 
 		/**
 		 * db_mdb2::lastInsertId()
-		 *
 		 * @param mixed $table
 		 * @param mixed $field
-		 * @return
+		 * @return int
 		 */
 		public function lastInsertId($table, $field)
 		{
@@ -280,8 +276,7 @@
 
 		/**
 		 * db_mdb2::disconnect()
-		 *
-		 * @return
+		 * @return void
 		 */
 		public function disconnect()
 		{

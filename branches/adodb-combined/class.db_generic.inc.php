@@ -58,6 +58,11 @@
 			}
 		}
 
+		/**
+		 * @param        $message
+		 * @param string $line
+		 * @param string $file
+		 */
 		public function log($message, $line = '', $file = '')
 		{
 			if (function_exists('billingd_log'))
@@ -66,16 +71,26 @@
 				error_log($message);
 		}
 
+		/**
+		 * @return int
+		 */
 		public function link_id()
 		{
 			return $this->Link_ID;
 		}
 
+		/**
+		 * @return int
+		 */
 		public function query_id()
 		{
 			return $this->Query_ID;
 		}
 
+		/**
+		 * @param $str
+		 * @return string
+		 */
 		public function db_addslashes($str)
 		{
 			if (!isset($str) || $str == '')
@@ -136,6 +151,9 @@
 			}
 		}
 
+		/**
+		 * @param $msg
+		 */
 		public function haltmsg($msg)
 		{
 			$this->log("Database error: $msg", __LINE__, __FILE__);
@@ -145,6 +163,9 @@
 			}
 		}
 
+		/**
+		 * @return array
+		 */
 		public function index_names()
 		{
 			$return = array();
