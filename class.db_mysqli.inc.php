@@ -41,6 +41,7 @@
 		public $type = 'mysqli';
 
 		/* private: link and query handles */
+		/** @var mysqli **/
 		public $Link_ID = 0;
 		public $Query_ID = 0;
 
