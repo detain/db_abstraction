@@ -138,7 +138,7 @@
 			{
 				try
 				{
-					$this->Link_ID = &new PDO($DSN, $User, $Password);
+					$this->Link_ID = new PDO($DSN, $User, $Password);
 				}
 				catch (PDOException $e)
 				{
@@ -600,7 +600,8 @@
 		 */
 		public function num_fields()
 		{
-			return sizeof($this->Rows[$this->Rows]);
+			$keys = array_keys($this->Rows);
+			return sizeof($this->Rows[$keys[0]]);
 		}
 
 		/* public: shorthand notation */
