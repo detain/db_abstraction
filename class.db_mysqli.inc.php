@@ -16,28 +16,59 @@
 	 */
 	class db
 	{
-		/* public: connection parameters */
+		/**
+		 * @var string
+		 */
 		public $Host = 'localhost';
+		/**
+		 * @var string
+		 */
 		public $Database = '';
+		/**
+		 * @var string
+		 */
 		public $User = '';
+		/**
+		 * @var string
+		 */
 		public $Password = '';
 
-		/* public: configuration parameters */
+		/**
+		 * @var bool
+		 */
 		public $auto_stripslashes = false;
+		/**
+		 * @var int
+		 */
 		public $Auto_Free = 0; ## Set to 1 for automatic mysql_free_result()
+		/**
+		 * @var int
+		 */
 		public $Debug = 0; ## Set to 1 for debugging messages.
+		/**
+		 * @var string
+		 */
 		public $Halt_On_Error = 'yes'; ## "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		/**
+		 * @var string
+		 */
 		public $Seq_Table = 'db_sequence';
-
-		/* public: result array and current row number */
+		/**
+		 * @var array result array and current row number
+		 */
 		public $Record = array();
+		/**
+		 * @var array
+		 */
 		public $Row;
 
 		/* public: current error number and error text */
 		public $Errno = 0;
 		public $Error = '';
 
-		/* public: this is an api revision, not a CVS revision. */
+		/**
+		 * @var string
+		 */
 		public $type = 'mysqli';
 
 		/* private: link and query handles */
@@ -47,12 +78,12 @@
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
-		 * 
+		 *
 		 * @param string $Database Optional The database name
 		 * @param string $User Optional The username to connect with
 		 * @param string $Password Optional The password to use
 		 * @param string $Host Optional The hostname where the server is, or default to localhost
-		 * @param string $query Optional query to perform immediately 
+		 * @param string $query Optional query to perform immediately
 		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
@@ -263,12 +294,12 @@
 
 		/**
 		 * db::query_return()
-		 * 
+		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
 		 * any rows and returns the row or rows immediately or false on error
 		 *
 		 * @param mixed $query SQL Query to be used
-		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
@@ -297,11 +328,11 @@
 
 		/**
 		 * db:qr()
-		 * 
+		 *
 		 *  alias of query_return()
-		 * 
+		 *
 		 * @param mixed $query SQL Query to be used
-		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
@@ -312,7 +343,7 @@
 
 		/**
 		 * db::query()
-		 * 
+		 *
 		 *  Sends an SQL query to the database
 		 *
 		 * @param mixed $Query_String
