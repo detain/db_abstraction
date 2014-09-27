@@ -1,9 +1,9 @@
 <?php
 	/**
 	 * Generic SQL Driver Related Functionality
-	 * Last Changed: $LastChangedDate: 2014-05-17 03:14:39 -0400 (Sat, 17 May 2014) $
-	 * @author $Author: detain $
-	 * @version $Revision: 68 $
+	 * Last Changed: $LastChangedDate$
+	 * @author $Author$
+	 * @version $Revision$
 	 * @copyright 2012
 	 * @package MyAdmin
 	 * @category SQL
