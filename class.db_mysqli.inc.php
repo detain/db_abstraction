@@ -771,7 +771,7 @@
 		public function haltmsg($msg, $line = '', $file = '')
 		{
 			$this->log("Database error: $msg", $line, $file);
-			if ($this->Errno != "0" && $this->Error != "()")
+			if ($this->Errno != "0" || $this->Error != "()")
 			{
 				$this->log("MySQLi Error: " . $this->Errno . " (" . $this->Error . ")", $line, $file);
 			}

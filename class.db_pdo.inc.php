@@ -743,7 +743,7 @@
 		public function haltmsg($msg)
 		{
 			$this->log("Database error: $msg", __LINE__, __FILE__);
-			if ($this->Errno != "0" && $this->Error != "()")
+			if ($this->Errno != "0" || $this->Error != "()")
 			{
 				$this->log("PDO MySQL Error: " . print_r($this->Link_ID->errorInfo(), true), __LINE__, __FILE__);
 			}
