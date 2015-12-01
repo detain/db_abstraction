@@ -20,6 +20,8 @@
 		public $result;
 		public $error = false;
 		public $message = '';
+		public $Link_ID = 0;
+		public $Query_ID = 0;
 
 		/**
 		 * db_mdb2_result::db_mdb2_result()
@@ -90,7 +92,7 @@
 	 * @version 2011
 	 * @access public
 	 */
-	class db_mdb2
+	class db_mdb2 implements db_interface
 	{
 		public $Host = 'localhost';
 		public $User = 'poweradmin';
@@ -105,16 +107,16 @@
 		public $dns_ns2 = 'cdns2.interserver.net';
 		public $dns_ns3 = 'cdns3.interserver.net';
 
-		public $dbh = false;
+		public $Link_ID = false;
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
-		 * 
+		 *
 		 * @param string $Database Optional The database name
 		 * @param string $User Optional The username to connect with
 		 * @param string $Password Optional The password to use
 		 * @param string $Host Optional The hostname where the server is, or default to localhost
-		 * @param string $query Optional query to perform immediately 
+		 * @param string $query Optional query to perform immediately
 		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
@@ -130,8 +132,40 @@
 
 		public function connect()
 		{
-			$this->dbh = mysql_connect($this->Host, $this->User, $this->Password);
-			mysql_select_db($this->Database, $this->dbh);
+			$this->Link_ID = mysql_connect($this->Host, $this->User, $this->Password);
+			mysql_select_db($this->Database, $this->Link_ID);
+		}
+
+		/**
+		 * @param strnig $message
+		 * @param string $line
+		 * @param string $file
+		 */
+		public function log($message, $line = '', $file = '')
+		{
+			if (function_exists('billingd_log'))
+				billingd_log($message, $line, $file, false);
+			else
+				error_log($message);
+		}
+
+		/* public: some trivial reporting */
+		/**
+		 * db::link_id()
+		 * @return int
+		 */
+		public function link_id()
+		{
+			return $this->Link_ID;
+		}
+
+		/**
+		 * db::query_id()
+		 * @return int
+		 */
+		public function query_id()
+		{
+			return $this->Query_ID;
 		}
 
 		/**
@@ -161,7 +195,7 @@
 		 */
 		public function queryOne($query)
 		{
-			if ($this->dbh === false)
+			if ($this->Link_ID === false)
 			{
 				$this->connect();
 			}
@@ -182,7 +216,7 @@
 		 */
 		public function queryRow($query)
 		{
-			if ($this->dbh === false)
+			if ($this->Link_ID === false)
 			{
 				$this->connect();
 			}
@@ -198,12 +232,12 @@
 
 		/**
 		 * db::query_return()
-		 * 
+		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
 		 * any rows and returns the row or rows immediately or false on error
 		 *
 		 * @param mixed $query SQL Query to be used
-		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
@@ -232,11 +266,11 @@
 
 		/**
 		 * db:qr()
-		 * 
+		 *
 		 *  alias of query_return()
-		 * 
+		 *
 		 * @param mixed $query SQL Query to be used
-		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
@@ -256,11 +290,12 @@
 		 */
 		public function query($query)
 		{
-			if ($this->dbh === false)
+			if ($this->Link_ID === false)
 			{
 				$this->connect();
 			}
-			return new db_mdb2_result($query);
+			$this->Query_ID = db_mdb2_result($query);
+			return new $this->Query_ID;
 		}
 
 		/**
@@ -283,5 +318,84 @@
 			mysql_close();
 		}
 
+		/**
+		 * db::index_names()
+		 *
+		 * @return array
+		 */
+		public function index_names()
+		{
+			$return = array();
+			return $return;
+		}
+
+		/* private: error handling */
+		/**
+		 * db::halt()
+		 *
+		 * @param mixed  $msg
+		 * @param string $line
+		 * @param string $file
+		 * @return void
+		 */
+		public function halt($msg, $line = '', $file = '')
+		{
+			$this->unlock();
+			/* Just in case there is a table currently locked */
+
+			//$this->Error = @mysql_error($this->Link_ID);
+			//$this->Errno = @mysql_errno($this->Link_ID);
+			if ($this->Halt_On_Error == "no")
+			{
+				return;
+			}
+			$this->haltmsg($msg);
+
+			if ($file)
+			{
+				error_log("File: $file");
+			}
+			if ($line)
+			{
+				error_log("Line: $line");
+			}
+			if ($this->Halt_On_Error != "report")
+			{
+				echo "<p><b>Session halted.</b>";
+				// FIXME! Add check for error levels
+				if (isset($GLOBALS['tf']))
+					$GLOBALS['tf']->terminate();
+			}
+		}
+
+		/**
+		 * db::haltmsg()
+		 *
+		 * @param mixed $msg
+		 * @return void
+		 */
+		public function haltmsg($msg)
+		{
+			$this->log("Database error: $msg", __LINE__, __FILE__);
+			if ($this->Errno != "0" || $this->Error != "()")
+			{
+				$this->log("MySQL Error: " . $this->Errno . " (" . $this->Error . ")", __LINE__, __FILE__);
+			}
+		}
+
+		/**
+		 * db::db_addslashes()
+		 * @param mixed $str
+		 * @return string
+		 */
+		public function db_addslashes($str)
+		{
+			if (!isset($str) || $str == '')
+			{
+				return '';
+			}
+
+			return addslashes($str);
+		}
 	}
 ?>
