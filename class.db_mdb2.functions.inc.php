@@ -107,7 +107,8 @@
 		public $dns_ns2 = 'cdns2.interserver.net';
 		public $dns_ns3 = 'cdns3.interserver.net';
 
-		public $Link_ID = false;
+		public $Link_ID = 0;
+		public $Query_ID = 0;
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
@@ -200,6 +201,7 @@
 				$this->connect();
 			}
 			$result = mysql_query($query);
+			$this->Query_ID = $result;
 			if (mysql_num_rows($result) > 0)
 			{
 				$row = mysql_fetch_array($result);
@@ -294,7 +296,8 @@
 			{
 				$this->connect();
 			}
-			$this->Query_ID = db_mdb2_result($query);
+			$result = new db_mdb2_result($query);
+			$this->Query_ID = $result->result;
 			return new $this->Query_ID;
 		}
 
