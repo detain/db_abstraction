@@ -14,7 +14,7 @@
 	 *
 	 * @access public
 	 */
-	class db
+	class db implements db_interface
 	{
 		/**
 		 * @var string
@@ -777,18 +777,18 @@
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
-				(strlen(GetEnv('REQUEST_URI')) ? ' '.GetEnv('REQUEST_URI') : ''). 
-				((isset($_POST) && count($_POST)) ? ' POST='.serialize($_POST) : ''). 
-				((isset($_GET) && count($_GET)) ? ' GET='.serialize($_GET) : ''). 
-				((isset($_FILES) && count($_FILES)) ? ' FILES='.serialize($_FILES) : ''). 
+				(strlen(GetEnv('REQUEST_URI')) ? ' '.GetEnv('REQUEST_URI') : '').
+				((isset($_POST) && count($_POST)) ? ' POST='.serialize($_POST) : '').
+				((isset($_GET) && count($_GET)) ? ' GET='.serialize($_GET) : '').
+				((isset($_FILES) && count($_FILES)) ? ' FILES='.serialize($_FILES) : '').
 				(strlen(GetEnv('HTTP_USER_AGENT')) ? ' AGENT="'.GetEnv('HTTP_USER_AGENT').'"' : '').
-				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'. 
+				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
 				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
 			for($level=1;$level < count($backtrace);$level++)
 			{
 				$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
-					(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : ''). 
-					' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') . 
+					(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
+					' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
 					(isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
 					$backtrace[$level] ['function'].'(';
 				if(isset($backtrace[$level] ['args']))
@@ -798,7 +798,7 @@
 				$message.=')';
 				$this->log($message);
 			}
-			
+
 		}
 
 		/**

@@ -14,7 +14,7 @@
 	 *
 	 * @access public
 	 */
-	class db
+	class db implements db_interface
 	{
 		/* public: connection parameters */
 		public $Host = 'localhost';
@@ -48,12 +48,12 @@
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
-		 * 
+		 *
 		 * @param string $Database Optional The database name
 		 * @param string $User Optional The username to connect with
 		 * @param string $Password Optional The password to use
 		 * @param string $Host Optional The hostname where the server is, or default to localhost
-		 * @param string $query Optional query to perform immediately 
+		 * @param string $query Optional query to perform immediately
 		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
@@ -256,12 +256,12 @@
 
 		/**
 		 * db::query_return()
-		 * 
+		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
 		 * any rows and returns the row or rows immediately or false on error
 		 *
 		 * @param mixed $query SQL Query to be used
-		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
@@ -290,11 +290,11 @@
 
 		/**
 		 * db:qr()
-		 * 
+		 *
 		 *  alias of query_return()
-		 * 
+		 *
 		 * @param mixed $query SQL Query to be used
-		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
@@ -305,7 +305,7 @@
 
 		/**
 		 * db::query()
-		 * 
+		 *
 		 *  Sends an SQL query to the database
 		 *
 		 * @param mixed $Query_String

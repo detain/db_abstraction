@@ -1,13 +1,25 @@
 <?php
 	/**
-	 * Generic SQL Driver Related Functionality
-	 * Last Changed: $LastChangedDate$
-	 * @author $Author$
-	 * @version $Revision$
-	 * @copyright 2015
-	 * @package MyAdmin
-	 * @category SQL
-	 */
+	* Generic SQL Driver Related Functionality
+	* by detani@interserver.net
+	* Last Changed: $LastChangedDate$
+	* @copyright 2015
+	* @package MyAdmin
+	* @category SQL
+	*/
+
+	interface db_interface
+	{
+		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '');
+		public function log($message, $line = '', $file = '');
+		public function link_id();
+		public function query_id();
+		public function db_addslashes($str);
+		public function qr($query, $line = '', $file = '');
+		public function halt($msg, $line = '', $file = '');
+		public function haltmsg($msg);
+		public function index_names();
+	}
 
 	abstract class db_generic
 	{
@@ -39,12 +51,12 @@
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
-		 * 
+		 *
 		 * @param string $Database Optional The database name
 		 * @param string $User Optional The username to connect with
 		 * @param string $Password Optional The password to use
 		 * @param string $Host Optional The hostname where the server is, or default to localhost
-		 * @param string $query Optional query to perform immediately 
+		 * @param string $query Optional query to perform immediately
 		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
 		{
@@ -59,7 +71,7 @@
 		}
 
 		/**
-		 * @param        $message
+		 * @param strnig $message
 		 * @param string $line
 		 * @param string $file
 		 */
@@ -103,11 +115,11 @@
 
 		/**
 		 * db:qr()
-		 * 
+		 *
 		 *  alias of query_return()
-		 * 
+		 *
 		 * @param mixed $query SQL Query to be used
-		 * @param string $line optionally pass __LINE__ calling the query for logging  
+		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
