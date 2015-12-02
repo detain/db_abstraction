@@ -196,7 +196,7 @@
 		 */
 		public function queryOne($query)
 		{
-			if ($this->Link_ID === false)
+			if ($this->Link_ID == 0)
 			{
 				$this->connect();
 			}
@@ -218,7 +218,7 @@
 		 */
 		public function queryRow($query)
 		{
-			if ($this->Link_ID === false)
+			if ($this->Link_ID === 0)
 			{
 				$this->connect();
 			}
@@ -292,7 +292,7 @@
 		 */
 		public function query($query)
 		{
-			if ($this->Link_ID === false)
+			if ($this->Link_ID === 0)
 			{
 				$this->connect();
 			}
