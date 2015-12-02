@@ -296,9 +296,10 @@
 			{
 				$this->connect();
 			}
-			$result = new db_mdb2_result($query);
-			$this->Query_ID = $result->result;
-			return new $this->Query_ID;
+			//$result = new db_mdb2_result($query);
+			//$this->Query_ID = $result->result;
+			//return $this->Query_ID;
+			return new db_mdb2_result($query);
 		}
 
 		/**
