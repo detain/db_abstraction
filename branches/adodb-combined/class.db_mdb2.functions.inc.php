@@ -95,9 +95,9 @@
 	class db_mdb2 implements db_interface
 	{
 		public $Host = 'localhost';
-		public $User = 'poweradmin';
+		public $User = 'pdns';
 		public $Password = '';
-		public $Database = 'poweradmin';
+		public $Database = 'pdns';
 		public $type = 'mdb2';
 
 		public $iface_lang = 'en_EN';
