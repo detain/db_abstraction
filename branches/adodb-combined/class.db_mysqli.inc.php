@@ -367,6 +367,8 @@
 				return 0;
 				/* we already complained in connect() about that. */
 			}
+			$halt_prev = $this->Halt_On_Error;
+			$this->Halt_On_Error = 'no';
 			// New query, discard previous result.
 			if (is_resource($this->Query_ID))
 			{
@@ -380,10 +382,18 @@
 			{
 				$this->log($Query_String, $line, $file);
 			}
+			$tries = 3;
+			$try = 1;
 			$this->Query_ID = mysqli_query($this->Link_ID, $Query_String, MYSQLI_STORE_RESULT);
 			$this->Row = 0;
 			$this->Errno = mysqli_errno($this->Link_ID);
 			$this->Error = mysqli_error($this->Link_ID);
+			while ($this->Query_ID === false && $try <= $tries) {
+				mysqli_close($this->Link_ID);
+				$this->connect();
+				$try++;
+			}
+			$this->Halt_On_Error = $halt_prev;
 			if ($this->Query_ID === false)
 			{
 				$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
@@ -771,9 +781,10 @@
 		public function haltmsg($msg, $line = '', $file = '')
 		{
 			$this->log("Database error: $msg", $line, $file);
-			if ($this->Errno != "0" || $this->Error != "()")
+			if ($this->Errno != "0" || !in_array($this->Error, '', "()"))
 			{
-				$this->log("MySQLi Error: " . $this->Errno . " (" . $this->Error . ")", $line, $file);
+				$sqlstate = mysqli_sqlstate($this->Link_ID);
+				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . " (" . $this->Error . ")", $line, $file);
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
@@ -784,8 +795,7 @@
 				(strlen(GetEnv('HTTP_USER_AGENT')) ? ' AGENT="'.GetEnv('HTTP_USER_AGENT').'"' : '').
 				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
 				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
-			for($level=1;$level < count($backtrace);$level++)
-			{
+			for($level=1;$level < count($backtrace);$level++) {
 				$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
 					(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
 					' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
