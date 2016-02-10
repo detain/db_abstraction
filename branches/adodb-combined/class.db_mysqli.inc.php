@@ -384,12 +384,12 @@
 			}
 			$tries = 3;
 			$try = 1;
-			$this->Query_ID = mysqli_query($this->Link_ID, $Query_String, MYSQLI_STORE_RESULT);
+			$this->Query_ID = @mysqli_query($this->Link_ID, $Query_String, MYSQLI_STORE_RESULT);
 			$this->Row = 0;
-			$this->Errno = mysqli_errno($this->Link_ID);
-			$this->Error = mysqli_error($this->Link_ID);
+			$this->Errno = @mysqli_errno($this->Link_ID);
+			$this->Error = @mysqli_error($this->Link_ID);
 			while ($this->Query_ID === false && $try <= $tries) {
-				mysqli_close($this->Link_ID);
+				@mysqli_close($this->Link_ID);
 				$this->connect();
 				$try++;
 			}
