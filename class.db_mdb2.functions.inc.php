@@ -2,7 +2,7 @@
 	/**
 	 * MDB2 Wrapper Made To Handle Liike Our Other ClasssesRelated Functionality
 	 * Last Changed: $LastChangedDate$
-	 * @author $Author$
+	 * @author detain
 	 * @version $Revision$
 	 * @copyright 2015
 	 * @package MyAdmin
