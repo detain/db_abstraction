@@ -4,7 +4,7 @@
 	 * Last Changed: $LastChangedDate$
 	 * @author detain
 	 * @version $Revision$
-	 * @copyright 2015
+	 * @copyright 2016
 	 * @package MyAdmin
 	 * @category SQL
 	 */
