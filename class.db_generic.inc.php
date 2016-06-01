@@ -3,7 +3,7 @@
 	* Generic SQL Driver Related Functionality
 	* by detani@interserver.net
 	* Last Changed: $LastChangedDate$
-	* @copyright 2015
+	* @copyright 2016
 	* @package MyAdmin
 	* @category SQL
 	*/
