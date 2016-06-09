@@ -76,6 +76,9 @@
 		public $Link_ID = 0;
 		public $Query_ID = 0;
 
+		public $max_connect_errors = 30;
+		public $connection_atttempt = 0;
+
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
 		 *
@@ -92,9 +95,8 @@
 			$this->Password = $Password;
 			$this->Host = $Host;
 			if ($query != '')
-			{
 				$this->query($query);
-			}
+			$this->connection_atttempt = 0;
 		}
 
 		/**
@@ -160,6 +162,13 @@
 			/* establish connection, select database */
 			if (!is_object($this->Link_ID))
 			{
+				$this->connection_atttempt++;
+				if ($this->connection_atttempt > 1)
+					billingd_log("MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
+				if ($this->connection_atttempt >= $this->max_connect_errors) {
+					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
+					return 0;
+				}
 				//$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
 				$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
 				/*
@@ -169,8 +178,7 @@
 				* $this->Link_ID = $this->Link_Init;
 				* }
 				*/
-				if ($this->Link_ID->connect_errno)
-				{
+				if ($this->Link_ID->connect_errno) {
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
 				}
