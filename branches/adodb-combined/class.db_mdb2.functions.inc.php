@@ -28,13 +28,15 @@
 		 * @param mixed $query
 		 * @return \db_mdb2_result
 		 */
-		public function __construct($query)
+		public function __construct($query, $link_id)
 		{
+			$this->Link_ID = $link_id;
 			$this->query = $query;
-			$this->result = mysqli_query($query);
-			if (mysqli_errno())
+			$this->Query_ID = @mysqli_query($this->Link_ID, $this->query, MYSQLI_STORE_RESULT);
+			$this->result = $this->Query_ID;
+			if ($this->Query_ID === false)
 			{
-				$this->message = "MySQL error " . mysqli_errno() . ": " . mysqli_error() . ' Query: ' . $this->query;
+				$this->message = "MySQL error " . @mysqli_errno($this->Link_ID) . ": " . @mysqli_error($this->Link_ID) . ' Query: ' . $this->query;
 				$this->error = true;
 			}
 		}
@@ -213,7 +215,7 @@
 			switch ($type)
 			{
 				case 'text':
-					return "'" . mysqli_real_escape_string($text) . "'";
+					return "'" . mysqli_real_escape_string($this->Link_ID, $text) . "'";
 					break;
 				case 'integer':
 				default:
@@ -311,13 +313,11 @@
 		public function query($query)
 		{
 			if ($this->Link_ID === 0)
-			{
 				$this->connect();
-			}
-			//$result = new db_mdb2_result($query);
+			//$result = new db_mdb2_result($query, $this->Link_ID);
 			//$this->Query_ID = $result->result;
 			//return $this->Query_ID;
-			return new db_mdb2_result($query);
+			return new db_mdb2_result($query, $this->Link_ID);
 		}
 
 		/**
@@ -328,7 +328,7 @@
 		 */
 		public function lastInsertId($table, $field)
 		{
-			return mysqli_insert_id();
+			return @mysqli_insert_id($this->Link_ID);
 		}
 
 		/**
@@ -337,7 +337,10 @@
 		 */
 		public function disconnect()
 		{
-			mysqli_close();
+			if (is_object($this->Link_ID))
+				return $this->Link_ID->close();
+			else
+				return 0;
 		}
 
 		/**
