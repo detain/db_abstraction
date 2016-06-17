@@ -231,8 +231,10 @@
 		 */
 		public function queryOne($query)
 		{
-			if ($this->Link_ID == 0)
-				$this->connect();
+			if ($query == '')
+				return 0;
+			if (!$this->connect())
+				return 0;
 			$this->Query_ID = @mysqli_query($this->Link_ID, $query, MYSQLI_STORE_RESULT);
 			if (@mysqli_num_rows($this->Query_ID) > 0)
 			{
@@ -250,8 +252,10 @@
 		 */
 		public function queryRow($query)
 		{
-			if ($this->Link_ID == 0)
-				$this->connect();
+			if ($query == '')
+				return false;
+			if (!$this->connect())
+				return false;
 			$this->Query_ID = @mysqli_query($this->Link_ID, $query, MYSQLI_STORE_RESULT);
 			if (@mysqli_num_rows($this->Query_ID) > 0)
 				return @mysqli_fetch_array($this->Query_ID, MYSQLI_NUM);
@@ -312,8 +316,10 @@
 		 */
 		public function query($query)
 		{
-			if ($this->Link_ID === 0)
-				$this->connect();
+			if ($query == '')
+				return false;
+			if (!$this->connect())
+				return false;
 			//$result = new db_mdb2_result($query, $this->Link_ID);
 			//$this->Query_ID = $result->result;
 			//return $this->Query_ID;
