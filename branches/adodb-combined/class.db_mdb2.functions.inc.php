@@ -31,10 +31,10 @@
 		public function __construct($query)
 		{
 			$this->query = $query;
-			$this->result = mysql_query($query);
-			if (mysql_errno())
+			$this->result = mysqli_query($query);
+			if (mysqli_errno())
 			{
-				$this->message = "MySQL error " . mysql_errno() . ": " . mysql_error() . ' Query: ' . $this->query;
+				$this->message = "MySQL error " . mysqli_errno() . ": " . mysqli_error() . ' Query: ' . $this->query;
 				$this->error = true;
 			}
 		}
@@ -58,7 +58,7 @@
 		 */
 		public function numRows()
 		{
-			return mysql_num_rows($this->result);
+			return mysqli_num_rows($this->result);
 		}
 
 		/**
@@ -67,7 +67,7 @@
 		 */
 		public function fetchRow()
 		{
-			return mysql_fetch_array($this->result);
+			return mysqli_fetch_array($this->result);
 		}
 
 		/**
@@ -133,8 +133,8 @@
 
 		public function connect()
 		{
-			$this->Link_ID = mysql_connect($this->Host, $this->User, $this->Password);
-			mysql_select_db($this->Database, $this->Link_ID);
+			$this->Link_ID = mysqli_connect($this->Host, $this->User, $this->Password);
+			mysqli_select_db($this->Database, $this->Link_ID);
 		}
 
 		/**
@@ -180,7 +180,7 @@
 			switch ($type)
 			{
 				case 'text':
-					return "'" . mysql_real_escape_string($text) . "'";
+					return "'" . mysqli_real_escape_string($text) . "'";
 					break;
 				case 'integer':
 				default:
@@ -200,11 +200,11 @@
 			{
 				$this->connect();
 			}
-			$result = mysql_query($query);
+			$result = mysqli_query($query);
 			$this->Query_ID = $result;
-			if (mysql_num_rows($result) > 0)
+			if (mysqli_num_rows($result) > 0)
 			{
-				$row = mysql_fetch_array($result);
+				$row = mysqli_fetch_array($result);
 				return $row[0];
 			}
 			else
@@ -222,10 +222,10 @@
 			{
 				$this->connect();
 			}
-			$result = mysql_query($query);
-			if (mysql_num_rows($result) > 0)
+			$result = mysqli_query($query);
+			if (mysqli_num_rows($result) > 0)
 			{
-				$row = mysql_fetch_array($result);
+				$row = mysqli_fetch_array($result);
 				return $row;
 			}
 			else
@@ -252,13 +252,13 @@
 			}
 			elseif ($this->num_rows() == 1)
 			{
-				$this->next_record(MYSQL_ASSOC);
+				$this->next_record(MYSQLI_ASSOC);
 				return $this->Record;
 			}
 			else
 			{
 				$out = array();
-				while ($this->next_record(MYSQL_ASSOC))
+				while ($this->next_record(MYSQLI_ASSOC))
 				{
 					$out[] = $this->Record;
 				}
@@ -310,7 +310,7 @@
 		 */
 		public function lastInsertId($table, $field)
 		{
-			return mysql_insert_id();
+			return mysqli_insert_id();
 		}
 
 		/**
@@ -319,7 +319,7 @@
 		 */
 		public function disconnect()
 		{
-			mysql_close();
+			mysqli_close();
 		}
 
 		/**
@@ -347,8 +347,8 @@
 			$this->unlock();
 			/* Just in case there is a table currently locked */
 
-			//$this->Error = @mysql_error($this->Link_ID);
-			//$this->Errno = @mysql_errno($this->Link_ID);
+			//$this->Error = @mysqli_error($this->Link_ID);
+			//$this->Errno = @mysqli_errno($this->Link_ID);
 			if ($this->Halt_On_Error == "no")
 			{
 				return;
