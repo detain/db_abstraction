@@ -131,10 +131,43 @@
 			}
 		}
 
-		public function connect()
+		/**
+		 * db::connect()
+		 * @param string $Database
+		 * @param string $Host
+		 * @param string $User
+		 * @param string $Password
+		 * @return int|\mysqli
+		 */
+		public function connect($Database = '', $Host = '', $User = '', $Password = '')
 		{
-			$this->Link_ID = mysqli_connect($this->Host, $this->User, $this->Password);
-			mysqli_select_db($this->Database, $this->Link_ID);
+			/* Handle defaults */
+			if ('' == $Database)
+			{
+				$Database = $this->Database;
+			}
+			if ('' == $Host)
+			{
+				$Host = $this->Host;
+			}
+			if ('' == $User)
+			{
+				$User = $this->User;
+			}
+			if ('' == $Password)
+			{
+				$Password = $this->Password;
+			}
+			/* establish connection, select database */
+			if (!is_object($this->Link_ID))
+			{
+				$this->Link_ID = mysqli_connect($this->Host, $this->User, $this->Password, $this->Database);
+				if ($this->Link_ID->connect_errno) {
+					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
+					return 0;
+				}
+			}
+			return $this->Link_ID;
 		}
 
 		/**
@@ -197,14 +230,11 @@
 		public function queryOne($query)
 		{
 			if ($this->Link_ID == 0)
-			{
 				$this->connect();
-			}
-			$result = mysqli_query($query);
-			$this->Query_ID = $result;
-			if (mysqli_num_rows($result) > 0)
+			$this->Query_ID = @mysqli_query($this->Link_ID, $query, MYSQLI_STORE_RESULT);
+			if (@mysqli_num_rows($this->Query_ID) > 0)
 			{
-				$row = mysqli_fetch_array($result);
+				$row = @mysqli_fetch_array($this->Query_ID, MYSQLI_NUM);
 				return $row[0];
 			}
 			else
@@ -218,16 +248,11 @@
 		 */
 		public function queryRow($query)
 		{
-			if ($this->Link_ID === 0)
-			{
+			if ($this->Link_ID == 0)
 				$this->connect();
-			}
-			$result = mysqli_query($query);
-			if (mysqli_num_rows($result) > 0)
-			{
-				$row = mysqli_fetch_array($result);
-				return $row;
-			}
+			$this->Query_ID = @mysqli_query($this->Link_ID, $query, MYSQLI_STORE_RESULT);
+			if (@mysqli_num_rows($this->Query_ID) > 0)
+				return @mysqli_fetch_array($this->Query_ID, MYSQLI_NUM);
 			else
 				return false;
 		}
@@ -247,21 +272,14 @@
 		{
 			$this->query($query, $line, $file);
 			if ($this->num_rows() == 0)
-			{
 				return false;
-			}
-			elseif ($this->num_rows() == 1)
-			{
+			elseif ($this->num_rows() == 1) {
 				$this->next_record(MYSQLI_ASSOC);
 				return $this->Record;
-			}
-			else
-			{
+			} else {
 				$out = array();
 				while ($this->next_record(MYSQLI_ASSOC))
-				{
 					$out[] = $this->Record;
-				}
 				return $out;
 			}
 		}
