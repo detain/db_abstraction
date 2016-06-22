@@ -237,8 +237,8 @@
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
 				}
-				//$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
-				$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
+				$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
+				//$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
 				/*
 				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
 				* if ($this->Link_ID)
