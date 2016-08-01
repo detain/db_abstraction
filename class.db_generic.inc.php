@@ -138,7 +138,7 @@
 		 */
 		public function halt($msg, $line = '', $file = '')
 		{
-			$this->unlock();
+			$this->unlock(false);
 
 			if ($this->Halt_On_Error == "no")
 			{

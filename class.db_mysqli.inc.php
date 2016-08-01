@@ -391,36 +391,40 @@
 				$this->log($Query_String, $line, $file);
 			}
 			$tries = 3;
-			$try = 1;
-			$this->Query_ID = @mysqli_query($this->Link_ID, $Query_String, MYSQLI_STORE_RESULT);
-			$this->Row = 0;
-			$this->Errno = @mysqli_errno($this->Link_ID);
-			$this->Error = @mysqli_error($this->Link_ID);
-			while ($this->Query_ID === false && $try <= $tries) {
-				@mysqli_close($this->Link_ID);
-				$this->connect();
+			$try = 0;
+			$this->Query_ID = false;
+			while ((is_null($this->Query_ID) || $this->Query_ID === false) && $try <= $tries) {
 				$try++;
+				if ($try > 1) {
+					@mysqli_close($this->Link_ID);
+					$this->connect();
+				}
+				$this->Query_ID = @mysqli_query($this->Link_ID, $Query_String, MYSQLI_STORE_RESULT);
+				$this->Row = 0;
+				$this->Errno = @mysqli_errno($this->Link_ID);
+				$this->Error = @mysqli_error($this->Link_ID);
+				if ($try == 1 && (is_null($this->Query_ID) || $this->Query_ID === false)) {
+					$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ? "User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+					$email .= "<br><br>Request Variables:<br>" . print_r($_REQUEST, true);
+					$email .= "<br><br>Server Variables:<br>" . print_r($_SERVER, true);
+					$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
+					$headers = '';
+					$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
+					$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
+					$headers .= "From: " . TITLE . " <" . EMAIL_FROM . ">" . EMAIL_NEWLINE;
+					$headers .= "X-Priority: 1" . EMAIL_NEWLINE;
+					$headers .= "X-MimeOLE: Produced By TF Admin Suite" . EMAIL_NEWLINE;
+					$headers .= "X-MSMail-Priority: High" . EMAIL_NEWLINE;
+					$headers .= "X-Mailer: Trouble-Free.Net Admin Center" . EMAIL_NEWLINE;
+					mail('john@interserver.net', $subject, $email, $headers);
+					mail('detain@interserver.net', $subject, $email, $headers);
+					$this->haltmsg("Invalid SQL: " . $Query_String, $line, $file);
+				}
 			}
 			$this->Halt_On_Error = $halt_prev;
-			if ($this->Query_ID === false)
+			if (is_null($this->Query_ID) || $this->Query_ID === false)
 			{
-				$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
-					"User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
-
-				$email .= "<br><br>Request Variables:<br>" . print_r($_REQUEST, true);
-				$email .= "<br><br>Server Variables:<br>" . print_r($_SERVER, true);
-				$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
-				$headers = '';
-				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
-				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
-				$headers .= "From: " . TITLE . " <" . EMAIL_FROM . ">" . EMAIL_NEWLINE;
-				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
-				$headers .= "X-Priority: 1" . EMAIL_NEWLINE;
-				$headers .= "X-MimeOLE: Produced By TF Admin Suite" . EMAIL_NEWLINE;
-				$headers .= "X-MSMail-Priority: High" . EMAIL_NEWLINE;
-				$headers .= "X-Mailer: Trouble-Free.Net Admin Center" . EMAIL_NEWLINE;
-				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
-				$this->halt("Invalid SQL: " . $Query_String, $line, $file);
+				$this->halt('', $line, $file);
 			}
 
 			# Will return nada if it fails. That's fine.
@@ -606,14 +610,15 @@
 
 		/**
 		 * db::unlock()
+		 * @param bool $halt_on_error optional, deffaults to true, wether or not to halt on error
 		 * @return bool|int|\mysqli_result
 		 */
-		public function unlock()
+		public function unlock($halt_on_error = true)
 		{
 			$this->connect();
 
 			$res = @mysqli_query($this->Link_ID, "unlock tables");
-			if (!$res)
+			if ($halt_on_error === true && !$res)
 			{
 				$this->halt("unlock() failed.");
 				return 0;
@@ -751,7 +756,7 @@
 		 */
 		public function halt($msg, $line = '', $file = '')
 		{
-			$this->unlock();
+			$this->unlock(false);
 			/* Just in case there is a table currently locked */
 
 			//$this->Error = @$this->Link_ID->error;
@@ -760,7 +765,8 @@
 			{
 				return;
 			}
-			$this->haltmsg($msg);
+			if ($msg != '')
+				$this->haltmsg($msg);
 
 			if ($file)
 			{
@@ -883,22 +889,22 @@
 	}
 
 function mysqli_result($result,$row,$field=0) {
-    if ($result===false) return false;
-    if ($row>=mysqli_num_rows($result)) return false;
-    if (is_string($field) && !(strpos($field,".")===false)) {
-        $t_field=explode(".",$field);
-        $field=-1;
-        $t_fields=mysqli_fetch_fields($result);
-        for ($id=0;$id<mysqli_num_fields($result);$id++) {
-            if ($t_fields[$id]->table==$t_field[0] && $t_fields[$id]->name==$t_field[1]) {
-                $field=$id;
-                break;
-            }
-        }
-        if ($field==-1) return false;
-    }
-    mysqli_data_seek($result,$row);
-    $line=mysqli_fetch_array($result);
-    return isset($line[$field])?$line[$field]:false;
+	if ($result===false) return false;
+	if ($row>=mysqli_num_rows($result)) return false;
+	if (is_string($field) && !(strpos($field,".")===false)) {
+		$t_field=explode(".",$field);
+		$field=-1;
+		$t_fields=mysqli_fetch_fields($result);
+		for ($id=0;$id<mysqli_num_fields($result);$id++) {
+			if ($t_fields[$id]->table==$t_field[0] && $t_fields[$id]->name==$t_field[1]) {
+				$field=$id;
+				break;
+			}
+		}
+		if ($field==-1) return false;
+	}
+	mysqli_data_seek($result,$row);
+	$line=mysqli_fetch_array($result);
+	return isset($line[$field])?$line[$field]:false;
 }
 ?>
