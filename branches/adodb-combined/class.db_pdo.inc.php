@@ -55,14 +55,12 @@
 		 * @param string $Host Optional The hostname where the server is, or default to localhost
 		 * @param string $query Optional query to perform immediately
 		 */
-		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
-		{
+		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
 			$this->Database = $Database;
 			$this->User = $User;
 			$this->Password = $Password;
 			$this->Host = $Host;
-			if ($query != '')
-			{
+			if ($query != '') {
 				$this->query($query);
 			}
 		}
@@ -72,8 +70,7 @@
 		 * @param string $line
 		 * @param string $file
 		 */
-		public function log($message, $line = '', $file = '')
-		{
+		public function log($message, $line = '', $file = '') {
 			if (function_exists('billingd_log'))
 				billingd_log($message, $line, $file, false);
 			else
@@ -85,8 +82,7 @@
 		 * db::link_id()
 		 * @return bool
 		 */
-		public function link_id()
-		{
+		public function link_id() {
 			return $this->Link_ID;
 		}
 
@@ -94,8 +90,7 @@
 		 * db::query_id()
 		 * @return int
 		 */
-		public function query_id()
-		{
+		public function query_id() {
 			return $this->Query_ID;
 		}
 
@@ -109,39 +104,31 @@
 		 * @param string $Driver
 		 * @return bool|int|\PDO
 		 */
-		public function connect($Database = '', $Host = '', $User = '', $Password = '', $Driver = 'mysql')
-		{
+		public function connect($Database = '', $Host = '', $User = '', $Password = '', $Driver = 'mysql') {
 			/* Handle defaults */
-			if ('' == $Database)
-			{
+			if ('' == $Database) {
 				$Database = $this->Database;
 			}
-			if ('' == $Host)
-			{
+			if ('' == $Host) {
 				$Host = $this->Host;
 			}
-			if ('' == $User)
-			{
+			if ('' == $User) {
 				$User = $this->User;
 			}
-			if ('' == $Password)
-			{
+			if ('' == $Password) {
 				$Password = $this->Password;
 			}
-			if ('' == $Driver)
-			{
+			if ('' == $Driver) {
 				$Driver = $this->Driver;
 			}
 			/* establish connection, select database */
 			$DSN = "$Driver:dbname=$Database;host=$Host";
-			if ($this->Link_ID === false)
-			{
+			if ($this->Link_ID === false) {
 				try
 				{
 					$this->Link_ID = new PDO($DSN, $User, $Password);
 				}
-				catch (PDOException $e)
-				{
+				catch (PDOException $e) {
 					$this->halt("Connection Failed " . $e->getMessage());
 					return 0;
 				}
@@ -154,16 +141,14 @@
 		 * db::disconnect()
 		 * @return void
 		 */
-		public function disconnect()
-		{
+		public function disconnect() {
 		}
 
 		/**
 		 * @param $string
 		 * @return string
 		 */
-		public function real_escape($string)
-		{
+		public function real_escape($string) {
 			return mysql_escape_string($string);
 		}
 
@@ -171,8 +156,7 @@
 		 * @param $string
 		 * @return string
 		 */
-		public function escape($string)
-		{
+		public function escape($string) {
 			return mysql_escape_string($string);
 		}
 
@@ -181,10 +165,8 @@
 		 * @param mixed $str
 		 * @return string
 		 */
-		public function db_addslashes($str)
-		{
-			if (!isset($str) || $str == '')
-			{
+		public function db_addslashes($str) {
+			if (!isset($str) || $str == '') {
 				return '';
 			}
 
@@ -196,8 +178,7 @@
 		 * @param mixed $epoch
 		 * @return bool|string
 		 */
-		public function to_timestamp($epoch)
-		{
+		public function to_timestamp($epoch) {
 			return date('YmdHis', $epoch);
 		}
 
@@ -207,8 +188,7 @@
 		 * @param mixed $timestamp
 		 * @return mixed
 		 */
-		public function from_timestamp($timestamp)
-		{
+		public function from_timestamp($timestamp) {
 			if (strlen($timestamp) == 19)
 				if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
 					return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
@@ -218,8 +198,7 @@
 					return mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
 				elseif (is_numeric($timestamp) && $timestamp >= 943938000)
 					return $timestamp;
-				else
-				{
+				else {
 					$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
 					return false;
 				}
@@ -231,16 +210,12 @@
 		 * @param mixed $start
 		 * @return string
 		 */
-		public function limit($start)
-		{
+		public function limit($start) {
 			echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
-			if ($start == 0)
-			{
+			if ($start == 0) {
 				$s = 'limit ' . $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
-			}
-			else
-			{
+			} else {
 				$s = "limit $start," . $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
 			}
 			return $s;
@@ -251,8 +226,7 @@
 		 * db::free()
 		 * @return void
 		 */
-		public function free()
-		{
+		public function free() {
 			//			@mysql_free_result($this->Query_ID);
 			//			$this->Query_ID = 0;
 		}
@@ -268,23 +242,16 @@
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
-		public function query_return($query, $line = '', $file = '')
-		{
+		public function query_return($query, $line = '', $file = '') {
 			$this->query($query, $line, $file);
-			if ($this->num_rows() == 0)
-			{
+			if ($this->num_rows() == 0) {
 				return false;
-			}
-			elseif ($this->num_rows() == 1)
-			{
+			} elseif ($this->num_rows() == 1) {
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
-			}
-			else
-			{
+			} else {
 				$out = array();
-				while ($this->next_record(MYSQL_ASSOC))
-				{
+				while ($this->next_record(MYSQL_ASSOC)) {
 					$out[] = $this->Record;
 				}
 				return $out;
@@ -301,8 +268,7 @@
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
-		public function qr($query, $line = '', $file = '')
-		{
+		public function qr($query, $line = '', $file = '') {
 			return $this->query_return($query, $line, $file);
 		}
 
@@ -316,36 +282,30 @@
 		 * @param string $file
 		 * @return mixed 0 if no query or query id handler, safe to ignore this return
 		 */
-		public function query($Query_String, $line = '', $file = '')
-		{
+		public function query($Query_String, $line = '', $file = '') {
 			/* No empty queries, please, since PHP4 chokes on them. */
 			/* The empty query string is passed on from the constructor,
 			* when calling the class without a query, e.g. in situations
 			* like these: '$db = new db_Subclass;'
 			*/
-			if ($Query_String == '')
-			{
+			if ($Query_String == '') {
 				return 0;
 			}
-			if (!$this->connect())
-			{
+			if (!$this->connect()) {
 				return 0;
 				/* we already complained in connect() about that. */
 			}
 			;
 
 			# New query, discard previous result.
-			if ($this->Query_ID !== false)
-			{
+			if ($this->Query_ID !== false) {
 				$this->free();
 			}
 
-			if ($this->Debug)
-			{
+			if ($this->Debug) {
 				printf("Debug: query = %s<br>\n", $Query_String);
 			}
-			if ($GLOBALS['log_queries'] !== false)
-			{
+			if ($GLOBALS['log_queries'] !== false) {
 				$this->log($Query_String, $line, $file);
 			}
 
@@ -354,20 +314,17 @@
 			$this->Rows = $this->Query_ID->fetchAll();
 			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __LINE__, __FILE__);
 			$this->Row = 0;
-			if ($success === false)
-			{
+			if ($success === false) {
 				$email = "MySQL Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset
 					($GLOBALS['tf']) ? "User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= "<br><br>Request Variables:<br>";
-				foreach ($_REQUEST as $key => $value)
-				{
+				foreach ($_REQUEST as $key => $value) {
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
 
 				$email .= "<br><br>Server Variables:<br>";
-				foreach ($_SERVER as $key => $value)
-				{
+				foreach ($_SERVER as $key => $value) {
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
 				$subject = DOMAIN . ' PDO MySQL Error On ' . TITLE;
@@ -398,24 +355,18 @@
 		 * @param string $num_rows
 		 * @return mixed
 		 */
-		public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '')
-		{
-			if (!$num_rows)
-			{
+		public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
+			if (!$num_rows) {
 				$num_rows = $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
 			}
 
-			if ($offset == 0)
-			{
+			if ($offset == 0) {
 				$Query_String .= ' LIMIT ' . $num_rows;
-			}
-			else
-			{
+			} else {
 				$Query_String .= ' LIMIT ' . $offset . ',' . $num_rows;
 			}
 
-			if ($this->Debug)
-			{
+			if ($this->Debug) {
 				printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $Query_String, $offset, $num_rows);
 			}
 
@@ -428,12 +379,10 @@
 		 * @param mixed $result_type
 		 * @return bool
 		 */
-		public function next_record($result_type = MYSQL_ASSOC)
-		{
+		public function next_record($result_type = MYSQL_ASSOC) {
 			// PDO result types so far seem to be +1
 			$result_type += 1;
-			if (!$this->Query_ID)
-			{
+			if (!$this->Query_ID) {
 				$this->halt('next_record called with no query pending.');
 				return 0;
 			}
@@ -442,8 +391,7 @@
 			$this->Record = $this->Rows[$this->Row];
 
 			$stat = is_array($this->Record);
-			if (!$stat && $this->Auto_Free)
-			{
+			if (!$stat && $this->Auto_Free) {
 				$this->free();
 			}
 			return $stat;
@@ -455,14 +403,10 @@
 		 * @param integer $pos
 		 * @return int
 		 */
-		public function seek($pos = 0)
-		{
-			if (isset($this->Rows[$pos]))
-			{
+		public function seek($pos = 0) {
+			if (isset($this->Rows[$pos])) {
 				$this->Row = $pos;
-			}
-			else
-			{
+			} else {
 				$this->halt("seek($pos) failed: result has " . sizeof($this->Rows) . " rows");
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
@@ -477,8 +421,7 @@
 		 * db::transaction_begin()
 		 * @return bool
 		 */
-		public function transaction_begin()
-		{
+		public function transaction_begin() {
 			return true;
 		}
 
@@ -486,8 +429,7 @@
 		 * db::transaction_commit()
 		 * @return bool
 		 */
-		public function transaction_commit()
-		{
+		public function transaction_commit() {
 			return true;
 		}
 
@@ -495,8 +437,7 @@
 		 * db::transaction_abort()
 		 * @return bool
 		 */
-		public function transaction_abort()
-		{
+		public function transaction_abort() {
 			return true;
 		}
 
@@ -506,10 +447,8 @@
 		 * @param mixed $field
 		 * @return int
 		 */
-		public function get_last_insert_id($table, $field)
-		{
-			if (!isset($table) || $table == '' || !isset($field) || $field == '')
-			{
+		public function get_last_insert_id($table, $field) {
+			if (!isset($table) || $table == '' || !isset($field) || $field == '') {
 				return - 1;
 			}
 			return $this->Link_ID->lastInsertId();
@@ -522,8 +461,7 @@
 		 * @param string $mode
 		 * @return void
 		 */
-		public function lock($table, $mode = 'write')
-		{
+		public function lock($table, $mode = 'write') {
 			/*			$this->connect();
 
 			* $query = "lock tables ";
@@ -560,8 +498,7 @@
 		 * db::unlock()
 		 * @return void
 		 */
-		public function unlock()
-		{
+		public function unlock() {
 			/*			$this->connect();
 
 			* $res = @mysql_query("unlock tables");
@@ -580,8 +517,7 @@
 		 *
 		 * @return
 		 */
-		public function affected_rows()
-		{
+		public function affected_rows() {
 			return @$this->Query_ID->rowCount();
 		}
 
@@ -589,8 +525,7 @@
 		 * db::num_rows()
 		 * @return int
 		 */
-		public function num_rows()
-		{
+		public function num_rows() {
 			return sizeof($this->Rows);
 		}
 
@@ -598,8 +533,7 @@
 		 * db::num_fields()
 		 * @return int
 		 */
-		public function num_fields()
-		{
+		public function num_fields() {
 			$keys = array_keys($this->Rows);
 			return sizeof($this->Rows[$keys[0]]);
 		}
@@ -609,8 +543,7 @@
 		 * db::nf()
 		 * @return int
 		 */
-		public function nf()
-		{
+		public function nf() {
 			return $this->num_rows();
 		}
 
@@ -618,8 +551,7 @@
 		 * db::np()
 		 * @return void
 		 */
-		public function np()
-		{
+		public function np() {
 			print $this->num_rows();
 		}
 
@@ -629,14 +561,10 @@
 		 * @param string $strip_slashes
 		 * @return string
 		 */
-		public function f($Name, $strip_slashes = "")
-		{
-			if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes))
-			{
+		public function f($Name, $strip_slashes = "") {
+			if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes)) {
 				return stripslashes($this->Record[$Name]);
-			}
-			else
-			{
+			} else {
 				return $this->Record[$Name];
 			}
 		}
@@ -647,8 +575,7 @@
 		 * @param mixed $Name
 		 * @return void
 		 */
-		public function p($Name)
-		{
+		public function p($Name) {
 			print $this->Record[$Name];
 		}
 
@@ -659,35 +586,28 @@
 		 * @param mixed $seq_name
 		 * @return int
 		 */
-		public function nextid($seq_name)
-		{
+		public function nextid($seq_name) {
 			$this->connect();
 
-			if ($this->lock($this->Seq_Table))
-			{
+			if ($this->lock($this->Seq_Table)) {
 				/* get sequence number (locked) and increment */
 				$q = sprintf("select nextid from %s where seq_name = '%s'", $this->Seq_Table, $seq_name);
 				$id = @mysql_query($q, $this->Link_ID);
 				$res = @mysql_fetch_array($id);
 
 				/* No current value, make one */
-				if (!is_array($res))
-				{
+				if (!is_array($res)) {
 					$currentid = 0;
 					$q = sprintf("insert into %s values('%s', %s)", $this->Seq_Table, $seq_name, $currentid);
 					$id = @mysql_query($q, $this->Link_ID);
-				}
-				else
-				{
+				} else {
 					$currentid = $res["nextid"];
 				}
 				$nextid = $currentid + 1;
 				$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->Seq_Table, $nextid, $seq_name);
 				$id = @mysql_query($q, $this->Link_ID);
 				$this->unlock();
-			}
-			else
-			{
+			} else {
 				$this->halt("cannot lock " . $this->Seq_Table . " - has it been created?");
 				return 0;
 			}
@@ -703,30 +623,25 @@
 		 * @param string $file
 		 * @return void
 		 */
-		public function halt($msg, $line = '', $file = '')
-		{
+		public function halt($msg, $line = '', $file = '') {
 			$this->unlock();
 			/* Just in case there is a table currently locked */
 
 			//$this->Error = @mysql_error($this->Link_ID);
 			//$this->Errno = @mysql_errno($this->Link_ID);
-			if ($this->Halt_On_Error == "no")
-			{
+			if ($this->Halt_On_Error == "no") {
 				return;
 			}
 			$this->haltmsg($msg);
 
-			if ($file)
-			{
+			if ($file) {
 				error_log("File: $file");
 			}
-			if ($line)
-			{
+			if ($line) {
 				error_log("Line: $line");
 			}
 
-			if ($this->Halt_On_Error != "report")
-			{
+			if ($this->Halt_On_Error != "report") {
 				echo "<p><b>Session halted.</b>";
 				// FIXME! Add check for error levels
 				if (isset($GLOBALS['tf']))
@@ -740,11 +655,9 @@
 		 * @param mixed $msg
 		 * @return void
 		 */
-		public function haltmsg($msg)
-		{
+		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
-			if ($this->Errno != "0" || $this->Error != "()")
-			{
+			if ($this->Errno != "0" || $this->Error != "()") {
 				$this->log("PDO MySQL Error: " . print_r($this->Link_ID->errorInfo(), true), __LINE__, __FILE__);
 			}
 		}
@@ -754,12 +667,10 @@
 		 *
 		 * @return array
 		 */
-		public function table_names()
-		{
+		public function table_names() {
 			$return = array();
 			$this->query("SHOW TABLES");
-			foreach ($this->Rows as $i => $info)
-			{
+			foreach ($this->Rows as $i => $info) {
 				$return[$i]['table_name'] = $info[0];
 				$return[$i]['tablespace_name'] = $this->Database;
 				$return[$i]['database'] = $this->Database;
@@ -772,8 +683,7 @@
 		 *
 		 * @return array
 		 */
-		public function index_names()
-		{
+		public function index_names() {
 			$return = array();
 			return $return;
 		}
@@ -785,14 +695,12 @@
 		 * @param string $adminpasswd
 		 * @return void
 		 */
-		public function create_database($adminname = '', $adminpasswd = '')
-		{
+		public function create_database($adminname = '', $adminpasswd = '') {
 			$currentUser = $this->User;
 			$currentPassword = $this->Password;
 			$currentDatabase = $this->Database;
 
-			if ($adminname != '')
-			{
+			if ($adminname != '') {
 				$this->User = $adminname;
 				$this->Password = $adminpasswd;
 				$this->Database = "mysql";
