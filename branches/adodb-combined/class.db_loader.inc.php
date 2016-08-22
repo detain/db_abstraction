@@ -48,13 +48,10 @@
 		 * @param string $Host Optional The hostname where the server is, or default to localhost
 		 * @param string $query Optional query to perform immediately 
 		 */
-		public function __construct($Type = '', $Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '')
-		{
+		public function __construct($Type = '', $Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
 			$this->Type = $Type;
-			if (!defined('db'))
-			{
-				switch ($this->Type)
-				{
+			if (!defined('db')) {
+				switch ($this->Type) {
 					case 'mysqli':
 						include_once ('class.db_mysqli.inc.php');
 						break;					 
@@ -82,8 +79,7 @@
 			$this->User = $User;
 			$this->Password = $Password;
 			$this->Host = $Host;
-			if ($query != '')
-			{
+			if ($query != '') {
 				$this->query($query);
 			}
 		}
@@ -93,8 +89,7 @@
 		 * @param string $line
 		 * @param string $file
 		 */
-		public function log($message, $line = '', $file = '')
-		{
+		public function log($message, $line = '', $file = '') {
 			if (function_exists('billingd_log'))
 				billingd_log($message, $line, $file, false);
 			else
@@ -104,16 +99,14 @@
 		/**
 		 * @return int
 		 */
-		public function link_id()
-		{
+		public function link_id() {
 			return $this->Link_ID;
 		}
 
 		/**
 		 * @return int
 		 */
-		public function query_id()
-		{
+		public function query_id() {
 			return $this->Query_ID;
 		}
 
@@ -121,10 +114,8 @@
 		 * @param $str
 		 * @return string
 		 */
-		public function db_addslashes($str)
-		{
-			if (!isset($str) || $str == '')
-			{
+		public function db_addslashes($str) {
+			if (!isset($str) || $str == '') {
 				return '';
 			}
 
@@ -141,8 +132,7 @@
 		 * @param string $file optionally pass __FILE__ calling the query for logging
 		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
-		public function qr($query, $line = '', $file = '')
-		{
+		public function qr($query, $line = '', $file = '') {
 			return $this->query_return($query, $line, $file);
 		}
 
@@ -154,26 +144,21 @@
 		 * @param string $file
 		 * @return void
 		 */
-		public function halt($msg, $line = '', $file = '')
-		{
+		public function halt($msg, $line = '', $file = '') {
 			$this->unlock(false);
 
-			if ($this->Halt_On_Error == "no")
-			{
+			if ($this->Halt_On_Error == "no") {
 				return;
 			}
 			$this->haltmsg($msg);
 
-			if ($file)
-			{
+			if ($file) {
 				error_log("File: $file");
 			}
-			if ($line)
-			{
+			if ($line) {
 				error_log("Line: $line");
 			}
-			if ($this->Halt_On_Error != "report")
-			{
+			if ($this->Halt_On_Error != "report") {
 				echo "<p><b>Session halted.</b>";
 				// FIXME! Add check for error levels
 				if (isset($GLOBALS['tf']))
@@ -184,11 +169,9 @@
 		/**
 		 * @param $msg
 		 */
-		public function haltmsg($msg)
-		{
+		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
-			if ($this->Errno != "0" || $this->Error != "()")
-			{
+			if ($this->Errno != "0" || $this->Error != "()") {
 				$this->log("SQL Error: " . $this->Errno . " (" . $this->Error . ")", __LINE__, __FILE__);
 			}
 		}
@@ -196,8 +179,7 @@
 		/**
 		 * @return array
 		 */
-		public function index_names()
-		{
+		public function index_names() {
 			$return = array();
 			return $return;
 		}
