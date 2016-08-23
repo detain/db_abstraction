@@ -59,8 +59,8 @@
 			if (!defined('_ADODB_LAYER')) {
 				if (file_exists('adodb5/adodb.inc.php'))
 					require_once ('adodb5/adodb.inc.php');
-				elseif (defined('INSTALL_ROOT') && file_exists(INSTALL_ROOT . '/include/database/adodb5/adodb.inc.php'))
-					require_once ('include/database/adodb5/adodb.inc.php');
+				elseif (defined('INSTALL_ROOT') && file_exists(INSTALL_ROOT . '/include/db/adodb5/adodb.inc.php'))
+					require_once ('include/db/adodb5/adodb.inc.php');
 				elseif (file_exists(realpath(dirname(__FILE__)) . '/../vendor/adodb/adodb-php/adodb.inc.php'))
 					require_once (realpath(dirname(__FILE__)) . '/../vendor/adodb/adodb-php/adodb.inc.php');
 			}
