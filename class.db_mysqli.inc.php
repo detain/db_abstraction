@@ -40,15 +40,15 @@
 		/**
 		 * @var int
 		 */
-		public $Auto_Free = 0; ## Set to 1 for automatic mysql_free_result()
+		public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
 		/**
 		 * @var int
 		 */
-		public $Debug = 0; ## Set to 1 for debugging messages.
+		public $Debug = 0; // Set to 1 for debugging messages.
 		/**
 		 * @var string
 		 */
-		public $Halt_On_Error = 'yes'; ## "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
 		/**
 		 * @var string
 		 */
@@ -388,7 +388,7 @@
 				$this->halt('', $line, $file);
 			}
 
-			# Will return nada if it fails. That's fine.
+			// Will return nada if it fails. That's fine.
 			return $this->Query_ID;
 		}
 

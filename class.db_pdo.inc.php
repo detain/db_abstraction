@@ -25,9 +25,9 @@
 
 		/* public: configuration parameters */
 		public $auto_stripslashes = false;
-		public $Auto_Free = 0; ## Set to 1 for automatic mysql_free_result()
-		public $Debug = 0; ## Set to 1 for debugging messages.
-		public $Halt_On_Error = 'yes'; ## "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
+		public $Debug = 0; // Set to 1 for debugging messages.
+		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
 		public $Seq_Table = 'db_sequence';
 
 		/* public: result array and current row number */
@@ -297,7 +297,7 @@
 			}
 			;
 
-			# New query, discard previous result.
+			// New query, discard previous result.
 			if ($this->Query_ID !== false) {
 				$this->free();
 			}
@@ -340,7 +340,7 @@
 				$this->halt("Invalid SQL: " . $Query_String, $line, $file);
 			}
 
-			# Will return nada if it fails. That's fine.
+			// Will return nada if it fails. That's fine.
 			return $this->Query_ID;
 		}
 
