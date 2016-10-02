@@ -856,5 +856,3 @@
 	class db_mdb2_result extends db_mdb2 {
 
 	}
-
-?>
