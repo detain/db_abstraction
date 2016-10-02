@@ -9,7 +9,6 @@
 	* @category SQL
 	*/
 
-
 	/**
 	 * db_mdb2
 	 *
@@ -79,7 +78,6 @@
 
 		public $max_connect_errors = 30;
 		public $connection_atttempt = 0;
-
 
 		/**
 		 * db_mdb2::quote()
@@ -849,9 +847,7 @@
 			/*return $return; */
 		}
 
-
 	}
-
 
 	class db_mdb2_result extends db_mdb2 {
 
