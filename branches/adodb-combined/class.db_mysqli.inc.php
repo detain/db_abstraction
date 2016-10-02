@@ -710,11 +710,11 @@
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
-				(strlen(GetEnv('REQUEST_URI')) ? ' '.GetEnv('REQUEST_URI') : '').
+				(strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
 				((isset($_POST) && count($_POST)) ? ' POST='.serialize($_POST) : '').
 				((isset($_GET) && count($_GET)) ? ' GET='.serialize($_GET) : '').
 				((isset($_FILES) && count($_FILES)) ? ' FILES='.serialize($_FILES) : '').
-				(strlen(GetEnv('HTTP_USER_AGENT')) ? ' AGENT="'.GetEnv('HTTP_USER_AGENT').'"' : '').
+				(strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
 				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
 			for($level=1;$level < count($backtrace);$level++) {
@@ -726,7 +726,7 @@
 				if(isset($backtrace[$level] ['args']))
 					for($argument = 0; $argument < count($backtrace[$level]['args']); $argument++)
 						$message .= ($argument > 0 ? ', ' : '').
-							(GetType($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : serialize($backtrace[$level]['args'][$argument]));
+							(gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : serialize($backtrace[$level]['args'][$argument]));
 				$message.=')';
 				$this->log($message);
 			}

@@ -294,8 +294,7 @@
 			if (!$this->connect()) {
 				return 0;
 				/* we already complained in connect() about that. */
-			}
-			;
+			};
 
 			// New query, discard previous result.
 			if ($this->Query_ID !== false) {
