@@ -810,4 +810,3 @@ function mysqli_result($result, $row, $field=0) {
 	$line=mysqli_fetch_array($result);
 	return isset($line[$field])?$line[$field]:false;
 }
-?>
