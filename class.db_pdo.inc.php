@@ -315,8 +315,7 @@
 			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __LINE__, __FILE__);
 			$this->Row = 0;
 			if ($success === false) {
-				$email = "MySQL Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset
-					($GLOBALS['tf']) ? "User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQL Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ? "User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= "<br><br>Request Variables:<br>";
 				foreach ($_REQUEST as $key => $value) {
