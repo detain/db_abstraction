@@ -374,9 +374,7 @@
 					$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
 					$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
 					$headers .= "From: " . TITLE . " <" . EMAIL_FROM . ">" . EMAIL_NEWLINE;
-					$headers .= "X-Priority: 1" . EMAIL_NEWLINE;
-					$headers .= "X-MimeOLE: Produced By TF Admin Suite" . EMAIL_NEWLINE;
-					$headers .= "X-MSMail-Priority: High" . EMAIL_NEWLINE;
+
 					$headers .= "X-Mailer: Trouble-Free.Net Admin Center" . EMAIL_NEWLINE;
 					mail('john@interserver.net', $subject, $email, $headers);
 					mail('detain@interserver.net', $subject, $email, $headers);
