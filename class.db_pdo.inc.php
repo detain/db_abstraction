@@ -46,6 +46,8 @@
 		public $Link_ID = false;
 		public $Query_ID = 0;
 
+		public $max_matches = 10000000;
+
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
 		 *
@@ -214,9 +216,9 @@
 			echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
 			if ($start == 0) {
-				$s = 'limit ' . $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
+				$s = 'limit ' . $this->max_matches;
 			} else {
-				$s = "limit $start," . $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
+				$s = "limit $start," . $this->max_matches;
 			}
 			return $s;
 		}
@@ -353,7 +355,7 @@
 		 */
 		public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
 			if (!$num_rows) {
-				$num_rows = $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
+				$num_rows = $this->max_matches;
 			}
 
 			if ($offset == 0) {
