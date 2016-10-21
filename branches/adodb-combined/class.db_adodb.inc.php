@@ -29,6 +29,7 @@
 		public $Debug = 0; // Set to 1 for debugging messages.
 		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
 		public $Seq_Table = 'db_sequence';
+		public $max_matches = 1000000;
 
 		/* public: result array and current row number */
 		public $Record = array();
@@ -211,9 +212,9 @@
 			echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
 			if ($start == 0) {
-				$s = 'limit ' . $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
+				$s = 'limit ' . $this->max_matches;
 			} else {
-				$s = "limit $start," . $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
+				$s = "limit $start," . $this->max_matches;
 			}
 			return $s;
 		}
@@ -353,7 +354,7 @@
 		 */
 		public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
 			if (!$num_rows) {
-				$num_rows = $GLOBALS['phpgw_info']['user']['preferences']['common']['maxmatchs'];
+				$num_rows = $this->max_matches;
 			}
 
 			if ($offset == 0) {
