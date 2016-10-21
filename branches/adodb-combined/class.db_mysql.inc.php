@@ -26,7 +26,7 @@
 		public $auto_stripslashes = false;
 		public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
 		public $Debug = 0; // Set to 1 for debugging messages.
-		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 		public $Seq_Table = 'db_sequence';
 
 		/* public: result array and current row number */
@@ -142,7 +142,7 @@
 			return $this->Link_ID;
 		}
 
-		/* This only affects systems not using persistant connections */
+		/* This only affects systems not using persistent connections */
 		/**
 		 * db::disconnect()
 		 * @return int
@@ -201,7 +201,7 @@
 
 		/**
 		 * db::from_timestamp()
-		 * converts a mysql timestamp into a unix timetsamp
+		 * converts a mysql timestamp into a unix timestamp
 		 *
 		 * @param string $timestamp mysql formatted timestamp
 		 * @return integer unix time
@@ -420,7 +420,7 @@
 				$this->halt("seek($pos) failed: result has " . $this->num_rows() . " rows");
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
-				* desireable behaviour.
+				* desirable behaviour.
 				*/
 				@mysql_data_seek($this->Query_ID, $this->num_rows());
 				$this->Row = $this->num_rows;

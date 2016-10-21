@@ -23,7 +23,7 @@
 
 		public $auto_stripslashes = false;
 
-		/* "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning) */
+		/* "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning) */
 		public $Halt_On_Error = 'yes';
 
 		public $Link_ID = 0;
