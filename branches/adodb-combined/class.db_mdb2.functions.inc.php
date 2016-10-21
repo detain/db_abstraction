@@ -1,6 +1,6 @@
 <?php
 	/**
-	* MDB2 Wrapper Made To Handle Liike Our Other ClasssesRelated Functionality
+	* MDB2 Wrapper Made To Handle Like Our Other Classes Related Functionality
 	* Last Changed: $LastChangedDate$
 	* @author detain
 	* @version $Revision$
@@ -51,7 +51,7 @@
 		/**
 		 * @var string
 		 */
-		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 		/**
 		 * @var string
 		 */
@@ -77,7 +77,7 @@
 		public $Query_ID = 0;
 
 		public $max_connect_errors = 30;
-		public $connection_atttempt = 0;
+		public $connection_attempt = 0;
 
 		public $max_matches = 10000000;
 
@@ -215,10 +215,10 @@
 			}
 			/* establish connection, select database */
 			if (!is_object($this->Link_ID)) {
-				$this->connection_atttempt++;
-				if ($this->connection_atttempt > 1)
-					billingd_log("MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
-				if ($this->connection_atttempt >= $this->max_connect_errors) {
+				$this->connection_attempt++;
+				if ($this->connection_attempt > 1)
+					billingd_log("MySQLi Connection Attempt #{$this->connection_attempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
+				if ($this->connection_attempt >= $this->max_connect_errors) {
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
 				}
@@ -239,7 +239,7 @@
 			return $this->Link_ID;
 		}
 
-		/* This only affects systems not using persistant connections */
+		/* This only affects systems not using persistent connections */
 		/**
 		 * db::disconnect()
 		 * @return int
@@ -517,7 +517,7 @@
 				$this->halt("seek($pos) failed: result has " . $this->num_rows() . " rows");
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
-				* desireable behaviour.
+				* desirable behaviour.
 				*/
 				@mysqli_data_seek($this->Query_ID, $this->num_rows());
 				$this->Row = $this->num_rows;

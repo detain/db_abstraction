@@ -32,7 +32,7 @@
 		/* public: configuration parameters */
 		public $auto_stripslashes = false;
 		public $Debug = 0; // Set to 1 for debugging messages.
-		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 		public $Seq_Table = 'db_sequence';
 
 		/* public: result array and current row number */
@@ -69,7 +69,7 @@
 		}
 
 		/**
-		 * @param strnig $message
+		 * @param string $message
 		 * @param string $line
 		 * @param string $file
 		 */
