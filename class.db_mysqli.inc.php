@@ -48,7 +48,7 @@
 		/**
 		 * @var string
 		 */
-		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 		/**
 		 * @var string
 		 */
@@ -77,7 +77,7 @@
 		public $Query_ID = 0;
 
 		public $max_connect_errors = 30;
-		public $connection_atttempt = 0;
+		public $connection_attempt = 0;
 
 		public $max_matches = 10000000;
 
@@ -178,7 +178,7 @@
 			return $this->Link_ID;
 		}
 
-		/* This only affects systems not using persistant connections */
+		/* This only affects systems not using persistent connections */
 		/**
 		 * db::disconnect()
 		 * @return int
@@ -458,7 +458,7 @@
 				$this->halt("seek($pos) failed: result has " . $this->num_rows() . " rows");
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
-				* desireable behaviour.
+				* desirable behaviour.
 				*/
 				@mysqli_data_seek($this->Query_ID, $this->num_rows());
 				$this->Row = $this->num_rows;
@@ -544,7 +544,7 @@
 
 		/**
 		 * db::unlock()
-		 * @param bool $halt_on_error optional, deffaults to true, whether or not to halt on error
+		 * @param bool $halt_on_error optional, defaults to true, whether or not to halt on error
 		 * @return bool|int|\mysqli_result
 		 */
 		public function unlock($halt_on_error = true) {
