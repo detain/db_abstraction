@@ -96,12 +96,12 @@
 		 */
 		public function connect() {
 			if (0 == $this->Link_ID) {
-				$cstr = 'dbname=' . $this->Database . $this->ifadd($this->Host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'",
+				$connect_string = 'dbname=' . $this->Database . $this->ifadd($this->Host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'",
 					'password=');
 				if ($GLOBALS['phpgw_info']['server']['db_persistent']) {
-					$this->Link_ID = pg_pconnect($cstr);
+					$this->Link_ID = pg_pconnect($connect_string);
 				} else {
-					$this->Link_ID = pg_connect($cstr);
+					$this->Link_ID = pg_connect($connect_string);
 				}
 
 				if (!$this->Link_ID) {
@@ -187,7 +187,7 @@
 			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 		}
 
-		/* This only affects systems not using persistant connections */
+		/* This only affects systems not using persistent connections */
 		/**
 		 * db::disconnect()
 		 * @return bool
@@ -263,7 +263,7 @@
 		public function query($Query_String, $line = '', $file = '') {
 			if (!$line && !$file) {
 				if (isset($GLOBALS['tf'])) {
-					$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didnt pass __LINE__ and __FILE__ to db->query() - Actually query: $Query_String");
+					$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didn't pass __LINE__ and __FILE__ to db->query() - Actually query: $Query_String");
 				}
 			}
 
