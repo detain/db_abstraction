@@ -27,7 +27,7 @@
 		public $auto_stripslashes = false;
 		public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
 		public $Debug = 0; // Set to 1 for debugging messages.
-		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore errror, but spit a warning)
+		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 		public $Seq_Table = 'db_sequence';
 		public $max_matches = 1000000;
 
@@ -137,7 +137,7 @@
 			return $this->Link_ID;
 		}
 
-		/* This only affects systems not using persistant connections */
+		/* This only affects systems not using persistent connections */
 		/**
 		 * db::disconnect()
 		 * @return void
@@ -405,7 +405,7 @@
 				$this->halt("seek($pos) failed: result has " . sizeof($this->Rows) . " rows");
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
-				* desireable behaviour.
+				* desirable behaviour.
 				*/
 				return 0;
 			}
