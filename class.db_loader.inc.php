@@ -71,7 +71,7 @@
 						include_once('class.db_pgsql.inc.php');
 						break;
 					default:
-						$this->log('Could not find DB clas ' . $this->Type, __LINE__, __FILE__);
+						$this->log('Could not find DB class ' . $this->Type, __LINE__, __FILE__);
 						break;
 				}
 			}
