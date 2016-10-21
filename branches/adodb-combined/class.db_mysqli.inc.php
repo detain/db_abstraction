@@ -542,7 +542,7 @@
 
 		/**
 		 * db::unlock()
-		 * @param bool $halt_on_error optional, deffaults to true, wether or not to halt on error
+		 * @param bool $halt_on_error optional, deffaults to true, whether or not to halt on error
 		 * @return bool|int|\mysqli_result
 		 */
 		public function unlock($halt_on_error = true) {
