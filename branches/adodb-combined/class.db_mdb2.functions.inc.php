@@ -93,7 +93,7 @@
 					return "'" . mysqli_real_escape_string($this->Link_ID, $text) . "'";
 					break;
 				case 'integer':
-					return intval($text);
+					return (int)$text;
 					break;
 				default:
 					return $text;
