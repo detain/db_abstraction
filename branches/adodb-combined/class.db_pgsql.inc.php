@@ -78,6 +78,23 @@
 			}
 		}
 
+		/* public: some trivial reporting */
+		/**
+		 * db::link_id()
+		 * @return int
+		 */
+		public function link_id() {
+			return $this->Link_ID;
+		}
+
+		/**
+		 * db::query_id()
+		 * @return int
+		 */
+		public function query_id() {
+			return $this->Query_ID;
+		}
+
 		/**
 		 * @param        $message
 		 * @param string $line
@@ -607,6 +624,43 @@
 		}
 
 		/**
+		 * db::haltmsg()
+		 *
+		 * @param mixed $msg
+		 * @return void
+		 */
+		public function haltmsg($msg, $line = '', $file = '') {
+			$this->log("Database error: $msg", $line, $file);
+			if ($this->Errno != "0" || !in_array($this->Error, '', "()")) {
+				$sqlstate = mysqli_sqlstate($this->Link_ID);
+				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . " (" . $this->Error . ")", $line, $file);
+			}
+			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
+			$this->log(
+				(strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
+				((isset($_POST) && count($_POST)) ? ' POST='.serialize($_POST) : '').
+				((isset($_GET) && count($_GET)) ? ' GET='.serialize($_GET) : '').
+				((isset($_FILES) && count($_FILES)) ? ' FILES='.serialize($_FILES) : '').
+				(strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
+				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
+				                                      ($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
+			for($level=1;$level < count($backtrace);$level++) {
+				$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
+				         (isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
+				         ' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
+				         (isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
+				         $backtrace[$level] ['function'].'(';
+				if(isset($backtrace[$level] ['args']))
+					for($argument = 0; $argument < count($backtrace[$level]['args']); $argument++)
+						$message .= ($argument > 0 ? ', ' : '').
+						            (gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : serialize($backtrace[$level]['args'][$argument]));
+				$message.=')';
+				$this->log($message);
+			}
+
+		}
+
+			/**
 		 * db::table_names()
 		 *
 		 * @return array
