@@ -131,7 +131,7 @@
 					$this->Link_ID = new PDO($DSN, $User, $Password);
 				}
 				catch (PDOException $e) {
-					$this->halt("Connection Failed " . $e->getMessage());
+					$this->halt('Connection Failed ' . $e->getMessage());
 					return 0;
 				}
 			}
@@ -296,8 +296,7 @@
 			if (!$this->connect()) {
 				return 0;
 				/* we already complained in connect() about that. */
-			};
-
+			}
 			// New query, discard previous result.
 			if ($this->Query_ID !== false) {
 				$this->free();
@@ -313,30 +312,30 @@
 			$this->Query_ID = $this->Link_ID->prepare($Query_String);
 			$success = $this->Query_ID->execute();
 			$this->Rows = $this->Query_ID->fetchAll();
-			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . " Rows", __LINE__, __FILE__);
+			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . ' Rows', __LINE__, __FILE__);
 			$this->Row = 0;
 			if ($success === false) {
-				$email = "MySQL Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ? "User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQL Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
-				$email .= "<br><br>Request Variables:<br>";
+				$email .= '<br><br>Request Variables:<br>';
 				foreach ($_REQUEST as $key => $value) {
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
 
-				$email .= "<br><br>Server Variables:<br>";
+				$email .= '<br><br>Server Variables:<br>';
 				foreach ($_SERVER as $key => $value) {
 					$email .= $key . ': ' . $value . "<br>\n";
 				}
 				$subject = DOMAIN . ' PDO MySQL Error On ' . TITLE;
 				$headers = '';
-				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
-				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
-				$headers .= "From: " . TITLE . " <" . EMAIL_FROM . ">" . EMAIL_NEWLINE;
+				$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
+				$headers .= 'Content-type: text/html; charset=iso-8859-1' . EMAIL_NEWLINE;
+				$headers .= 'From: ' . TITLE . ' <' . EMAIL_FROM . '>' . EMAIL_NEWLINE;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
-				$headers .= "X-Mailer: Trouble-Free.Net Admin Center" . EMAIL_NEWLINE;
+				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
 				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
-				$this->halt("Invalid SQL: " . $Query_String, $line, $file);
+				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
 			}
 
 			// Will return nada if it fails. That's fine.
@@ -405,7 +404,7 @@
 			if (isset($this->Rows[$pos])) {
 				$this->Row = $pos;
 			} else {
-				$this->halt("seek($pos) failed: result has " . sizeof($this->Rows) . " rows");
+				$this->halt("seek($pos) failed: result has " . sizeof($this->Rows) . ' rows');
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
 				* desirable behaviour.
@@ -559,7 +558,7 @@
 		 * @param string $strip_slashes
 		 * @return string
 		 */
-		public function f($Name, $strip_slashes = "") {
+		public function f($Name, $strip_slashes = '') {
 			if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes)) {
 				return stripslashes($this->Record[$Name]);
 			} else {
@@ -599,14 +598,14 @@
 					$q = sprintf("insert into %s values('%s', %s)", $this->Seq_Table, $seq_name, $currentid);
 					$id = @mysql_query($q, $this->Link_ID);
 				} else {
-					$currentid = $res["nextid"];
+					$currentid = $res['nextid'];
 				}
 				$nextid = $currentid + 1;
 				$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->Seq_Table, $nextid, $seq_name);
 				$id = @mysql_query($q, $this->Link_ID);
 				$this->unlock();
 			} else {
-				$this->halt("cannot lock " . $this->Seq_Table . " - has it been created?");
+				$this->halt('cannot lock ' . $this->Seq_Table . ' - has it been created?');
 				return 0;
 			}
 			return $nextid;
@@ -627,7 +626,7 @@
 
 			//$this->Error = @mysql_error($this->Link_ID);
 			//$this->Errno = @mysql_errno($this->Link_ID);
-			if ($this->Halt_On_Error == "no") {
+			if ($this->Halt_On_Error == 'no') {
 				return;
 			}
 			$this->haltmsg($msg);
@@ -639,8 +638,8 @@
 				error_log("Line: $line");
 			}
 
-			if ($this->Halt_On_Error != "report") {
-				echo "<p><b>Session halted.</b>";
+			if ($this->Halt_On_Error != 'report') {
+				echo '<p><b>Session halted.</b>';
 				// FIXME! Add check for error levels
 				if (isset($GLOBALS['tf']))
 					$GLOBALS['tf']->terminate();
@@ -655,8 +654,8 @@
 		 */
 		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
-			if ($this->Errno != "0" || $this->Error != "()") {
-				$this->log("PDO MySQL Error: " . print_r($this->Link_ID->errorInfo(), true), __LINE__, __FILE__);
+			if ($this->Errno != '0' || $this->Error != '()') {
+				$this->log('PDO MySQL Error: ' . print_r($this->Link_ID->errorInfo(), true), __LINE__, __FILE__);
 			}
 		}
 
@@ -667,7 +666,7 @@
 		 */
 		public function table_names() {
 			$return = array();
-			$this->query("SHOW TABLES");
+			$this->query('SHOW TABLES');
 			foreach ($this->Rows as $i => $info) {
 				$return[$i]['table_name'] = $info[0];
 				$return[$i]['tablespace_name'] = $this->Database;
@@ -701,7 +700,7 @@
 			if ($adminname != '') {
 				$this->User = $adminname;
 				$this->Password = $adminpasswd;
-				$this->Database = "mysql";
+				$this->Database = 'mysql';
 			}
 			$this->disconnect();
 			$this->query("CREATE DATABASE $currentDatabase");

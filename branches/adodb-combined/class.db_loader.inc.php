@@ -147,7 +147,7 @@
 		public function halt($msg, $line = '', $file = '') {
 			$this->unlock(false);
 
-			if ($this->Halt_On_Error == "no") {
+			if ($this->Halt_On_Error == 'no') {
 				return;
 			}
 			$this->haltmsg($msg);
@@ -158,8 +158,8 @@
 			if ($line) {
 				error_log("Line: $line");
 			}
-			if ($this->Halt_On_Error != "report") {
-				echo "<p><b>Session halted.</b>";
+			if ($this->Halt_On_Error != 'report') {
+				echo '<p><b>Session halted.</b>';
 				// FIXME! Add check for error levels
 				if (isset($GLOBALS['tf']))
 					$GLOBALS['tf']->terminate();
@@ -171,8 +171,8 @@
 		 */
 		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
-			if ($this->Errno != "0" || $this->Error != "()") {
-				$this->log("SQL Error: " . $this->Errno . " (" . $this->Error . ")", __LINE__, __FILE__);
+			if ($this->Errno != '0' || $this->Error != '()') {
+				$this->log('SQL Error: ' . $this->Errno . ' (' . $this->Error . ')', __LINE__, __FILE__);
 			}
 		}
 
