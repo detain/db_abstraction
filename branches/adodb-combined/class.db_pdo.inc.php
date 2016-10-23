@@ -71,6 +71,7 @@
 		 * @param        $message
 		 * @param string $line
 		 * @param string $file
+		 * @return mixed|void
 		 */
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('billingd_log'))
@@ -512,7 +513,7 @@
 		/**
 		 * db::affected_rows()
 		 *
-		 * @return
+		 * @return mixed
 		 */
 		public function affected_rows() {
 			return @$this->Query_ID->rowCount();

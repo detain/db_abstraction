@@ -103,7 +103,10 @@
 
 		/**
 		 * db_mdb2::queryOne()
+		 *
 		 * @param mixed $query
+		 * @param string $line
+		 * @param string $file
 		 * @return bool
 		 */
 		public function queryOne($query, $line = '', $file = '') {
@@ -117,7 +120,10 @@
 
 		/**
 		 * db_mdb2::queryRow()
+		 *
 		 * @param mixed $query
+		 * @param string $line
+		 * @param string $file
 		 * @return array|bool
 		 */
 		public function queryRow($query, $line = '', $file = '') {
@@ -162,6 +168,7 @@
 		 * @param        $message
 		 * @param string $line
 		 * @param string $file
+		 * @return mixed|void
 		 */
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('billingd_log')) {
@@ -757,7 +764,9 @@
 		 * db::haltmsg()
 		 *
 		 * @param mixed $msg
-		 * @return void
+		 * @param string $line
+		 * @param string $file
+		 * @return mixed|void
 		 */
 		public function haltmsg($msg, $line = '', $file = '') {
 			$this->log("Database error: $msg", $line, $file);
