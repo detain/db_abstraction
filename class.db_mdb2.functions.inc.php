@@ -422,7 +422,7 @@
 			$this->Errno = @mysqli_errno($this->Link_ID);
 			$this->Error = @mysqli_error($this->Link_ID);
 			while ($this->Query_ID === false && $try <= $tries) {
-				$this->message = "MySQL error " . @mysqli_errno($this->Link_ID) . ": " . @mysqli_error($this->Link_ID) . ' Query: ' . $this->query;
+				$this->message = 'MySQL error ' . @mysqli_errno($this->Link_ID) . ': ' . @mysqli_error($this->Link_ID) . ' Query: ' . $this->query;
 				$this->error = true;
 				@mysqli_close($this->Link_ID);
 				$this->connect();
@@ -430,21 +430,21 @@
 			}
 			$this->Halt_On_Error = $halt_prev;
 			if ($this->Query_ID === false) {
-				$email = "MySQLi Error<br>\n" . "Query: " . $Query_String . "<br>\n" . "Error #" . $this->Errno . ": " . $this->Error . "<br>\n" . "Line: " . $line . "<br>\n" . "File: " . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
-					"User: " . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQLi Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . $this->Errno . ': ' . $this->Error . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
+						'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
-				$email .= "<br><br>Request Variables:<br>" . print_r($_REQUEST, true);
-				$email .= "<br><br>Server Variables:<br>" . print_r($_SERVER, true);
+				$email .= '<br><br>Request Variables:<br>' . print_r($_REQUEST, true);
+				$email .= '<br><br>Server Variables:<br>' . print_r($_SERVER, true);
 				$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
 				$headers = '';
-				$headers .= "MIME-Version: 1.0" . EMAIL_NEWLINE;
-				$headers .= "Content-type: text/html; charset=iso-8859-1" . EMAIL_NEWLINE;
-				$headers .= "From: " . TITLE . " <" . EMAIL_FROM . ">" . EMAIL_NEWLINE;
+				$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
+				$headers .= 'Content-type: text/html; charset=iso-8859-1' . EMAIL_NEWLINE;
+				$headers .= 'From: ' . TITLE . ' <' . EMAIL_FROM . '>' . EMAIL_NEWLINE;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
-				$headers .= "X-Mailer: Trouble-Free.Net Admin Center" . EMAIL_NEWLINE;
+				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
 				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
-				$this->halt("Invalid SQL: " . $Query_String, $line, $file);
+				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
 			}
 
 			// Will return nada if it fails. That's fine.
@@ -514,7 +514,7 @@
 			if ($status) {
 				$this->Row = $pos;
 			} else {
-				$this->halt("seek($pos) failed: result has " . $this->num_rows() . " rows");
+				$this->halt("seek($pos) failed: result has " . $this->num_rows() . ' rows');
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
 				* desirable behaviour.
@@ -580,10 +580,10 @@
 		public function lock($table, $mode = 'write') {
 			$this->connect();
 
-			$query = "lock tables ";
+			$query = 'lock tables ';
 			if (is_array($table)) {
 				while (list($key, $value) = each($table)) {
-					if ($key == "read" && $key != 0) {
+					if ($key == 'read' && $key != 0) {
 						$query .= "$value read, ";
 					} else {
 						$query .= "$value $mode, ";
@@ -608,9 +608,9 @@
 		public function unlock() {
 			$this->connect();
 
-			$res = @mysqli_query($this->Link_ID, "unlock tables");
+			$res = @mysqli_query($this->Link_ID, 'unlock tables');
 			if (!$res) {
-				$this->halt("unlock() failed.");
+				$this->halt('unlock() failed.');
 				return 0;
 			}
 			return $res;
@@ -665,7 +665,7 @@
 		 * @param string $strip_slashes
 		 * @return string
 		 */
-		public function f($Name, $strip_slashes = "") {
+		public function f($Name, $strip_slashes = '') {
 			if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes)) {
 				return stripslashes($this->Record[$Name]);
 			} else {
@@ -705,14 +705,14 @@
 					$q = sprintf("insert into %s values('%s', %s)", $this->Seq_Table, $seq_name, $currentid);
 					$id = @$this->Link_ID->query($q);
 				} else {
-					$currentid = $res["nextid"];
+					$currentid = $res['nextid'];
 				}
 				$nextid = $currentid + 1;
 				$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->Seq_Table, $nextid, $seq_name);
 				$id = @$this->Link_ID->query($q);
 				$this->unlock();
 			} else {
-				$this->halt("cannot lock " . $this->Seq_Table . " - has it been created?");
+				$this->halt('cannot lock ' . $this->Seq_Table . ' - has it been created?');
 				return 0;
 			}
 			return $nextid;
@@ -733,7 +733,7 @@
 
 			//$this->Error = @$this->Link_ID->error;
 			//$this->Errno = @$this->Link_ID->errno;
-			if ($this->Halt_On_Error == "no") {
+			if ($this->Halt_On_Error == 'no') {
 				return;
 			}
 			$this->haltmsg($msg);
@@ -745,8 +745,8 @@
 				error_log("Line: $line");
 			}
 
-			if ($this->Halt_On_Error != "report") {
-				echo "<p><b>Session halted.</b>";
+			if ($this->Halt_On_Error != 'report') {
+				echo '<p><b>Session halted.</b>';
 				// FIXME! Add check for error levels
 				if (isset($GLOBALS['tf']))
 					$GLOBALS['tf']->terminate();
@@ -761,9 +761,9 @@
 		 */
 		public function haltmsg($msg, $line = '', $file = '') {
 			$this->log("Database error: $msg", $line, $file);
-			if ($this->Errno != "0" || !in_array($this->Error, '', "()")) {
+			if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
 				$sqlstate = mysqli_sqlstate($this->Link_ID);
-				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . " (" . $this->Error . ")", $line, $file);
+				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . ' (' . $this->Error . ')', $line, $file);
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
@@ -797,7 +797,7 @@
 		 */
 		public function table_names() {
 			$return = array();
-			$this->query("SHOW TABLES");
+			$this->query('SHOW TABLES');
 			$i = 0;
 			while ($info = $this->Query_ID->fetch_row()) {
 				$return[$i]['table_name'] = $info[0];
@@ -833,7 +833,7 @@
 			if ($adminname != '') {
 				$this->User = $adminname;
 				$this->Password = $adminpasswd;
-				$this->Database = "mysql";
+				$this->Database = 'mysql';
 			}
 			$this->disconnect();
 			$this->query("CREATE DATABASE $currentDatabase");
@@ -846,9 +846,5 @@
 			$this->connect();
 			/*return $return; */
 		}
-
-	}
-
-	class db_mdb2_result extends db_mdb2 {
 
 	}

@@ -124,7 +124,7 @@
 				if (!$this->Link_ID) {
 					$this->halt('Link-ID == false, ' . ($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '') . 'connect failed');
 				} else {
-					$this->query("select version()", __LINE__, __FILE__);
+					$this->query('select version()', __LINE__, __FILE__);
 					$this->next_record();
 
 					$version = $this->f('version');
@@ -297,10 +297,10 @@
 
 			/* printf("<br>Debug: query = %s<br>\n", $Query_String); */
 
-			$this->Query_ID = @pg_Exec($this->Link_ID, $Query_String);
+			$this->Query_ID = @pg_exec($this->Link_ID, $Query_String);
 			$this->Row = 0;
 
-			$this->Error = pg_ErrorMessage($this->Link_ID);
+			$this->Error = pg_errormessage($this->Link_ID);
 			$this->Errno = ($this->Error == '') ? 0 : 1;
 			if (!$this->Query_ID) {
 				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
@@ -351,7 +351,7 @@
 		public function next_record() {
 			$this->Record = @pg_fetch_array($this->Query_ID, $this->Row++);
 
-			$this->Error = pg_ErrorMessage($this->Link_ID);
+			$this->Error = pg_errormessage($this->Link_ID);
 			$this->Errno = ($this->Error == '') ? 0 : 1;
 
 			$stat = is_array($this->Record);
@@ -387,7 +387,7 @@
 		 */
 		public function transaction_commit() {
 			if (!$this->Errno) {
-				return pg_Exec($this->Link_ID, 'commit');
+				return pg_exec($this->Link_ID, 'commit');
 			} else {
 				return false;
 			}
@@ -398,7 +398,7 @@
 		 * @return mixed
 		 */
 		public function transaction_abort() {
-			return pg_Exec($this->Link_ID, 'rollback');
+			return pg_exec($this->Link_ID, 'rollback');
 		}
 
 		/**
@@ -423,7 +423,7 @@
 				return - 1;
 			}
 
-			$result = @pg_Exec($this->Link_ID, "select $field from $table where oid=$oid");
+			$result = @pg_exec($this->Link_ID, "select $field from $table where oid=$oid");
 			if (!$result) {
 				return - 1;
 			}
@@ -450,10 +450,10 @@
 			if ($mode == 'write') {
 				if (is_array($table)) {
 					while ($t = each($table)) {
-						$result = pg_Exec($this->Link_ID, 'lock table ' . $t[1] . ' in share mode');
+						$result = pg_exec($this->Link_ID, 'lock table ' . $t[1] . ' in share mode');
 					}
 				} else {
-					$result = pg_Exec($this->Link_ID, 'lock table ' . $table . ' in share mode');
+					$result = pg_exec($this->Link_ID, 'lock table ' . $table . ' in share mode');
 				}
 			} else {
 				$result = 1;
@@ -482,20 +482,20 @@
 			if ($this->lock($this->Seq_Table)) {
 				/* get sequence number (locked) and increment */
 				$q = sprintf("select nextid from %s where seq_name = '%s'", $this->Seq_Table, $seq_name);
-				$id = @pg_Exec($this->Link_ID, $q);
-				$res = @pg_Fetch_Array($id, 0);
+				$id = @pg_exec($this->Link_ID, $q);
+				$res = @pg_fetch_array($id, 0);
 
 				/* No current value, make one */
 				if (!is_array($res)) {
 					$currentid = 0;
 					$q = sprintf("insert into %s values('%s', %s)", $this->Seq_Table, $seq_name, $currentid);
-					$id = @pg_Exec($this->Link_ID, $q);
+					$id = @pg_exec($this->Link_ID, $q);
 				} else {
 					$currentid = $res['nextid'];
 				}
 				$nextid = $currentid + 1;
 				$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->Seq_Table, $nextid, $seq_name);
-				$id = @pg_Exec($this->Link_ID, $q);
+				$id = @pg_exec($this->Link_ID, $q);
 				$this->unlock();
 			} else {
 				$this->halt('cannot lock ' . $this->Seq_Table . ' - has it been created?');
@@ -596,7 +596,7 @@
 				if ($this->xmlrpc || $this->soap) {
 					$s .= sprintf("File: %s\n", $file);
 				} else {
-					$s .= sprintf("<br><b>File:</b> %s", $file);
+					$s .= sprintf('<br><b>File:</b> %s', $file);
 				}
 			}
 
@@ -604,7 +604,7 @@
 				if ($this->xmlrpc || $this->soap) {
 					$s .= sprintf("Line: %s\n", $line);
 				} else {
-					$s .= sprintf("<br><b>Line:</b> %s", $line);
+					$s .= sprintf('<br><b>Line:</b> %s', $line);
 				}
 			}
 
@@ -631,9 +631,9 @@
 		 */
 		public function haltmsg($msg, $line = '', $file = '') {
 			$this->log("Database error: $msg", $line, $file);
-			if ($this->Errno != "0" || !in_array($this->Error, '', "()")) {
+			if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
 				$sqlstate = mysqli_sqlstate($this->Link_ID);
-				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . " (" . $this->Error . ")", $line, $file);
+				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . ' (' . $this->Error . ')', $line, $file);
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
@@ -708,7 +708,7 @@
 			$currentPassword = $this->Password;
 			$currentDatabase = $this->Database;
 
-			if ($adminname != "") {
+			if ($adminname != '') {
 				$this->User = $adminname;
 				$this->Password = $adminpasswd;
 			}
