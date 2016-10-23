@@ -78,6 +78,7 @@
 		 * @param        $message
 		 * @param string $line
 		 * @param string $file
+		 * @return mixed|void
 		 */
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('billingd_log'))
@@ -439,7 +440,7 @@
 		 *
 		 * @param mixed $table
 		 * @param mixed $field
-		 * @return
+		 * @return mixed
 		 */
 		public function get_last_insert_id($table, $field) {
 			return $this->Link_ID->Insert_ID($table, $field);
@@ -506,7 +507,7 @@
 		/**
 		 * db::affected_rows()
 		 *
-		 * @return
+		 * @return mixed
 		 */
 		public function affected_rows() {
 			return @$this->Link_ID->Affected_Rows();
@@ -516,7 +517,7 @@
 		/**
 		 * db::num_rows()
 		 *
-		 * @return
+		 * @return mixed
 		 */
 		public function num_rows() {
 			return $this->Query_ID->NumRows();
@@ -525,7 +526,7 @@
 		/**
 		 * db::num_fields()
 		 *
-		 * @return
+		 * @return mixed
 		 */
 		public function num_fields() {
 			return $this->Query_ID->NumCols();
@@ -535,7 +536,7 @@
 		/**
 		 * db::nf()
 		 *
-		 * @return
+		 * @return mixed
 		 */
 		public function nf() {
 			return $this->num_rows();
