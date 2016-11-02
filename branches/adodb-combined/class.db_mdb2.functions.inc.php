@@ -783,14 +783,14 @@
 				(strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
 				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
-			for($level=1;$level < count($backtrace);$level++) {
+			for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
 				$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
 					(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
 					' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
 					(isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
 					$backtrace[$level] ['function'].'(';
 				if(isset($backtrace[$level] ['args']))
-					for($argument = 0; $argument < count($backtrace[$level]['args']); $argument++)
+					for($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
 						$message .= ($argument > 0 ? ', ' : '').
 							(gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : serialize($backtrace[$level]['args'][$argument]));
 				$message.=')';
