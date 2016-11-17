@@ -78,6 +78,27 @@
 			}
 		}
 
+		/**
+		 * alias function of select_db, changes the database we are working with.
+		 *
+		 * @param string $database the name of the database to use
+		 * @return void
+		 */
+		public function use_db($database) {
+			$this->select_db($database);
+		}
+
+		/**
+		 * changes the database we are working with.
+		 *
+		 * @param string $database the name of the database to use
+		 * @return void
+		 */
+		public function select_db($database) {
+			$this->connect();
+			$this->query("use {$database}", __LINE__, __FILE__);
+		}
+
 		/* public: some trivial reporting */
 		/**
 		 * db::link_id()
@@ -114,8 +135,7 @@
 		 */
 		public function connect() {
 			if (0 == $this->Link_ID) {
-				$connect_string = 'dbname=' . $this->Database . $this->ifadd($this->Host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'",
-					'password=');
+				$connect_string = 'dbname=' . $this->Database . $this->ifadd($this->Host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'", 'password=');
 				if ($GLOBALS['phpgw_info']['server']['db_persistent']) {
 					$this->Link_ID = pg_pconnect($connect_string);
 				} else {
@@ -646,17 +666,17 @@
 				((isset($_FILES) && count($_FILES)) ? ' FILES='.serialize($_FILES) : '').
 				(strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
-				                                      ($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
+													  ($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
 			for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
 				$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
-				         (isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
-				         ' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
-				         (isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
-				         $backtrace[$level] ['function'].'(';
+						 (isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
+						 ' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
+						 (isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
+						 $backtrace[$level] ['function'].'(';
 				if(isset($backtrace[$level] ['args']))
 					for($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
 						$message .= ($argument > 0 ? ', ' : '').
-						            (gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : serialize($backtrace[$level]['args'][$argument]));
+									(gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : serialize($backtrace[$level]['args'][$argument]));
 				$message.=')';
 				$this->log($message);
 			}
