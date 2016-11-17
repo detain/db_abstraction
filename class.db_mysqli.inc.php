@@ -113,6 +113,27 @@
 				error_log($message);
 		}
 
+		/**
+		 * alias function of select_db, changes the database we are working with.
+		 *
+		 * @param string $database the name of the database to use
+		 * @return void
+		 */
+		public function use_db($database) {
+			$this->select_db($database);
+		}
+
+		/**
+		 * changes the database we are working with.
+		 *
+		 * @param string $database the name of the database to use
+		 * @return void
+		 */
+		public function select_db($database) {
+			$this->connect();
+			mysqli_select_db($this->Link_ID, $database);
+		}
+
 		/* public: some trivial reporting */
 		/**
 		 * db::link_id()
@@ -164,6 +185,7 @@
 				}
 				//$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
 				$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
+
 				/*
 				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
 				* if ($this->Link_ID)
