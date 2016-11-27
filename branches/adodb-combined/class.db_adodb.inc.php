@@ -82,7 +82,7 @@
 		 */
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('billingd_log'))
-				billingd_log($message, $line, $file, false);
+				myadmin_log('db', 'info', $message, $line, $file, false);
 			else
 				error_log($message);
 		}
