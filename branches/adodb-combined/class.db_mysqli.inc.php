@@ -107,8 +107,8 @@
 		 * @return mixed|void
 		 */
 		public function log($message, $line = '', $file = '') {
-			if (function_exists('billingd_log'))
-				billingd_log($message, $line, $file, false);
+			if (function_exists('myadmin_log'))
+				myadmin_log('db', 'info', $message, $line, $file, false);
 			else
 				error_log($message);
 		}
@@ -178,7 +178,7 @@
 			if (!is_object($this->Link_ID)) {
 				$this->connection_atttempt++;
 				if ($this->connection_atttempt > 1)
-					billingd_log("MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
+					myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
 				if ($this->connection_atttempt >= $this->max_connect_errors) {
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
