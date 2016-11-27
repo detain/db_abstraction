@@ -173,9 +173,9 @@
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('billingd_log')) {
 				if (isset($GLOBALS['tf']) && isset($GLOBALS['tf']->session) && $GLOBALS['tf']->session->sessionid != '')
-					billingd_log($message, $line, $file);
+					myadmin_log('db', 'info', $message, $line, $file);
 				else
-					billingd_log($message, $line, $file, false);
+					myadmin_log('db', 'info', $message, $line, $file, false);
 			} else
 				error_log($message);
 		}
@@ -245,7 +245,7 @@
 			if (!is_object($this->Link_ID)) {
 				$this->connection_attempt++;
 				if ($this->connection_attempt > 1)
-					billingd_log("MySQLi Connection Attempt #{$this->connection_attempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
+					myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_attempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
 				if ($this->connection_attempt >= $this->max_connect_errors) {
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
