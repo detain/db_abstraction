@@ -117,8 +117,8 @@ abstract class db_generic
 		 * @param string $file
 		 */
 		public function log($message, $line = '', $file = '') {
-			if (function_exists('billingd_log'))
-				billingd_log($message, $line, $file, false);
+			if (function_exists('myadmin_log'))
+				myadmin_log('db', 'info', $message, $line, $file, false);
 			else
 				error_log($message);
 		}
