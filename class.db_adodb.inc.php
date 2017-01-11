@@ -14,7 +14,7 @@
 	 *
 	 * @access public
 	 */
-	class db implements db_interface
+	class db extends db_generic implements db_interface
 	{
 		/* public: connection parameters */
 		public $Host = 'localhost';
