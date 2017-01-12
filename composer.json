@@ -1,0 +1,29 @@
+{
+    "name": "detain/db",
+    "type": "library",
+    "description": "Database Abstraction Class",
+    "keywords": ["db","database","sql","mysql","mysqli","adodb","pgsql","mdb2","sqlite","pdo"],
+    "license": "LGPL-2.1",
+    "authors": [
+        {
+            "name": "Joe Huss",
+            "homepage": "https://my.interserver.net/"
+        }
+    ],
+    "require": {
+        "php": ">=5.0.0"
+    },
+    "require-dev": {
+        "ext-mysqli": "*"
+    },
+    "suggests": {
+        "ext-mysql": "*",
+        "ext-pgsql": "*",
+        "ext-sqlite": "*",
+        "ext-mdb2": "*",
+        "ext-pdo": "*"
+    },
+    "autoload": {
+        "classmap": ["db_generic.inc.php"]
+    }
+}
