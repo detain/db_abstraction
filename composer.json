@@ -1,18 +1,30 @@
 {
-	"name": "detain/db_abstraction",
-	"version": "1.0",
-    "description": "Database Abstraction layer supporting a variety of databases.   Been in use and growing for over 14 years now.",
-    "license": "LGPLv3",
-	"minimum-stability": "dev",
+    "name": "detain/db",
+    "type": "library",
+    "description": "Database Abstraction Class",
+    "keywords": ["db","database","sql","mysql","mysqli","adodb","pgsql","mdb2","sqlite","pdo"],
+    "license": "LGPL-2.1",
     "authors": [
         {
             "name": "Joe Huss",
-            "homepage": "http://interserver.net/",
-            "role": "Developer"
+            "homepage": "https://my.interserver.net/"
         }
     ],
     "require": {
-		"php": ">=5.0",
-        "adodb/adodb-php": "*"
+        "php": ">=5.0.0",
+        "ext-mysqli": "*",
+        "adodb/adodb-php": ">=5.20.9"
+    },
+    "require-dev": {
+    },
+    "suggests": {
+        "ext-mysql": "*",
+        "ext-pgsql": "*",
+        "ext-sqlite": "*",
+        "ext-mdb2": "*",
+        "ext-pdo": "*"
+    },
+    "autoload": {
+        "classmap": ["db_generic.inc.php"]
     }
 }
