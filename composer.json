@@ -1,5 +1,5 @@
 {
-    "name": "detain/db",
+    "name": "detain/db_abstraction",
     "type": "library",
     "description": "Database Abstraction Class",
     "keywords": ["db","database","sql","mysql","mysqli","adodb","pgsql","mdb2","sqlite","pdo"],
