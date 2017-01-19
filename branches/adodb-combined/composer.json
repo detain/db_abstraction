@@ -11,10 +11,11 @@
         }
     ],
     "require": {
-        "php": ">=5.0.0"
+        "php": ">=5.0.0",
+        "ext-mysqli": "*",
+        "adodb/adodb-php": ">=5.20.9"
     },
     "require-dev": {
-        "ext-mysqli": "*"
     },
     "suggests": {
         "ext-mysql": "*",
