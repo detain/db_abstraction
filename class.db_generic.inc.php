@@ -10,6 +10,7 @@
 
 	interface db_interface
 	{
+
 		/**
 		 * db_interface constructor.
 		 *
@@ -28,7 +29,9 @@
 		 * @return mixed
 		 */
 		public function log($message, $line = '', $file = '');
+
 		public function link_id();
+
 		public function query_id();
 
 		/**
@@ -58,7 +61,9 @@
 		 * @return mixed
 		 */
 		public function haltmsg($msg);
+
 		public function index_names();
+
 	}
 
 /**
@@ -210,4 +215,5 @@ abstract class db_generic
 			$return = array();
 			return $return;
 		}
+
 	}

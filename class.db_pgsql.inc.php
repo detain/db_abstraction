@@ -100,6 +100,7 @@
 		}
 
 		/* public: some trivial reporting */
+
 		/**
 		 * db::link_id()
 		 * @return int
@@ -183,7 +184,8 @@
 		}
 
 		// For PostgreSQL 6.x
-		/**
+
+/**
 		 * db::to_timestamp_6()
 		 * @param mixed $epoch
 		 * @return void
@@ -193,7 +195,8 @@
 		}
 
 		// For PostgreSQL 6.x
-		/**
+
+/**
 		 * db::from_timestamp_6()
 		 * @param mixed $timestamp
 		 * @return void
@@ -203,7 +206,8 @@
 		}
 
 		// For PostgreSQL 7.x
-		/**
+
+/**
 		 * db::to_timestamp_7()
 		 * @param mixed $epoch
 		 * @return bool|string
@@ -214,7 +218,8 @@
 		}
 
 		// For PostgreSQL 7.x
-		/**
+
+/**
 		 * db::from_timestamp_7()
 		 * @param mixed $timestamp
 		 * @return int
@@ -226,6 +231,7 @@
 		}
 
 		/* This only affects systems not using persistent connections */
+
 		/**
 		 * db::disconnect()
 		 * @return bool
@@ -331,6 +337,7 @@
 		}
 
 		/* public: perform a query with limited result set */
+
 		/**
 		 * db::limit_query()
 		 * @param mixed  $Query_String
@@ -355,7 +362,8 @@
 		}
 
 		// public: discard the query result
-		/**
+
+/**
 		 * db::free()
 		 *
 		 * @return void
@@ -492,6 +500,7 @@
 		}
 
 		/* public: sequence numbers */
+
 		/**
 		 * db::nextid()
 		 * @param mixed $seq_name
@@ -753,4 +762,5 @@
 			$this->Database = $currentDatabase;
 			$this->connect();
 		}
+
 	}
