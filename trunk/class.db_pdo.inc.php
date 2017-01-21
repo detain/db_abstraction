@@ -102,6 +102,7 @@
 		}
 
 		/* public: some trivial reporting */
+
 		/**
 		 * db::link_id()
 		 * @return bool
@@ -119,6 +120,7 @@
 		}
 
 		/* public: connection management */
+
 		/**
 		 * db::connect()
 		 * @param string $Database
@@ -161,6 +163,7 @@
 		}
 
 		/* This only affects systems not using persistent connections */
+
 		/**
 		 * db::disconnect()
 		 * @return void
@@ -246,6 +249,7 @@
 		}
 
 		/* public: discard the query result */
+
 		/**
 		 * db::free()
 		 * @return void
@@ -365,7 +369,8 @@
 		}
 
 		// public: perform a query with limited result set
-		/**
+
+/**
 		 * db::limit_query()
 		 * @param mixed  $Query_String
 		 * @param mixed  $offset
@@ -393,6 +398,7 @@
 		}
 
 		/* public: walk result set */
+
 		/**
 		 * db::next_record()
 		 * @param mixed $result_type
@@ -417,6 +423,7 @@
 		}
 
 		/* public: position in result set */
+
 		/**
 		 * db::seek()
 		 * @param integer $pos
@@ -474,6 +481,7 @@
 		}
 
 		/* public: table locking */
+
 		/**
 		 * db::lock()
 		 * @param mixed  $table
@@ -531,6 +539,7 @@
 		}
 
 		/* public: evaluate the result (size, width) */
+
 		/**
 		 * db::affected_rows()
 		 *
@@ -558,6 +567,7 @@
 		}
 
 		/* public: shorthand notation */
+
 		/**
 		 * db::nf()
 		 * @return int
@@ -599,6 +609,7 @@
 		}
 
 		/* public: sequence numbers */
+
 		/**
 		 * db::nextid()
 		 *
@@ -634,6 +645,7 @@
 		}
 
 		/* private: error handling */
+
 		/**
 		 * db::halt()
 		 *
@@ -735,4 +747,5 @@
 			$this->connect();
 			/*return $return; */
 		}
+
 	}
