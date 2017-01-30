@@ -25,6 +25,6 @@
         "ext-pdo": "*"
     },
     "autoload": {
-        "classmap": ["db_generic.inc.php"]
+        "psr-4": {"detain\\myAdmin\\DB\\": "src/"}
     }
 }
