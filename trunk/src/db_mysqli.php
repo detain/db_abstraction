@@ -81,6 +81,10 @@
 
 		public $max_matches = 10000000;
 
+		public $character_set = '';
+		public $collation = '';
+
+
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
 		 *

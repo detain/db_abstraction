@@ -38,6 +38,9 @@
 		public $Link_ID = 0;
 		public $Query_ID = 0;
 
+		public $character_set = '';
+		public $collation = '';
+
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
 		 *

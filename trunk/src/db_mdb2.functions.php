@@ -36,6 +36,9 @@
 		public $dns_ns2 = 'cdns2.interserver.net';
 		public $dns_ns3 = 'cdns3.interserver.net';
 
+		public $character_set = '';
+		public $collation = '';
+
 		/**
 		 * @var bool
 		 */
