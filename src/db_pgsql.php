@@ -45,6 +45,9 @@
 		// PostgreSQL changed somethings from 6.x -> 7.x
 		public $db_version;
 
+		public $character_set = '';
+		public $collation = '';
+
 		/**
 		 * db::ifadd()
 		 *
