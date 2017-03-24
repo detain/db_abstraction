@@ -525,7 +525,7 @@
 						$query .= "$value $mode, ";
 					}
 				}
-				$query = substr($query, 0, -2);
+				$query = mb_substr($query, 0, -2);
 			} else {
 				$query .= "$table $mode";
 			}
