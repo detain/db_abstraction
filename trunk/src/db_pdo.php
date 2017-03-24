@@ -219,7 +219,7 @@
 		 * @return mixed
 		 */
 		public function from_timestamp($timestamp) {
-			if (strlen($timestamp) == 19)
+			if (mb_strlen($timestamp) == 19)
 				if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
 					return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 				elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
@@ -508,7 +508,7 @@
 			* $query .= "$value $mode, ";
 			* }
 			* }
-			* $query = substr($query,0,-2);
+			* $query = mb_substr($query,0,-2);
 			* }
 			* else
 			* {

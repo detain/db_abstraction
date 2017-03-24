@@ -628,7 +628,7 @@
 						$query .= "$value $mode, ";
 					}
 				}
-				$query = substr($query, 0, -2);
+				$query = mb_substr($query, 0, -2);
 			} else {
 				$query .= "$table $mode";
 			}
@@ -812,11 +812,11 @@
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
-				(strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
+				(mb_strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
 				((isset($_POST) && count($_POST)) ? ' POST='.serialize($_POST) : '').
 				((isset($_GET) && count($_GET)) ? ' GET='.serialize($_GET) : '').
 				((isset($_FILES) && count($_FILES)) ? ' FILES='.serialize($_FILES) : '').
-				(strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
+				(mb_strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
 				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
 			for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
