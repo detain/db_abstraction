@@ -451,6 +451,11 @@
 			return $this->query($Query_String, $line, $file);
 		}
 
+		public function fetch_object() {
+			$this->Record = @mysqli_fetch_object($this->Query_ID);
+			return $this->Record;
+		}
+
 		/* public: walk result set */
 
 		/**
