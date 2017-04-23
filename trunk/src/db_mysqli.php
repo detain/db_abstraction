@@ -196,6 +196,7 @@
 						@mysqli_query($this->Link_ID, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", MYSQLI_STORE_RESULT);
 					else
 						@mysqli_query($this->Link_ID, "SET NAMES {$this->character_set};", MYSQLI_STORE_RESULT);
+				mysqli_set_charset($this->Link_ID, $this->character_set);
 				/*
 				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
 				* if ($this->Link_ID)
