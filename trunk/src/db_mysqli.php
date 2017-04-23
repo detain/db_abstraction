@@ -420,7 +420,7 @@
 					$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
 					$headers = '';
 					$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
-					$headers .= 'Content-type: text/html; charset=iso-8859-1' . EMAIL_NEWLINE;
+					$headers .= 'Content-type: text/html; charset=UTF-8' . EMAIL_NEWLINE;
 					$headers .= 'From: ' . TITLE . ' <' . EMAIL_FROM . '>' . EMAIL_NEWLINE;
 
 					$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
