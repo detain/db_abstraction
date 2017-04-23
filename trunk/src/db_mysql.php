@@ -165,11 +165,11 @@
 					return 0;
 				}
 				if ($this->character_set != '') {
+					mysql_set_charset($this->character_set, $this->Link_ID);
 					if ($this->collation != '')
 						@mysql_query("SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}", $this->Link_ID);
 					else
 						@mysql_query("SET NAMES {$this->character_set};", $this->Link_ID);
-					mysql_set_charset($this->character_set, $this->Link_ID);
 				}
 			}
 			return $this->Link_ID;

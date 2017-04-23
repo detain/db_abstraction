@@ -190,16 +190,10 @@
 					return 0;
 				}
 				//$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
-/*
-//				$this->Link_ID = mysqli_init();
-//				if ($this->character_set != '') {
-//					mysqli_options($this->Link, MYSQLI_INIT_COMMAND, "SET NAMES '{$this->character_set}' COLLATE '{$this->collation}', COLLATION_CONNECTION = '{$this->collation}', COLLATION_DATABASE = '{$this->collation}'");
-//		mysqli_real_connect($this->Link, $Host, $User, $Password, $Database);
-*/
 				$this->Link_ID = mysqli_init();
 				$this->Link_ID->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
 				$this->Link_ID->real_connect($Host, $User, $Password, $Database);
-				$this->Link_ID->set_charset('utf8mb4');
+				$this->Link_ID->set_charset($this->character_set);
 				/*
 				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
 				* if ($this->Link_ID)
