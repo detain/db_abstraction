@@ -46,8 +46,8 @@
 
 		public $max_matches = 10000000;
 
-		public $character_set = '';
-		public $collation = '';
+		public $character_set = 'utf8mb4';
+		public $collation = 'utf8mb4_unicode_ci';
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
@@ -155,7 +155,11 @@
 				//$this->log("New MySQL Connection To DB $Database", __LINE__, __FILE__);
 				$this->Link_ID = mysql_connect($Host, $User, $Password);
 				/* } */
-
+				if ($this->character_set != '')
+					if ($this->collation != '')
+						@mysql_query("SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", $this->Link_ID);
+					else
+						@mysql_query("SET NAMES {$this->character_set};", $this->Link_ID);
 				if (!$this->Link_ID) {
 					$this->halt("connect($Host, $User, \$Password) failed.");
 					return 0;
