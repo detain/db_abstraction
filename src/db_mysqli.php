@@ -81,8 +81,8 @@
 
 		public $max_matches = 10000000;
 
-		public $character_set = '';
-		public $collation = '';
+		public $character_set = 'utf8mb4';
+		public $collation = 'utf8mb4_unicode_ci';
 
 
 		/**
@@ -191,7 +191,11 @@
 				}
 				//$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
 				$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
-
+				if ($this->character_set != '')
+					if ($this->collation != '')
+						@mysqli_query($this->Link_ID, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", MYSQLI_STORE_RESULT);
+					else
+						@mysqli_query($this->Link_ID, "SET NAMES {$this->character_set};", MYSQLI_STORE_RESULT);
 				/*
 				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
 				* if ($this->Link_ID)

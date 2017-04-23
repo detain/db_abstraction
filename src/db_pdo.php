@@ -48,8 +48,8 @@
 
 		public $max_matches = 10000000;
 
-		public $character_set = '';
-		public $collation = '';
+		public $character_set = 'utf8mb4';
+		public $collation = 'utf8mb4_unicode_ci';
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
