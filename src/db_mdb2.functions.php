@@ -36,8 +36,8 @@
 		public $dns_ns2 = 'cdns2.interserver.net';
 		public $dns_ns3 = 'cdns3.interserver.net';
 
-		public $character_set = '';
-		public $collation = '';
+		public $character_set = 'utf8mb4';
+		public $collation = 'utf8mb4_unicode_ci';
 
 		/**
 		 * @var bool
@@ -255,15 +255,10 @@
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
 				}
-				$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
-				//$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
-				/*
-				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
-				* if ($this->Link_ID)
-				* {
-				* $this->Link_ID = $this->Link_Init;
-				* }
-				*/
+				$this->Link_ID = mysqli_init();
+				$this->Link_ID->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
+				$this->Link_ID->real_connect($Host, $User, $Password, $Database);
+				$this->Link_ID->set_charset($this->character_set);
 				if ($this->Link_ID->connect_errno) {
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;

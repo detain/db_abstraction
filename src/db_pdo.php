@@ -101,6 +101,8 @@
 		 */
 		public function select_db($database) {
 			$DSN = "{$this->Driver}:dbname={$database};host={$this->Host}";
+			if ($this->character_set != '')
+				$DSN .= ';charset='.$this->character_set;
 			$this->Link_ID = new PDO($DSN, $this->User, $this->Password);
 		}
 
@@ -152,6 +154,8 @@
 			}
 			/* establish connection, select database */
 			$DSN = "$Driver:dbname=$Database;host=$Host";
+			if ($this->character_set != '')
+				$DSN .= ';charset='.$this->character_set;
 			if ($this->Link_ID === false) {
 				try
 				{
