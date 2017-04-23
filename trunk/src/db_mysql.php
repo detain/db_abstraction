@@ -155,11 +155,6 @@
 				//$this->log("New MySQL Connection To DB $Database", __LINE__, __FILE__);
 				$this->Link_ID = mysql_connect($Host, $User, $Password);
 				/* } */
-				if ($this->character_set != '')
-					if ($this->collation != '')
-						@mysql_query("SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", $this->Link_ID);
-					else
-						@mysql_query("SET NAMES {$this->character_set};", $this->Link_ID);
 				if (!$this->Link_ID) {
 					$this->halt("connect($Host, $User, \$Password) failed.");
 					return 0;
@@ -168,6 +163,13 @@
 				if (!@mysql_select_db($Database, $this->Link_ID)) {
 					$this->halt('cannot use database ' . $this->Database);
 					return 0;
+				}
+				if ($this->character_set != '') {
+					if ($this->collation != '')
+						@mysql_query("SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", $this->Link_ID);
+					else
+						@mysql_query("SET NAMES {$this->character_set};", $this->Link_ID);
+					mysql_set_charset($this->character_set, $this->Link_ID);
 				}
 			}
 			return $this->Link_ID;
