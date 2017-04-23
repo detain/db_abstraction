@@ -190,7 +190,15 @@
 					return 0;
 				}
 				//$this->Link_ID = new mysqli($Host, $User, $Password, $Database);
-				$this->Link_ID = mysqli_connect($Host, $User, $Password, $Database);
+/*
+//				$this->Link_ID = mysqli_init();
+//				if ($this->character_set != '') {
+//					mysqli_options($this->Link, MYSQLI_INIT_COMMAND, "SET NAMES '{$this->character_set}' COLLATE '{$this->collation}', COLLATION_CONNECTION = '{$this->collation}', COLLATION_DATABASE = '{$this->collation}'");
+//		mysqli_real_connect($this->Link, $Host, $User, $Password, $Database);
+*/
+				$this->Link_ID = mysqli_init();
+				$this->Link_ID->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
+				$this->Link_ID->real_connect($Host, $User, $Password, $Database);
 				/*
 				* $this->Link_ID = $this->Link_Init->real_connect($Host, $User, $Password, $Database);
 				* if ($this->Link_ID)
@@ -202,13 +210,13 @@
 					$this->halt("connect($Host, $User, \$Password) failed. " . $mysqli->connect_error);
 					return 0;
 				}
-				if ($this->character_set != '') {
+				/*if ($this->character_set != '') {
 					if ($this->collation != '')
 						@mysqli_query($this->Link_ID, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", MYSQLI_STORE_RESULT);
 					else
 						@mysqli_query($this->Link_ID, "SET NAMES {$this->character_set};", MYSQLI_STORE_RESULT);
 					mysqli_set_charset($this->Link_ID, $this->character_set);
-				}
+				}*/
 			}
 			return $this->Link_ID;
 		}
