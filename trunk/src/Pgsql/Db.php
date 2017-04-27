@@ -14,7 +14,7 @@
 	 *
 	 * @access public
 	 */
-	class db extends db_generic implements db_interface
+	class Db extends \MyDb\Generic implements \MyDb\Interface
 	{
 		public $Host = '';
 		public $Database = '';
