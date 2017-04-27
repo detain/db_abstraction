@@ -16,7 +16,7 @@ namespace MyDb\Pgsql;
 	 *
 	 * @access public
 	 */
-	class Db extends \MyDb\Generic implements \MyDb\Interface
+	class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	{
 		public $Host = '';
 		public $Database = '';

@@ -16,7 +16,7 @@ namespace MyDb\Mdb2;
 	 *
 	 * @access public
 	 */
-	class Db extends implements \MyDb\Interface
+	class Db extends implements \MyDb\Db_Interface
 	{
 		public $Host = 'localhost';
 		public $User = 'pdns';

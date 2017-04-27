@@ -11,11 +11,11 @@
 namespace MyDb;
 
 
-	interface Interface
+	interface Db_Interface
 	{
 
 		/**
-		 * Interface constructor.
+		 * Db_Interface constructor.
 		 *
 		 * @param string $Database
 		 * @param string $User
