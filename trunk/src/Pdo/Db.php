@@ -9,8 +9,10 @@
 	 * @category SQL
 	 */
 
+namespace MyDb\Pdo;
+
 	/**
-	 * db
+	 * Db
 	 *
 	 * @access public
 	 */
@@ -109,7 +111,7 @@
 		/* public: some trivial reporting */
 
 		/**
-		 * db::link_id()
+		 * Db::link_id()
 		 * @return bool
 		 */
 		public function link_id() {
@@ -117,7 +119,7 @@
 		}
 
 		/**
-		 * db::query_id()
+		 * Db::query_id()
 		 * @return int
 		 */
 		public function query_id() {
@@ -127,7 +129,7 @@
 		/* public: connection management */
 
 		/**
-		 * db::connect()
+		 * Db::connect()
 		 * @param string $Database
 		 * @param string $Host
 		 * @param string $User
@@ -172,7 +174,7 @@
 		/* This only affects systems not using persistent connections */
 
 		/**
-		 * db::disconnect()
+		 * Db::disconnect()
 		 * @return void
 		 */
 		public function disconnect() {
@@ -195,7 +197,7 @@
 		}
 
 		/**
-		 * db::db_addslashes()
+		 * Db::db_addslashes()
 		 * @param mixed $str
 		 * @return string
 		 */
@@ -208,7 +210,7 @@
 		}
 
 		/**
-		 * db::to_timestamp()
+		 * Db::to_timestamp()
 		 * @param mixed $epoch
 		 * @return bool|string
 		 */
@@ -217,7 +219,7 @@
 		}
 
 		/**
-		 * db::from_timestamp()
+		 * Db::from_timestamp()
 		 *
 		 * @param mixed $timestamp
 		 * @return mixed
@@ -240,7 +242,7 @@
 		}
 
 		/**
-		 * db::limit()
+		 * Db::limit()
 		 * @param mixed $start
 		 * @return string
 		 */
@@ -258,7 +260,7 @@
 		/* public: discard the query result */
 
 		/**
-		 * db::free()
+		 * Db::free()
 		 * @return void
 		 */
 		public function free() {
@@ -267,7 +269,7 @@
 		}
 
 		/**
-		 * db::query_return()
+		 * Db::query_return()
 		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
 		 * any rows and returns the row or rows immediately or false on error
@@ -308,7 +310,7 @@
 		}
 
 		/**
-		 * db::query()
+		 * Db::query()
 		 *
 		 *  Sends an SQL query to the database
 		 *
@@ -378,7 +380,7 @@
 		// public: perform a query with limited result set
 
 /**
-		 * db::limit_query()
+		 * Db::limit_query()
 		 * @param mixed  $Query_String
 		 * @param mixed  $offset
 		 * @param string $line
@@ -407,7 +409,7 @@
 		/* public: walk result set */
 
 		/**
-		 * db::next_record()
+		 * Db::next_record()
 		 * @param mixed $result_type
 		 * @return bool
 		 */
@@ -432,7 +434,7 @@
 		/* public: position in result set */
 
 		/**
-		 * db::seek()
+		 * Db::seek()
 		 * @param integer $pos
 		 * @return int
 		 */
@@ -451,7 +453,7 @@
 		}
 
 		/**
-		 * db::transaction_begin()
+		 * Db::transaction_begin()
 		 * @return bool
 		 */
 		public function transaction_begin() {
@@ -459,7 +461,7 @@
 		}
 
 		/**
-		 * db::transaction_commit()
+		 * Db::transaction_commit()
 		 * @return bool
 		 */
 		public function transaction_commit() {
@@ -467,7 +469,7 @@
 		}
 
 		/**
-		 * db::transaction_abort()
+		 * Db::transaction_abort()
 		 * @return bool
 		 */
 		public function transaction_abort() {
@@ -475,7 +477,7 @@
 		}
 
 		/**
-		 * db::get_last_insert_id()
+		 * Db::get_last_insert_id()
 		 * @param mixed $table
 		 * @param mixed $field
 		 * @return int
@@ -490,7 +492,7 @@
 		/* public: table locking */
 
 		/**
-		 * db::lock()
+		 * Db::lock()
 		 * @param mixed  $table
 		 * @param string $mode
 		 * @return void
@@ -529,7 +531,7 @@
 		}
 
 		/**
-		 * db::unlock()
+		 * Db::unlock()
 		 * @return void
 		 */
 		public function unlock() {
@@ -548,7 +550,7 @@
 		/* public: evaluate the result (size, width) */
 
 		/**
-		 * db::affected_rows()
+		 * Db::affected_rows()
 		 *
 		 * @return mixed
 		 */
@@ -557,7 +559,7 @@
 		}
 
 		/**
-		 * db::num_rows()
+		 * Db::num_rows()
 		 * @return int
 		 */
 		public function num_rows() {
@@ -565,7 +567,7 @@
 		}
 
 		/**
-		 * db::num_fields()
+		 * Db::num_fields()
 		 * @return int
 		 */
 		public function num_fields() {
@@ -576,7 +578,7 @@
 		/* public: shorthand notation */
 
 		/**
-		 * db::nf()
+		 * Db::nf()
 		 * @return int
 		 */
 		public function nf() {
@@ -584,7 +586,7 @@
 		}
 
 		/**
-		 * db::np()
+		 * Db::np()
 		 * @return void
 		 */
 		public function np() {
@@ -592,7 +594,7 @@
 		}
 
 		/**
-		 * db::f()
+		 * Db::f()
 		 * @param mixed  $Name
 		 * @param string $strip_slashes
 		 * @return string
@@ -606,7 +608,7 @@
 		}
 
 		/**
-		 * db::p()
+		 * Db::p()
 		 *
 		 * @param mixed $Name
 		 * @return void
@@ -618,7 +620,7 @@
 		/* public: sequence numbers */
 
 		/**
-		 * db::nextid()
+		 * Db::nextid()
 		 *
 		 * @param mixed $seq_name
 		 * @return int
@@ -654,7 +656,7 @@
 		/* private: error handling */
 
 		/**
-		 * db::halt()
+		 * Db::halt()
 		 *
 		 * @param mixed  $msg
 		 * @param string $line
@@ -688,7 +690,7 @@
 		}
 
 		/**
-		 * db::haltmsg()
+		 * Db::haltmsg()
 		 *
 		 * @param mixed $msg
 		 * @return void
@@ -701,7 +703,7 @@
 		}
 
 		/**
-		 * db::table_names()
+		 * Db::table_names()
 		 *
 		 * @return array
 		 */
@@ -717,7 +719,7 @@
 		}
 
 		/**
-		 * db::index_names()
+		 * Db::index_names()
 		 *
 		 * @return array
 		 */
@@ -727,7 +729,7 @@
 		}
 
 		/**
-		 * db::create_database()
+		 * Db::create_database()
 		 *
 		 * @param string $adminname
 		 * @param string $adminpasswd

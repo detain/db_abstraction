@@ -8,6 +8,7 @@
 	* @category SQL
 	*/
 
+namespace MyDb;
 
 /**
  * Class Generic

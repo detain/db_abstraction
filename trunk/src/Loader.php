@@ -9,6 +9,8 @@
 	 * @category SQL
 	 */
 
+namespace MyDb;
+
 	class Loader
 	{
 		/* public: connection parameters */

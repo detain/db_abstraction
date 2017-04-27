@@ -8,11 +8,14 @@
 	* @category SQL
 	*/
 
+namespace MyDb;
+
+
 	interface Interface
 	{
 
 		/**
-		 * db_interface constructor.
+		 * Interface constructor.
 		 *
 		 * @param string $Database
 		 * @param string $User
