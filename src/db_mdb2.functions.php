@@ -808,12 +808,12 @@
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
 				(mb_strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
-				((isset($_POST) && count($_POST)) ? ' POST='.serialize($_POST) : '').
-				((isset($_GET) && count($_GET)) ? ' GET='.serialize($_GET) : '').
-				((isset($_FILES) && count($_FILES)) ? ' FILES='.serialize($_FILES) : '').
+				((isset($_POST) && count($_POST)) ? ' POST='.myadmin_stringify($_POST) : '').
+				((isset($_GET) && count($_GET)) ? ' GET='.myadmin_stringify($_GET) : '').
+				((isset($_FILES) && count($_FILES)) ? ' FILES='.myadmin_stringify($_FILES) : '').
 				(mb_strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
-				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. serialize($_POST). '"' : '') : ''));
+				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. myadmin_stringify($_POST). '"' : '') : ''));
 			for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
 				$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
 					(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
@@ -823,7 +823,7 @@
 				if(isset($backtrace[$level] ['args']))
 					for($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
 						$message .= ($argument > 0 ? ', ' : '').
-							(gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : serialize($backtrace[$level]['args'][$argument]));
+							(gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : myadmin_stringify($backtrace[$level]['args'][$argument]));
 				$message.=')';
 				$this->log($message);
 			}
