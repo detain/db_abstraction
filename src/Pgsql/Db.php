@@ -9,8 +9,10 @@
 	 * @category SQL
 	 */
 
+namespace MyDb\Pgsql;
+
 	/**
-	 * db
+	 * Db
 	 *
 	 * @access public
 	 */
@@ -49,7 +51,7 @@
 		public $collation = '';
 
 		/**
-		 * db::ifadd()
+		 * Db::ifadd()
 		 *
 		 * @param mixed $add
 		 * @param mixed $me
@@ -105,7 +107,7 @@
 		/* public: some trivial reporting */
 
 		/**
-		 * db::link_id()
+		 * Db::link_id()
 		 * @return int
 		 */
 		public function link_id() {
@@ -113,7 +115,7 @@
 		}
 
 		/**
-		 * db::query_id()
+		 * Db::query_id()
 		 * @return int
 		 */
 		public function query_id() {
@@ -134,7 +136,7 @@
 		}
 
 		/**
-		 * db::connect()
+		 * Db::connect()
 		 * @return void
 		 */
 		public function connect() {
@@ -160,7 +162,7 @@
 		}
 
 		/**
-		 * db::to_timestamp()
+		 * Db::to_timestamp()
 		 * @param mixed $epoch
 		 * @return bool|string|void
 		 */
@@ -174,7 +176,7 @@
 		}
 
 		/**
-		 * db::from_timestamp()
+		 * Db::from_timestamp()
 		 * @param mixed $timestamp
 		 * @return int|void
 		 */
@@ -189,7 +191,7 @@
 		// For PostgreSQL 6.x
 
 /**
-		 * db::to_timestamp_6()
+		 * Db::to_timestamp_6()
 		 * @param mixed $epoch
 		 * @return void
 		 */
@@ -200,7 +202,7 @@
 		// For PostgreSQL 6.x
 
 /**
-		 * db::from_timestamp_6()
+		 * Db::from_timestamp_6()
 		 * @param mixed $timestamp
 		 * @return void
 		 */
@@ -211,7 +213,7 @@
 		// For PostgreSQL 7.x
 
 /**
-		 * db::to_timestamp_7()
+		 * Db::to_timestamp_7()
 		 * @param mixed $epoch
 		 * @return bool|string
 		 */
@@ -223,7 +225,7 @@
 		// For PostgreSQL 7.x
 
 /**
-		 * db::from_timestamp_7()
+		 * Db::from_timestamp_7()
 		 * @param mixed $timestamp
 		 * @return int
 		 */
@@ -236,7 +238,7 @@
 		/* This only affects systems not using persistent connections */
 
 		/**
-		 * db::disconnect()
+		 * Db::disconnect()
 		 * @return bool
 		 */
 		public function disconnect() {
@@ -244,7 +246,7 @@
 		}
 
 		/**
-		 * db::db_addslashes()
+		 * Db::db_addslashes()
 		 * @param mixed $str
 		 * @return string
 		 */
@@ -257,7 +259,7 @@
 		}
 
 		/**
-		 * db::query_return()
+		 * Db::query_return()
 		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
 		 * any rows and returns the row or rows immediately or false on error
@@ -298,7 +300,7 @@
 		}
 
 		/**
-		 * db::query()
+		 * Db::query()
 		 *
 		 *  Sends an SQL query to the database
 		 *
@@ -342,7 +344,7 @@
 		/* public: perform a query with limited result set */
 
 		/**
-		 * db::limit_query()
+		 * Db::limit_query()
 		 * @param mixed  $Query_String
 		 * @param mixed  $offset
 		 * @param string $line
@@ -367,7 +369,7 @@
 		// public: discard the query result
 
 /**
-		 * db::free()
+		 * Db::free()
 		 *
 		 * @return void
 		 */
@@ -377,7 +379,7 @@
 		}
 
 		/**
-		 * db::next_record()
+		 * Db::next_record()
 		 * @return bool
 		 */
 		public function next_record() {
@@ -395,7 +397,7 @@
 		}
 
 		/**
-		 * db::seek()
+		 * Db::seek()
 		 *
 		 * @param mixed $pos
 		 * @return void
@@ -405,7 +407,7 @@
 		}
 
 		/**
-		 * db::transaction_begin()
+		 * Db::transaction_begin()
 		 *
 		 * @return mixed
 		 */
@@ -414,7 +416,7 @@
 		}
 
 		/**
-		 * db::transaction_commit()
+		 * Db::transaction_commit()
 		 * @return bool|mixed
 		 */
 		public function transaction_commit() {
@@ -426,7 +428,7 @@
 		}
 
 		/**
-		 * db::transaction_abort()
+		 * Db::transaction_abort()
 		 * @return mixed
 		 */
 		public function transaction_abort() {
@@ -434,7 +436,7 @@
 		}
 
 		/**
-		 * db::get_last_insert_id()
+		 * Db::get_last_insert_id()
 		 * @param mixed $table
 		 * @param mixed $field
 		 * @return int
@@ -471,7 +473,7 @@
 		}
 
 		/**
-		 * db::lock()
+		 * Db::lock()
 		 * @param mixed  $table
 		 * @param string $mode
 		 * @return int|mixed
@@ -495,7 +497,7 @@
 		}
 
 		/**
-		 * db::unlock()
+		 * Db::unlock()
 		 * @return bool|mixed
 		 */
 		public function unlock() {
@@ -505,7 +507,7 @@
 		/* public: sequence numbers */
 
 		/**
-		 * db::nextid()
+		 * Db::nextid()
 		 * @param mixed $seq_name
 		 * @return int
 		 */
@@ -538,7 +540,7 @@
 		}
 
 		/**
-		 * db::affected_rows()
+		 * Db::affected_rows()
 		 * @return void
 		 */
 		public function affected_rows() {
@@ -546,7 +548,7 @@
 		}
 
 		/**
-		 * db::num_rows()
+		 * Db::num_rows()
 		 * @return int
 		 */
 		public function num_rows() {
@@ -554,7 +556,7 @@
 		}
 
 		/**
-		 * db::num_fields()
+		 * Db::num_fields()
 		 * @return int
 		 */
 		public function num_fields() {
@@ -562,7 +564,7 @@
 		}
 
 		/**
-		 * db::nf()
+		 * Db::nf()
 		 * @return int
 		 */
 		public function nf() {
@@ -570,7 +572,7 @@
 		}
 
 		/**
-		 * db::np()
+		 * Db::np()
 		 * @return void
 		 */
 		public function np() {
@@ -578,7 +580,7 @@
 		}
 
 		/**
-		 * db::f()
+		 * Db::f()
 		 * @param mixed  $Name
 		 * @param string $strip_slashes
 		 * @return string
@@ -592,7 +594,7 @@
 		}
 
 		/**
-		 * db::p()
+		 * Db::p()
 		 *
 		 * @param mixed $Name
 		 * @return void
@@ -602,7 +604,7 @@
 		}
 
 		/**
-		 * db::halt()
+		 * Db::halt()
 		 *
 		 * @param mixed  $msg
 		 * @param string $line
@@ -657,7 +659,7 @@
 		}
 
 		/**
-		 * db::haltmsg()
+		 * Db::haltmsg()
 		 *
 		 * @param mixed $msg
 		 * @param string $line
@@ -696,7 +698,7 @@
 		}
 
 			/**
-		 * db::table_names()
+		 * Db::table_names()
 		 *
 		 * @return array
 		 */
@@ -714,7 +716,7 @@
 		}
 
 		/**
-		 * db::index_names()
+		 * Db::index_names()
 		 *
 		 * @return array
 		 */
@@ -732,7 +734,7 @@
 		}
 
 		/**
-		 * db::create_database()
+		 * Db::create_database()
 		 *
 		 * @param string $adminname
 		 * @param string $adminpasswd
