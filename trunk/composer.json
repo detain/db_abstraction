@@ -25,6 +25,6 @@
         "ext-pdo": "*"
     },
     "autoload": {
-        "psr-4": {"detain\\myAdmin\\DB\\": "src/"}
+        "psr-4": {"MyDb\\": "src/"}
     }
 }
