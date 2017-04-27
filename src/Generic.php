@@ -8,68 +8,11 @@
 	* @category SQL
 	*/
 
-	interface db_interface
-	{
-
-		/**
-		 * db_interface constructor.
-		 *
-		 * @param string $Database
-		 * @param string $User
-		 * @param string $Password
-		 * @param string $Host
-		 * @param string $query
-		 */
-		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '');
-
-		/**
-		 * @param $message
-		 * @param string $line
-		 * @param string $file
-		 * @return mixed
-		 */
-		public function log($message, $line = '', $file = '');
-
-		public function link_id();
-
-		public function query_id();
-
-		/**
-		 * @param $str
-		 * @return mixed
-		 */
-		public function db_addslashes($str);
-
-		/**
-		 * @param $query
-		 * @param string $line
-		 * @param string $file
-		 * @return mixed
-		 */
-		public function qr($query, $line = '', $file = '');
-
-		/**
-		 * @param $msg
-		 * @param string $line
-		 * @param string $file
-		 * @return mixed
-		 */
-		public function halt($msg, $line = '', $file = '');
-
-		/**
-		 * @param $msg
-		 * @return mixed
-		 */
-		public function haltmsg($msg);
-
-		public function index_names();
-
-	}
 
 /**
- * Class db_generic
+ * Class Generic
  */
-abstract class db_generic
+abstract class Generic
 	{
 		/* public: connection parameters */
 		public $Host = 'localhost';

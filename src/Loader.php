@@ -9,7 +9,7 @@
 	 * @category SQL
 	 */
 
-	class db_loader
+	class Loader
 	{
 		/* public: connection parameters */
 		public $Type = 'mysqli';

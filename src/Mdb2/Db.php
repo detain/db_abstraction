@@ -21,7 +21,7 @@
 	 * @version 2011
 	 * @access public
 	 */
-	class db_mdb2 implements db_interface
+	class Db implements \MyDb\Interface
 	{
 		public $Host = 'localhost';
 		public $User = 'pdns';
