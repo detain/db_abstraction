@@ -12,14 +12,14 @@
 namespace MyDb\Mysqli;
 
 use MyDb\Generic;
-use MyDb\Interface;
+use MyDb\Db_Interface;
 
 	/**
 	 * Db
 	 *
 	 * @access public
 	 */
-	class Db extends Generic implements Interface
+	class Db extends Generic implements Db_Interface
 	{
 		/**
 		 * @var string
