@@ -17,14 +17,14 @@
     },
     "require-dev": {
     },
+    "autoload": {
+        "psr-4": {"MyDb\\": "src/"}
+    },
     "suggests": {
         "ext-mysql": "*",
         "ext-pgsql": "*",
         "ext-sqlite": "*",
         "ext-mdb2": "*",
         "ext-pdo": "*"
-    },
-    "autoload": {
-        "psr-4": {"MyDb\\": "src/"}
     }
 }
