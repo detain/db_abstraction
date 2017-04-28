@@ -1,30 +1,23 @@
 {
-    "name": "detain/db_abstraction",
-    "type": "library",
-    "description": "Database Abstraction Class",
-    "keywords": ["db","database","sql","mysql","mysqli","adodb","pgsql","mdb2","sqlite","pdo"],
-    "license": "LGPL-2.1",
-    "authors": [
-        {
-            "name": "Joe Huss",
-            "homepage": "https://my.interserver.net/"
-        }
-    ],
-    "require": {
-        "php": ">=5.0.0",
-        "ext-mysqli": "*",
-        "adodb/adodb-php": ">=5.20.9"
-    },
-    "require-dev": {
-    },
-    "autoload": {
-        "psr-4": {"MyDb\\": "src/"}
-    },
-    "suggests": {
-        "ext-mysql": "*",
-        "ext-pgsql": "*",
-        "ext-sqlite": "*",
-        "ext-mdb2": "*",
-        "ext-pdo": "*"
-    }
+	"name": "detain/db_abstraction",
+	"type": "library",
+	"description": "Database Abstraction Class",
+	"keywords": ["db","database","sql","mysql","mysqli","adodb","pgsql","mdb2","sqlite","pdo"],
+	"license": "LGPL-2.1",
+	"authors": [
+		{
+			"name": "Joe Huss",
+			"homepage": "https://my.interserver.net/"
+		}
+	],
+	"require": {
+		"php": ">=5.4.0",
+		"ext-mysqli": "*",
+		"adodb/adodb-php": "^5.20"
+	},
+	"require-dev": {
+	},
+	"autoload": {
+		"psr-4": {"MyDb\\": "src/"}
+	}
 }
