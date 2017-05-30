@@ -364,6 +364,15 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		return $this->query_return($query, $line, $file);
 	}
 
+	public function prepare($query) {
+		if (!$this->connect()) {
+			return 0;
+		}
+		$halt_prev = $this->Halt_On_Error;
+		$this->Halt_On_Error = 'no';
+		return @mysqli_prepare($this->Link_ID, $query);
+	}
+
 	/**
 	 * Db::query()
 	 *
