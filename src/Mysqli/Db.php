@@ -364,13 +364,19 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		return $this->query_return($query, $line, $file);
 	}
 
+	/**
+	 * creates a prepaired statement from query
+	 *
+	 * @param string $query sql wuery like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
+	 * @return mysqli_stmt a statement object or FALSE if an error occurred.
+	 */
 	public function prepare($query) {
 		if (!$this->connect()) {
 			return 0;
 		}
 		$halt_prev = $this->Halt_On_Error;
 		$this->Halt_On_Error = 'no';
-		return @mysqli_prepare($this->Link_ID, $query);
+		return mysqli_prepare($this->Link_ID, $query);
 	}
 
 	/**
