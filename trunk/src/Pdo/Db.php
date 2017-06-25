@@ -164,7 +164,7 @@ namespace MyDb\Pdo;
 					$this->Link_ID = new PDO($DSN, $User, $Password);
 				}
 				catch (PDOException $e) {
-					$this->halt('Connection Failed ' . $e->getMessage());
+					$this->halt('Connection Failed '.$e->getMessage());
 					return 0;
 				}
 			}
@@ -235,7 +235,7 @@ namespace MyDb\Pdo;
 				elseif (is_numeric($timestamp) && $timestamp >= 943938000)
 					return $timestamp;
 				else {
-					$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
+					$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
 					return FALSE;
 				}
 				return FALSE;
@@ -250,7 +250,7 @@ namespace MyDb\Pdo;
 			echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
 			if ($start == 0) {
-				$s = 'limit ' . $this->max_matches;
+				$s = 'limit '.$this->max_matches;
 			} else {
 				$s = "limit $start," . $this->max_matches;
 			}
@@ -350,27 +350,27 @@ namespace MyDb\Pdo;
 			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . ' Rows', __LINE__, __FILE__);
 			$this->Row = 0;
 			if ($success === FALSE) {
-				$email = "MySQL Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . print_r($this->Query_ID->errorInfo(), TRUE) . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQL Error<br>\n" . 'Query: '.$Query_String . "<br>\n" . 'Error #'.print_r($this->Query_ID->errorInfo(), TRUE) . "<br>\n" . 'Line: '.$line . "<br>\n" . 'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= '<br><br>Request Variables:<br>';
 				foreach ($_REQUEST as $key => $value) {
-					$email .= $key . ': ' . $value . "<br>\n";
+					$email .= $key . ': '.$value . "<br>\n";
 				}
 
 				$email .= '<br><br>Server Variables:<br>';
 				foreach ($_SERVER as $key => $value) {
-					$email .= $key . ': ' . $value . "<br>\n";
+					$email .= $key . ': '.$value . "<br>\n";
 				}
-				$subject = DOMAIN . ' PDO MySQL Error On ' . TITLE;
+				$subject = DOMAIN . ' PDO MySQL Error On '.TITLE;
 				$headers = '';
-				$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
-				$headers .= 'Content-type: text/html; charset=UTF-8' . EMAIL_NEWLINE;
-				$headers .= 'From: ' . TITLE . ' <' . EMAIL_FROM . '>' . EMAIL_NEWLINE;
+				$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
+				$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
+				$headers .= 'From: '.TITLE . ' <'.EMAIL_FROM . '>'.EMAIL_NEWLINE;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
-				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
+				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
 				admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
-				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
+				$this->halt('Invalid SQL: '.$Query_String, $line, $file);
 			}
 
 			// Will return nada if it fails. That's fine.
@@ -394,9 +394,9 @@ namespace MyDb\Pdo;
 			}
 
 			if ($offset == 0) {
-				$Query_String .= ' LIMIT ' . $num_rows;
+				$Query_String .= ' LIMIT '.$num_rows;
 			} else {
-				$Query_String .= ' LIMIT ' . $offset . ',' . $num_rows;
+				$Query_String .= ' LIMIT '.$offset . ','.$num_rows;
 			}
 
 			if ($this->Debug) {
@@ -647,7 +647,7 @@ namespace MyDb\Pdo;
 				$id = @mysql_query($q, $this->Link_ID);
 				$this->unlock();
 			} else {
-				$this->halt('cannot lock ' . $this->Seq_Table . ' - has it been created?');
+				$this->halt('cannot lock '.$this->Seq_Table . ' - has it been created?');
 				return 0;
 			}
 			return $nextid;
@@ -698,7 +698,7 @@ namespace MyDb\Pdo;
 		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
 			if ($this->Errno != '0' || $this->Error != '()') {
-				$this->log('PDO MySQL Error: ' . print_r($this->Link_ID->errorInfo(), TRUE), __LINE__, __FILE__);
+				$this->log('PDO MySQL Error: '.print_r($this->Link_ID->errorInfo(), TRUE), __LINE__, __FILE__);
 			}
 		}
 

@@ -163,7 +163,7 @@ namespace MyDb\Mysql;
 				}
 
 				if (!@mysql_select_db($Database, $this->Link_ID)) {
-					$this->halt('cannot use database ' . $this->Database);
+					$this->halt('cannot use database '.$this->Database);
 					return 0;
 				}
 				if ($this->character_set != '') {
@@ -252,7 +252,7 @@ namespace MyDb\Mysql;
 			elseif (is_numeric($timestamp) && $timestamp >= 943938000)
 				return $timestamp;
 			else {
-				$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
+				$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
 				return FALSE;
 			}
 		}
@@ -266,7 +266,7 @@ namespace MyDb\Mysql;
 			echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
 			if ($start == 0) {
-				$s = 'limit ' . $this->max_matches;
+				$s = 'limit '.$this->max_matches;
 			} else {
 				$s = "limit $start," . $this->max_matches;
 			}
@@ -364,28 +364,28 @@ namespace MyDb\Mysql;
 			$this->Errno = mysql_errno();
 			$this->Error = mysql_error();
 			if (!$this->Query_ID) {
-				$email = "MySQL Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . $this->Errno . ': ' . $this->Error . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
-						'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQL Error<br>\n" . 'Query: '.$Query_String . "<br>\n" . 'Error #'.$this->Errno . ': '.$this->Error . "<br>\n" . 'Line: '.$line . "<br>\n" . 'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
+						'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= '<br><br>Request Variables:<br>';
 				foreach ($_REQUEST as $key => $value) {
-					$email .= $key . ': ' . $value . "<br>\n";
+					$email .= $key . ': '.$value . "<br>\n";
 				}
 
 				$email .= '<br><br>Server Variables:<br>';
 				foreach ($_SERVER as $key => $value) {
-					$email .= $key . ': ' . $value . "<br>\n";
+					$email .= $key . ': '.$value . "<br>\n";
 				}
-				$subject = DOMAIN . ' MySQL Error On ' . TITLE;
+				$subject = DOMAIN . ' MySQL Error On '.TITLE;
 				$headers = '';
-				$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
-				$headers .= 'Content-type: text/html; charset=UTF-8' . EMAIL_NEWLINE;
-				$headers .= 'From: ' . TITLE . ' <' . EMAIL_FROM . '>' . EMAIL_NEWLINE;
+				$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
+				$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
+				$headers .= 'From: '.TITLE . ' <'.EMAIL_FROM . '>'.EMAIL_NEWLINE;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
-				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
+				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
 				admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
-				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
+				$this->halt('Invalid SQL: '.$Query_String, $line, $file);
 			}
 
 			// Will return nada if it fails. That's fine.
@@ -408,9 +408,9 @@ namespace MyDb\Mysql;
 				$num_rows = $this->max_matches;
 			}
 			if ($offset == 0) {
-				$Query_String .= ' LIMIT ' . $num_rows;
+				$Query_String .= ' LIMIT '.$num_rows;
 			} else {
-				$Query_String .= ' LIMIT ' . $offset . ',' . $num_rows;
+				$Query_String .= ' LIMIT '.$offset . ','.$num_rows;
 			}
 
 			if ($this->Debug) {
@@ -660,7 +660,7 @@ namespace MyDb\Mysql;
 				$id = @mysql_query($q, $this->Link_ID);
 				$this->unlock();
 			} else {
-				$this->halt('cannot lock ' . $this->Seq_Table . ' - has it been created?');
+				$this->halt('cannot lock '.$this->Seq_Table . ' - has it been created?');
 				return 0;
 			}
 			return $nextid;
@@ -710,7 +710,7 @@ namespace MyDb\Mysql;
 		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
 			if ($this->Errno != '0' || $this->Error != '()') {
-				$this->log('MySQL Error: ' . $this->Errno . ' (' . $this->Error . ')', __LINE__, __FILE__);
+				$this->log('MySQL Error: '.$this->Errno . ' ('.$this->Error . ')', __LINE__, __FILE__);
 			}
 		}
 

@@ -201,7 +201,7 @@ namespace MyDb\Adodb;
 			elseif (is_numeric($timestamp) && $timestamp >= 943938000)
 				return $timestamp;
 			else {
-				$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
+				$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
 				return FALSE;
 			}
 		}
@@ -215,7 +215,7 @@ namespace MyDb\Adodb;
 			echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
 			if ($start == 0) {
-				$s = 'limit ' . $this->max_matches;
+				$s = 'limit '.$this->max_matches;
 			} else {
 				$s = "limit $start," . $this->max_matches;
 			}
@@ -316,28 +316,28 @@ namespace MyDb\Adodb;
 				$this->Query_ID = $this->Link_ID->Execute($Query_String);
 			}
 			catch (exception $e) {
-				$email = "MySQL Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . print_r($e, TRUE) . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
-						'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQL Error<br>\n" . 'Query: '.$Query_String . "<br>\n" . 'Error #'.print_r($e, TRUE) . "<br>\n" . 'Line: '.$line . "<br>\n" . 'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
+						'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= '<br><br>Request Variables:<br>';
 				foreach ($_REQUEST as $key => $value) {
-					$email .= $key . ': ' . $value . "<br>\n";
+					$email .= $key . ': '.$value . "<br>\n";
 				}
 
 				$email .= '<br><br>Server Variables:<br>';
 				foreach ($_SERVER as $key => $value) {
-					$email .= $key . ': ' . $value . "<br>\n";
+					$email .= $key . ': '.$value . "<br>\n";
 				}
-				$subject = DOMAIN . ' ADOdb MySQL Error On ' . TITLE;
+				$subject = DOMAIN . ' ADOdb MySQL Error On '.TITLE;
 				$headers = '';
-				$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
-				$headers .= 'Content-type: text/html; charset=UTF-8' . EMAIL_NEWLINE;
-				$headers .= 'From: ' . TITLE . ' <' . EMAIL_FROM . '>' . EMAIL_NEWLINE;
+				$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
+				$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
+				$headers .= 'From: '.TITLE . ' <'.EMAIL_FROM . '>'.EMAIL_NEWLINE;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
-				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
+				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
 				admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
-				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
+				$this->halt('Invalid SQL: '.$Query_String, $line, $file);
 			}
 			$this->log("ADOdb Query $Query_String (S:$success) - " . sizeof($this->Rows) . ' Rows', __LINE__, __FILE__);
 			$this->Row = 0;
@@ -363,9 +363,9 @@ namespace MyDb\Adodb;
 			}
 
 			if ($offset == 0) {
-				$Query_String .= ' LIMIT ' . $num_rows;
+				$Query_String .= ' LIMIT '.$num_rows;
 			} else {
-				$Query_String .= ' LIMIT ' . $offset . ',' . $num_rows;
+				$Query_String .= ' LIMIT '.$offset . ','.$num_rows;
 			}
 
 			if ($this->Debug) {
@@ -611,7 +611,7 @@ namespace MyDb\Adodb;
 				$id = @mysql_query($q, $this->Link_ID);
 				$this->unlock();
 			} else {
-				$this->halt('cannot lock ' . $this->Seq_Table . ' - has it been created?');
+				$this->halt('cannot lock '.$this->Seq_Table . ' - has it been created?');
 				return 0;
 			}
 			return $nextid;
@@ -661,7 +661,7 @@ namespace MyDb\Adodb;
 		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
 			if ($this->Link_ID->ErrorNo() != '0' && $this->Link_ID->ErrorMsg() != '') {
-				$this->log('ADOdb MySQL Error: ' . $this->Link_ID->ErrorMsg(), __LINE__, __FILE__);
+				$this->log('ADOdb MySQL Error: '.$this->Link_ID->ErrorMsg(), __LINE__, __FILE__);
 			}
 		}
 
