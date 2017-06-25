@@ -22,7 +22,7 @@ abstract class Generic
 	public $Password = '';
 
 	/* public: configuration parameters */
-	public $auto_stripslashes = false;
+	public $auto_stripslashes = FALSE;
 	public $Debug = 0; // Set to 1 for debugging messages.
 	public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 	public $Seq_Table = 'db_sequence';
@@ -70,7 +70,7 @@ abstract class Generic
 	 */
 	public function log($message, $line = '', $file = '') {
 		if (function_exists('myadmin_log'))
-			myadmin_log('db', 'info', $message, $line, $file, false);
+			myadmin_log('db', 'info', $message, $line, $file, FALSE);
 		else
 			error_log($message);
 	}
@@ -109,7 +109,7 @@ abstract class Generic
 	 * @param mixed $query SQL Query to be used
 	 * @param string $line optionally pass __LINE__ calling the query for logging
 	 * @param string $file optionally pass __FILE__ calling the query for logging
-	 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
 	public function qr($query, $line = '', $file = '') {
 		return $this->query_return($query, $line, $file);

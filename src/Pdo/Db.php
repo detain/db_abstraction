@@ -26,7 +26,7 @@ namespace MyDb\Pdo;
 		public $Driver = 'mysql';
 
 		/* public: configuration parameters */
-		public $auto_stripslashes = false;
+		public $auto_stripslashes = FALSE;
 		public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
 		public $Debug = 0; // Set to 1 for debugging messages.
 		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
@@ -45,7 +45,7 @@ namespace MyDb\Pdo;
 		public $type = 'pdo';
 
 		/* private: link and query handles */
-		public $Link_ID = false;
+		public $Link_ID = FALSE;
 		public $Query_ID = 0;
 
 		public $max_matches = 10000000;
@@ -80,7 +80,7 @@ namespace MyDb\Pdo;
 		 */
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('myadmin_log'))
-				myadmin_log('db', 'info', $message, $line, $file, false);
+				myadmin_log('db', 'info', $message, $line, $file, FALSE);
 			else
 				error_log($message);
 		}
@@ -158,7 +158,7 @@ namespace MyDb\Pdo;
 			$DSN = "$Driver:dbname=$Database;host=$Host";
 			if ($this->character_set != '')
 				$DSN .= ';charset='.$this->character_set;
-			if ($this->Link_ID === false) {
+			if ($this->Link_ID === FALSE) {
 				try
 				{
 					$this->Link_ID = new PDO($DSN, $User, $Password);
@@ -236,9 +236,9 @@ namespace MyDb\Pdo;
 					return $timestamp;
 				else {
 					$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
-					return false;
+					return FALSE;
 				}
-				return false;
+				return FALSE;
 		}
 
 		/**
@@ -272,17 +272,17 @@ namespace MyDb\Pdo;
 		 * Db::query_return()
 		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
-		 * any rows and returns the row or rows immediately or false on error
+		 * any rows and returns the row or rows immediately or FALSE on error
 		 *
 		 * @param mixed $query SQL Query to be used
 		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
-		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
 		public function query_return($query, $line = '', $file = '') {
 			$this->query($query, $line, $file);
 			if ($this->num_rows() == 0) {
-				return false;
+				return FALSE;
 			} elseif ($this->num_rows() == 1) {
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
@@ -303,7 +303,7 @@ namespace MyDb\Pdo;
 		 * @param mixed $query SQL Query to be used
 		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
-		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
 		public function qr($query, $line = '', $file = '') {
 			return $this->query_return($query, $line, $file);
@@ -333,14 +333,14 @@ namespace MyDb\Pdo;
 				/* we already complained in connect() about that. */
 			}
 			// New query, discard previous result.
-			if ($this->Query_ID !== false) {
+			if ($this->Query_ID !== FALSE) {
 				$this->free();
 			}
 
 			if ($this->Debug) {
 				printf("Debug: query = %s<br>\n", $Query_String);
 			}
-			if ($GLOBALS['log_queries'] !== false) {
+			if ($GLOBALS['log_queries'] !== FALSE) {
 				$this->log($Query_String, $line, $file);
 			}
 
@@ -349,8 +349,8 @@ namespace MyDb\Pdo;
 			$this->Rows = $this->Query_ID->fetchAll();
 			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows) . ' Rows', __LINE__, __FILE__);
 			$this->Row = 0;
-			if ($success === false) {
-				$email = "MySQL Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . print_r($this->Query_ID->errorInfo(), true) . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
+			if ($success === FALSE) {
+				$email = "MySQL Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . print_r($this->Query_ID->errorInfo(), TRUE) . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= '<br><br>Request Variables:<br>';
 				foreach ($_REQUEST as $key => $value) {
@@ -369,7 +369,7 @@ namespace MyDb\Pdo;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
 				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
-				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
+				admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
 				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
 			}
 
@@ -457,7 +457,7 @@ namespace MyDb\Pdo;
 		 * @return bool
 		 */
 		public function transaction_begin() {
-			return true;
+			return TRUE;
 		}
 
 		/**
@@ -465,7 +465,7 @@ namespace MyDb\Pdo;
 		 * @return bool
 		 */
 		public function transaction_commit() {
-			return true;
+			return TRUE;
 		}
 
 		/**
@@ -473,7 +473,7 @@ namespace MyDb\Pdo;
 		 * @return bool
 		 */
 		public function transaction_abort() {
-			return true;
+			return TRUE;
 		}
 
 		/**
@@ -698,7 +698,7 @@ namespace MyDb\Pdo;
 		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
 			if ($this->Errno != '0' || $this->Error != '()') {
-				$this->log('PDO MySQL Error: ' . print_r($this->Link_ID->errorInfo(), true), __LINE__, __FILE__);
+				$this->log('PDO MySQL Error: ' . print_r($this->Link_ID->errorInfo(), TRUE), __LINE__, __FILE__);
 			}
 		}
 
