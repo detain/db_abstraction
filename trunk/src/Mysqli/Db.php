@@ -428,14 +428,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$this->Errno = @mysqli_errno($this->Link_ID);
 			$this->Error = @mysqli_error($this->Link_ID);
 			if ($try == 1 && (is_null($this->Query_ID) || $this->Query_ID === FALSE)) {
-				$email = "MySQLi Error<br>\n" . 'Query: '.$Query_String . "<br>\n" . 'Error #'.$this->Errno . ': '.$this->Error . "<br>\n" . 'Line: '.$line . "<br>\n" . 'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQLi Error<br>\n".'Query: '.$Query_String . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 				$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
 				$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
-				$subject = DOMAIN . ' MySQLi Error On '.TITLE;
+				$subject = DOMAIN.' MySQLi Error On '.TITLE;
 				$headers = '';
 				$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
 				$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
-				$headers .= 'From: '.TITLE . ' <'.EMAIL_FROM . '>'.EMAIL_NEWLINE;
+				$headers .= 'From: '.TITLE.' <'.EMAIL_FROM.'>'.EMAIL_NEWLINE;
 
 				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
 				mail('john@interserver.net', $subject, $email, $headers);
@@ -470,7 +470,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($offset == 0) {
 			$Query_String .= ' LIMIT '.$num_rows;
 		} else {
-			$Query_String .= ' LIMIT '.$offset . ','.$num_rows;
+			$Query_String .= ' LIMIT '.$offset.','.$num_rows;
 		}
 
 		if ($this->Debug) {
@@ -523,7 +523,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($status) {
 			$this->Row = $pos;
 		} else {
-			$this->halt("seek($pos) failed: result has " . $this->num_rows() . ' rows');
+			$this->halt("seek($pos) failed: result has " . $this->num_rows().' rows');
 			/* half assed attempt to save the day,
 			* but do not consider this documented or even
 			* desirable behaviour.
@@ -726,7 +726,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$id = @$this->Link_ID->query($q);
 			$this->unlock();
 		} else {
-			$this->halt('cannot lock '.$this->Seq_Table . ' - has it been created?');
+			$this->halt('cannot lock '.$this->Seq_Table.' - has it been created?');
 			return 0;
 		}
 		return $nextid;
@@ -781,7 +781,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->log("Database error: $msg", $line, $file);
 		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
 			$sqlstate = mysqli_sqlstate($this->Link_ID);
-			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . ' ('.$this->Error . ')', $line, $file);
+			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file);
 		}
 		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 		$this->log(

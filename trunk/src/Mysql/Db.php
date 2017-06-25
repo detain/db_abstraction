@@ -364,23 +364,23 @@ namespace MyDb\Mysql;
 			$this->Errno = mysql_errno();
 			$this->Error = mysql_error();
 			if (!$this->Query_ID) {
-				$email = "MySQL Error<br>\n" . 'Query: '.$Query_String . "<br>\n" . 'Error #'.$this->Errno . ': '.$this->Error . "<br>\n" . 'Line: '.$line . "<br>\n" . 'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
+				$email = "MySQL Error<br>\n".'Query: '.$Query_String . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
 						'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 				$email .= '<br><br>Request Variables:<br>';
 				foreach ($_REQUEST as $key => $value) {
-					$email .= $key . ': '.$value . "<br>\n";
+					$email .= $key.': '.$value . "<br>\n";
 				}
 
 				$email .= '<br><br>Server Variables:<br>';
 				foreach ($_SERVER as $key => $value) {
-					$email .= $key . ': '.$value . "<br>\n";
+					$email .= $key.': '.$value . "<br>\n";
 				}
-				$subject = DOMAIN . ' MySQL Error On '.TITLE;
+				$subject = DOMAIN.' MySQL Error On '.TITLE;
 				$headers = '';
 				$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
 				$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
-				$headers .= 'From: '.TITLE . ' <'.EMAIL_FROM . '>'.EMAIL_NEWLINE;
+				$headers .= 'From: '.TITLE.' <'.EMAIL_FROM.'>'.EMAIL_NEWLINE;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
 				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
@@ -410,7 +410,7 @@ namespace MyDb\Mysql;
 			if ($offset == 0) {
 				$Query_String .= ' LIMIT '.$num_rows;
 			} else {
-				$Query_String .= ' LIMIT '.$offset . ','.$num_rows;
+				$Query_String .= ' LIMIT '.$offset.','.$num_rows;
 			}
 
 			if ($this->Debug) {
@@ -457,7 +457,7 @@ namespace MyDb\Mysql;
 			if ($status) {
 				$this->Row = $pos;
 			} else {
-				$this->halt("seek($pos) failed: result has " . $this->num_rows() . ' rows');
+				$this->halt("seek($pos) failed: result has " . $this->num_rows().' rows');
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
 				* desirable behaviour.
@@ -660,7 +660,7 @@ namespace MyDb\Mysql;
 				$id = @mysql_query($q, $this->Link_ID);
 				$this->unlock();
 			} else {
-				$this->halt('cannot lock '.$this->Seq_Table . ' - has it been created?');
+				$this->halt('cannot lock '.$this->Seq_Table.' - has it been created?');
 				return 0;
 			}
 			return $nextid;
@@ -710,7 +710,7 @@ namespace MyDb\Mysql;
 		public function haltmsg($msg) {
 			$this->log("Database error: $msg", __LINE__, __FILE__);
 			if ($this->Errno != '0' || $this->Error != '()') {
-				$this->log('MySQL Error: '.$this->Errno . ' ('.$this->Error . ')', __LINE__, __FILE__);
+				$this->log('MySQL Error: '.$this->Errno.' ('.$this->Error.')', __LINE__, __FILE__);
 			}
 		}
 
