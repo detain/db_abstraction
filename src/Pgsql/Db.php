@@ -59,7 +59,7 @@ namespace MyDb\Pgsql;
 		 */
 		public function ifadd($add, $me) {
 			if ('' != $add) {
-				return ' ' . $me . $add;
+				return ' '.$me . $add;
 			}
 			return '';
 		}
@@ -141,7 +141,7 @@ namespace MyDb\Pgsql;
 		 */
 		public function connect() {
 			if (0 == $this->Link_ID) {
-				$connect_string = 'dbname=' . $this->Database . $this->ifadd($this->Host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'", 'password=');
+				$connect_string = 'dbname='.$this->Database . $this->ifadd($this->Host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'", 'password=');
 				if ($GLOBALS['phpgw_info']['server']['db_persistent']) {
 					$this->Link_ID = pg_pconnect($connect_string);
 				} else {
@@ -149,7 +149,7 @@ namespace MyDb\Pgsql;
 				}
 
 				if (!$this->Link_ID) {
-					$this->halt('Link-ID == FALSE, ' . ($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '') . 'connect failed');
+					$this->halt('Link-ID == FALSE, '.($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '') . 'connect failed');
 				} else {
 					$this->query('select version()', __LINE__, __FILE__);
 					$this->next_record();
@@ -335,7 +335,7 @@ namespace MyDb\Pgsql;
 			$this->Error = pg_errormessage($this->Link_ID);
 			$this->Errno = ($this->Error == '') ? 0 : 1;
 			if (!$this->Query_ID) {
-				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
+				$this->halt('Invalid SQL: '.$Query_String, $line, $file);
 			}
 
 			return $this->Query_ID;
@@ -354,9 +354,9 @@ namespace MyDb\Pgsql;
 		 */
 		public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
 			if ($offset == 0) {
-				$Query_String .= ' LIMIT ' . $num_rows;
+				$Query_String .= ' LIMIT '.$num_rows;
 			} else {
-				$Query_String .= ' LIMIT ' . $num_rows . ',' . $offset;
+				$Query_String .= ' LIMIT '.$num_rows . ','.$offset;
 			}
 
 			if ($this->Debug) {
@@ -484,10 +484,10 @@ namespace MyDb\Pgsql;
 			if ($mode == 'write') {
 				if (is_array($table)) {
 					while ($t = each($table)) {
-						$result = pg_exec($this->Link_ID, 'lock table ' . $t[1] . ' in share mode');
+						$result = pg_exec($this->Link_ID, 'lock table '.$t[1] . ' in share mode');
 					}
 				} else {
-					$result = pg_exec($this->Link_ID, 'lock table ' . $table . ' in share mode');
+					$result = pg_exec($this->Link_ID, 'lock table '.$table . ' in share mode');
 				}
 			} else {
 				$result = 1;
@@ -533,7 +533,7 @@ namespace MyDb\Pgsql;
 				$id = @pg_exec($this->Link_ID, $q);
 				$this->unlock();
 			} else {
-				$this->halt('cannot lock ' . $this->Seq_Table . ' - has it been created?');
+				$this->halt('cannot lock '.$this->Seq_Table . ' - has it been created?');
 				return 0;
 			}
 			return $nextid;
@@ -670,7 +670,7 @@ namespace MyDb\Pgsql;
 			$this->log("Database error: $msg", $line, $file);
 			if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
 				$sqlstate = mysqli_sqlstate($this->Link_ID);
-				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . ' (' . $this->Error . ')', $line, $file);
+				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . ' ('.$this->Error . ')', $line, $file);
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
 			$this->log(
@@ -751,9 +751,9 @@ namespace MyDb\Pgsql;
 			}
 
 			if (!$this->Host) {
-				system('createdb ' . $currentDatabase, $outval);
+				system('createdb '.$currentDatabase, $outval);
 			} else {
-				system('createdb -h ' . $this->Host . ' ' . $currentDatabase, $outval);
+				system('createdb -h '.$this->Host . ' '.$currentDatabase, $outval);
 			}
 
 			if ($outval != 0) {

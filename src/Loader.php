@@ -76,7 +76,7 @@ class Loader
 					include_once('class.db_pgsql.inc.php');
 					break;
 				default:
-					$this->log('Could not find DB class ' . $this->Type, __LINE__, __FILE__);
+					$this->log('Could not find DB class '.$this->Type, __LINE__, __FILE__);
 					break;
 			}
 		}
@@ -177,7 +177,7 @@ class Loader
 	public function haltmsg($msg) {
 		$this->log("Database error: $msg", __LINE__, __FILE__);
 		if ($this->Errno != '0' || $this->Error != '()') {
-			$this->log('SQL Error: ' . $this->Errno . ' (' . $this->Error . ')', __LINE__, __FILE__);
+			$this->log('SQL Error: '.$this->Errno . ' ('.$this->Error . ')', __LINE__, __FILE__);
 		}
 	}
 
