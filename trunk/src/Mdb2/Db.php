@@ -37,7 +37,7 @@ class Db implements \MyDb\Db_Interface
 	/**
 	 * @var bool
 	 */
-	public $auto_stripslashes = false;
+	public $auto_stripslashes = FALSE;
 	/**
 	 * @var int
 	 */
@@ -66,7 +66,7 @@ class Db implements \MyDb\Db_Interface
 	/* public: current error number and error text */
 	public $Errno = 0;
 	public $Error = '';
-	public $error = false;
+	public $error = FALSE;
 	public $message = '';
 
 	/* private: link and query handles */
@@ -173,7 +173,7 @@ class Db implements \MyDb\Db_Interface
 			if (isset($GLOBALS['tf']) && isset($GLOBALS['tf']->session) && $GLOBALS['tf']->session->sessionid != '')
 				myadmin_log('db', 'info', $message, $line, $file);
 			else
-				myadmin_log('db', 'info', $message, $line, $file, false);
+				myadmin_log('db', 'info', $message, $line, $file, FALSE);
 		} else
 			error_log($message);
 	}
@@ -332,7 +332,7 @@ class Db implements \MyDb\Db_Interface
 			return $timestamp;
 		else {
 			$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
-			return false;
+			return FALSE;
 		}
 	}
 
@@ -368,17 +368,17 @@ class Db implements \MyDb\Db_Interface
 	 * Db::query_return()
 	 *
 	 * Sends an SQL query to the server like the normal query() command but iterates through
-	 * any rows and returns the row or rows immediately or false on error
+	 * any rows and returns the row or rows immediately or FALSE on error
 	 *
 	 * @param mixed $query SQL Query to be used
 	 * @param string $line optionally pass __LINE__ calling the query for logging
 	 * @param string $file optionally pass __FILE__ calling the query for logging
-	 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
 	public function query_return($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
-			return false;
+			return FALSE;
 		} elseif ($this->num_rows() == 1) {
 			$this->next_record(MYSQL_ASSOC);
 			return $this->Record;
@@ -399,7 +399,7 @@ class Db implements \MyDb\Db_Interface
 	 * @param mixed $query SQL Query to be used
 	 * @param string $line optionally pass __LINE__ calling the query for logging
 	 * @param string $file optionally pass __FILE__ calling the query for logging
-	 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
 	public function qr($query, $line = '', $file = '') {
 		return $this->query_return($query, $line, $file);
@@ -437,7 +437,7 @@ class Db implements \MyDb\Db_Interface
 		if ($this->Debug) {
 			printf("Debug: query = %s<br>\n", $Query_String);
 		}
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE) {
 			$this->log($Query_String, $line, $file);
 		}
 		$tries = 3;
@@ -446,20 +446,20 @@ class Db implements \MyDb\Db_Interface
 		$this->Row = 0;
 		$this->Errno = @mysqli_errno($this->Link_ID);
 		$this->Error = @mysqli_error($this->Link_ID);
-		while ($this->Query_ID === false && $try <= $tries) {
+		while ($this->Query_ID === FALSE && $try <= $tries) {
 			$this->message = 'MySQL error ' . @mysqli_errno($this->Link_ID) . ': ' . @mysqli_error($this->Link_ID) . ' Query: ' . $this->query;
-			$this->error = true;
+			$this->error = TRUE;
 			@mysqli_close($this->Link_ID);
 			$this->connect();
 			$try++;
 		}
 		$this->Halt_On_Error = $halt_prev;
-		if ($this->Query_ID === false) {
+		if ($this->Query_ID === FALSE) {
 			$email = "MySQLi Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . $this->Errno . ': ' . $this->Error . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ?
 					'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
-			$email .= '<br><br>Request Variables:<br>' . print_r($_REQUEST, true);
-			$email .= '<br><br>Server Variables:<br>' . print_r($_SERVER, true);
+			$email .= '<br><br>Request Variables:<br>' . print_r($_REQUEST, TRUE);
+			$email .= '<br><br>Server Variables:<br>' . print_r($_SERVER, TRUE);
 			$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
 			$headers = '';
 			$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
@@ -468,7 +468,7 @@ class Db implements \MyDb\Db_Interface
 			//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
 			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
-			admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
+			admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
 			$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
 		}
 
@@ -513,7 +513,7 @@ class Db implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function next_record($result_type = MYSQLI_BOTH) {
-		if ($this->Query_ID === false) {
+		if ($this->Query_ID === FALSE) {
 			$this->halt('next_record called with no query pending.');
 			return 0;
 		}
@@ -559,7 +559,7 @@ class Db implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_begin() {
-		return true;
+		return TRUE;
 	}
 
 	/**
@@ -567,7 +567,7 @@ class Db implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_commit() {
-		return true;
+		return TRUE;
 	}
 
 	/**
@@ -575,7 +575,7 @@ class Db implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_abort() {
-		return true;
+		return TRUE;
 	}
 
 	/**

@@ -25,7 +25,7 @@ namespace MyDb\Mysql;
 		public $Password = '';
 
 		/* public: configuration parameters */
-		public $auto_stripslashes = false;
+		public $auto_stripslashes = FALSE;
 		public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
 		public $Debug = 0; // Set to 1 for debugging messages.
 		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
@@ -78,7 +78,7 @@ namespace MyDb\Mysql;
 		 */
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('myadmin_log'))
-				myadmin_log('db', 'info', $message, $line, $file, false);
+				myadmin_log('db', 'info', $message, $line, $file, FALSE);
 			else
 				error_log($message);
 		}
@@ -253,7 +253,7 @@ namespace MyDb\Mysql;
 				return $timestamp;
 			else {
 				$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
-				return false;
+				return FALSE;
 			}
 		}
 
@@ -289,17 +289,17 @@ namespace MyDb\Mysql;
 		 * Db::query_return()
 		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
-		 * any rows and returns the row or rows immediately or false on error
+		 * any rows and returns the row or rows immediately or FALSE on error
 		 *
 		 * @param mixed $query SQL Query to be used
 		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
-		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
 		public function query_return($query, $line = '', $file = '') {
 			$this->query($query, $line, $file);
 			if ($this->num_rows() == 0) {
-				return false;
+				return FALSE;
 			} elseif ($this->num_rows() == 1) {
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
@@ -320,7 +320,7 @@ namespace MyDb\Mysql;
 		 * @param mixed $query SQL Query to be used
 		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
-		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
 		public function qr($query, $line = '', $file = '') {
 			return $this->query_return($query, $line, $file);
@@ -356,7 +356,7 @@ namespace MyDb\Mysql;
 			if ($this->Debug) {
 				printf("Debug: query = %s<br>\n", $Query_String);
 			}
-			if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
+			if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE) {
 				$this->log($Query_String, $line, $file);
 			}
 			$this->Query_ID = @mysql_query($Query_String, $this->Link_ID);
@@ -384,7 +384,7 @@ namespace MyDb\Mysql;
 				//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
 				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center' . EMAIL_NEWLINE;
-				admin_mail($subject, $email, $headers, false, 'admin_email_sql_error.tpl');
+				admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
 				$this->halt('Invalid SQL: ' . $Query_String, $line, $file);
 			}
 
@@ -474,7 +474,7 @@ namespace MyDb\Mysql;
 		 * @return bool
 		 */
 		public function transaction_begin() {
-			return true;
+			return TRUE;
 		}
 
 		/**
@@ -482,7 +482,7 @@ namespace MyDb\Mysql;
 		 * @return bool
 		 */
 		public function transaction_commit() {
-			return true;
+			return TRUE;
 		}
 
 		/**
@@ -490,7 +490,7 @@ namespace MyDb\Mysql;
 		 * @return bool
 		 */
 		public function transaction_abort() {
-			return true;
+			return TRUE;
 		}
 
 		/**

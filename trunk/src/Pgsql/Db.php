@@ -23,7 +23,7 @@ namespace MyDb\Pgsql;
 		public $User = '';
 		public $Password = '';
 
-		public $auto_stripslashes = false;
+		public $auto_stripslashes = FALSE;
 
 		/* "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning) */
 		public $Halt_On_Error = 'yes';
@@ -130,7 +130,7 @@ namespace MyDb\Pgsql;
 		 */
 		public function log($message, $line = '', $file = '') {
 			if (function_exists('myadmin_log'))
-				myadmin_log('db', 'info', $message, $line, $file, false);
+				myadmin_log('db', 'info', $message, $line, $file, FALSE);
 			else
 				error_log($message);
 		}
@@ -149,7 +149,7 @@ namespace MyDb\Pgsql;
 				}
 
 				if (!$this->Link_ID) {
-					$this->halt('Link-ID == false, ' . ($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '') . 'connect failed');
+					$this->halt('Link-ID == FALSE, ' . ($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '') . 'connect failed');
 				} else {
 					$this->query('select version()', __LINE__, __FILE__);
 					$this->next_record();
@@ -262,17 +262,17 @@ namespace MyDb\Pgsql;
 		 * Db::query_return()
 		 *
 		 * Sends an SQL query to the server like the normal query() command but iterates through
-		 * any rows and returns the row or rows immediately or false on error
+		 * any rows and returns the row or rows immediately or FALSE on error
 		 *
 		 * @param mixed $query SQL Query to be used
 		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
-		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
 		public function query_return($query, $line = '', $file = '') {
 			$this->query($query, $line, $file);
 			if ($this->num_rows() == 0) {
-				return false;
+				return FALSE;
 			} elseif ($this->num_rows() == 1) {
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
@@ -293,7 +293,7 @@ namespace MyDb\Pgsql;
 		 * @param mixed $query SQL Query to be used
 		 * @param string $line optionally pass __LINE__ calling the query for logging
 		 * @param string $file optionally pass __FILE__ calling the query for logging
-		 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+		 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 		 */
 		public function qr($query, $line = '', $file = '') {
 			return $this->query_return($query, $line, $file);
@@ -423,7 +423,7 @@ namespace MyDb\Pgsql;
 			if (!$this->Errno) {
 				return pg_exec($this->Link_ID, 'commit');
 			} else {
-				return false;
+				return FALSE;
 			}
 		}
 

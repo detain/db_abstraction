@@ -41,7 +41,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * @var bool
 	 */
-	public $auto_stripslashes = false;
+	public $auto_stripslashes = FALSE;
 	/**
 	 * @var int
 	 */
@@ -117,7 +117,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function log($message, $line = '', $file = '') {
 		if (function_exists('myadmin_log'))
-			myadmin_log('db', 'info', $message, $line, $file, false);
+			myadmin_log('db', 'info', $message, $line, $file, FALSE);
 		else
 			error_log($message);
 	}
@@ -291,7 +291,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return $timestamp;
 		else {
 			$this->log('Cannot Match Timestamp from ' . $timestamp, __LINE__, __FILE__);
-			return false;
+			return FALSE;
 		}
 	}
 
@@ -327,17 +327,17 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * Db::query_return()
 	 *
 	 * Sends an SQL query to the server like the normal query() command but iterates through
-	 * any rows and returns the row or rows immediately or false on error
+	 * any rows and returns the row or rows immediately or FALSE on error
 	 *
 	 * @param mixed $query SQL Query to be used
 	 * @param string $line optionally pass __LINE__ calling the query for logging
 	 * @param string $file optionally pass __FILE__ calling the query for logging
-	 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
 	public function query_return($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
-			return false;
+			return FALSE;
 		} elseif ($this->num_rows() == 1) {
 			$this->next_record(MYSQL_ASSOC);
 			return $this->Record;
@@ -358,7 +358,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @param mixed $query SQL Query to be used
 	 * @param string $line optionally pass __LINE__ calling the query for logging
 	 * @param string $file optionally pass __FILE__ calling the query for logging
-	 * @return mixed false if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
 	public function qr($query, $line = '', $file = '') {
 		return $this->query_return($query, $line, $file);
@@ -411,13 +411,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($this->Debug) {
 			printf("Debug: query = %s<br>\n", $Query_String);
 		}
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE) {
 			$this->log($Query_String, $line, $file);
 		}
 		$tries = 3;
 		$try = 0;
-		$this->Query_ID = false;
-		while ((is_null($this->Query_ID) || $this->Query_ID === false) && $try <= $tries) {
+		$this->Query_ID = FALSE;
+		while ((is_null($this->Query_ID) || $this->Query_ID === FALSE) && $try <= $tries) {
 			$try++;
 			if ($try > 1) {
 				@mysqli_close($this->Link_ID);
@@ -427,10 +427,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$this->Row = 0;
 			$this->Errno = @mysqli_errno($this->Link_ID);
 			$this->Error = @mysqli_error($this->Link_ID);
-			if ($try == 1 && (is_null($this->Query_ID) || $this->Query_ID === false)) {
+			if ($try == 1 && (is_null($this->Query_ID) || $this->Query_ID === FALSE)) {
 				$email = "MySQLi Error<br>\n" . 'Query: ' . $Query_String . "<br>\n" . 'Error #' . $this->Errno . ': ' . $this->Error . "<br>\n" . 'Line: ' . $line . "<br>\n" . 'File: ' . $file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: ' . $GLOBALS['tf']->session->account_id . "<br>\n" : '');
-				$email .= '<br><br>Request Variables:<br>' . print_r($_REQUEST, true);
-				$email .= '<br><br>Server Variables:<br>' . print_r($_SERVER, true);
+				$email .= '<br><br>Request Variables:<br>' . print_r($_REQUEST, TRUE);
+				$email .= '<br><br>Server Variables:<br>' . print_r($_SERVER, TRUE);
 				$subject = DOMAIN . ' MySQLi Error On ' . TITLE;
 				$headers = '';
 				$headers .= 'MIME-Version: 1.0' . EMAIL_NEWLINE;
@@ -444,7 +444,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			}
 		}
 		$this->Halt_On_Error = $halt_prev;
-		if (is_null($this->Query_ID) || $this->Query_ID === false) {
+		if (is_null($this->Query_ID) || $this->Query_ID === FALSE) {
 			$this->halt('', $line, $file);
 		}
 
@@ -494,7 +494,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function next_record($result_type = MYSQLI_BOTH) {
-		if ($this->Query_ID === false) {
+		if ($this->Query_ID === FALSE) {
 			$this->halt('next_record called with no query pending.');
 			return 0;
 		}
@@ -540,7 +540,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_begin() {
-		return true;
+		return TRUE;
 	}
 
 	/**
@@ -548,7 +548,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_commit() {
-		return true;
+		return TRUE;
 	}
 
 	/**
@@ -556,7 +556,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_abort() {
-		return true;
+		return TRUE;
 	}
 
 	/**
@@ -613,14 +613,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::unlock()
-	 * @param bool $halt_on_error optional, defaults to true, whether or not to halt on error
+	 * @param bool $halt_on_error optional, defaults to TRUE, whether or not to halt on error
 	 * @return bool|int|\mysqli_result
 	 */
-	public function unlock($halt_on_error = true) {
+	public function unlock($halt_on_error = TRUE) {
 		$this->connect();
 
 		$res = @mysqli_query($this->Link_ID, 'unlock tables');
-		if ($halt_on_error === true && !$res) {
+		if ($halt_on_error === TRUE && !$res) {
 			$this->halt('unlock() failed.');
 			return 0;
 		}
@@ -874,9 +874,9 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
  * @return bool
  */
 function mysqli_result($result, $row, $field=0) {
-	if ($result===false) return false;
-	if ($row>=mysqli_num_rows($result)) return false;
-	if (is_string($field) && !(mb_strpos($field, '.') === false)) {
+	if ($result===false) return FALSE;
+	if ($row>=mysqli_num_rows($result)) return FALSE;
+	if (is_string($field) && !(mb_strpos($field, '.') === FALSE)) {
 		$t_field=explode('.', $field);
 		$field=-1;
 		$t_fields=mysqli_fetch_fields($result);
@@ -886,7 +886,7 @@ function mysqli_result($result, $row, $field=0) {
 				break;
 			}
 		}
-		if ($field==-1) return false;
+		if ($field==-1) return FALSE;
 	}
 	mysqli_data_seek($result, $row);
 	$line=mysqli_fetch_array($result);
