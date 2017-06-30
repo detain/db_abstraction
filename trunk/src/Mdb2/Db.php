@@ -854,13 +854,13 @@ class Db implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::create_database()
+	 * Db::createDatabase()
 	 *
 	 * @param string $adminname
 	 * @param string $adminpasswd
 	 * @return void
 	 */
-	public function create_database($adminname = '', $adminpasswd = '') {
+	public function createDatabase($adminname = '', $adminpasswd = '') {
 		$currentUser = $this->User;
 		$currentPassword = $this->Password;
 		$currentDatabase = $this->Database;
