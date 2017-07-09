@@ -3,7 +3,6 @@
 * MDB2 Wrapper Made To Handle Like Our Other Classes Related Functionality
 * Last Changed: $LastChangedDate$
 * @author detain
-* @version $Revision$
 * @copyright 2017
 * @package MyAdmin
 * @category SQL
