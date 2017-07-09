@@ -3,7 +3,6 @@
 	 * Generic SQL Driver Related Functionality
 	 * Last Changed: $LastChangedDate$
 	 * @author detain
-	 * @version $Revision$
 	 * @copyright 2017
 	 * @package MyAdmin
 	 * @category SQL
