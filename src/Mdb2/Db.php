@@ -56,7 +56,7 @@ class Db implements \MyDb\Db_Interface
 	/**
 	 * @var array result array and current row number
 	 */
-	public $Record = array();
+	public $Record = [];
 	/**
 	 * @var array
 	 */
@@ -382,7 +382,7 @@ class Db implements \MyDb\Db_Interface
 			$this->next_record(MYSQL_ASSOC);
 			return $this->Record;
 		} else {
-			$out = array();
+			$out = [];
 			while ($this->next_record(MYSQL_ASSOC)) {
 				$out[] = $this->Record;
 			}
@@ -799,7 +799,7 @@ class Db implements \MyDb\Db_Interface
 			$sqlstate = mysqli_sqlstate($this->Link_ID);
 			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file);
 		}
-		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
+		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
 		$this->log(
 			(mb_strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
 			((isset($_POST) && count($_POST)) ? ' POST='.myadmin_stringify($_POST) : '').
@@ -830,7 +830,7 @@ class Db implements \MyDb\Db_Interface
 	 * @return array
 	 */
 	public function table_names() {
-		$return = array();
+		$return = [];
 		$this->query('SHOW TABLES');
 		$i = 0;
 		while ($info = $this->Query_ID->fetch_row()) {
@@ -848,7 +848,7 @@ class Db implements \MyDb\Db_Interface
 	 * @return array
 	 */
 	public function index_names() {
-		$return = array();
+		$return = [];
 		return $return;
 	}
 

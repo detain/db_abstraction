@@ -32,9 +32,9 @@ namespace MyDb\Pdo;
 		public $Seq_Table = 'db_sequence';
 
 		/* public: result array and current row number */
-		public $Record = array();
+		public $Record = [];
 		public $Row;
-		public $Rows = array();
+		public $Rows = [];
 
 		/* public: current error number and error text */
 		public $Errno = 0;
@@ -286,7 +286,7 @@ namespace MyDb\Pdo;
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
 			} else {
-				$out = array();
+				$out = [];
 				while ($this->next_record(MYSQL_ASSOC)) {
 					$out[] = $this->Record;
 				}
@@ -707,7 +707,7 @@ namespace MyDb\Pdo;
 		 * @return array
 		 */
 		public function table_names() {
-			$return = array();
+			$return = [];
 			$this->query('SHOW TABLES');
 			foreach ($this->Rows as $i => $info) {
 				$return[$i]['table_name'] = $info[0];
@@ -723,7 +723,7 @@ namespace MyDb\Pdo;
 		 * @return array
 		 */
 		public function index_names() {
-			$return = array();
+			$return = [];
 			return $return;
 		}
 

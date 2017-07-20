@@ -28,7 +28,7 @@ abstract class Generic
 	public $Seq_Table = 'db_sequence';
 
 	/* public: result array and current row number */
-	public $Record = array();
+	public $Record = [];
 	public $Row;
 
 	/* public: current error number and error text */
@@ -159,7 +159,7 @@ abstract class Generic
 	 * @return array
 	 */
 	public function index_names() {
-		$return = array();
+		$return = [];
 		return $return;
 	}
 

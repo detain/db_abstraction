@@ -29,7 +29,7 @@ namespace MyDb\Pgsql;
 
 		public $Link_ID = 0;
 		public $Query_ID = 0;
-		public $Record = array();
+		public $Record = [];
 		public $Row = 0;
 
 		public $Seq_Table = 'db_sequence';
@@ -276,7 +276,7 @@ namespace MyDb\Pgsql;
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
 			} else {
-				$out = array();
+				$out = [];
 				while ($this->next_record(MYSQL_ASSOC)) {
 					$out[] = $this->Record;
 				}
@@ -671,7 +671,7 @@ namespace MyDb\Pgsql;
 				$sqlstate = mysqli_sqlstate($this->Link_ID);
 				$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file);
 			}
-			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : array());
+			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
 			$this->log(
 				(mb_strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
 				((isset($_POST) && count($_POST)) ? ' POST='.myadmin_stringify($_POST) : '').
@@ -702,7 +702,7 @@ namespace MyDb\Pgsql;
 		 * @return array
 		 */
 		public function table_names() {
-			$return = array();
+			$return = [];
 			$this->query("select relname from pg_class where relkind = 'r' and not relname like 'pg_%'");
 			$i = 0;
 			while ($this->next_record()) {
@@ -720,7 +720,7 @@ namespace MyDb\Pgsql;
 		 * @return array
 		 */
 		public function index_names() {
-			$return = array();
+			$return = [];
 			$this->query("SELECT relname FROM pg_class WHERE NOT relname ~ 'pg_.*' AND relkind ='i' ORDER BY relname");
 			$i = 0;
 			while ($this->next_record()) {

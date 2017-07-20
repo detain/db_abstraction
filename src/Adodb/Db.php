@@ -34,9 +34,9 @@ namespace MyDb\Adodb;
 		public $max_matches = 1000000;
 
 		/* public: result array and current row number */
-		public $Record = array();
+		public $Record = [];
 		public $Row;
-		public $Rows = array();
+		public $Rows = [];
 
 		/* public: current error number and error text */
 		public $Errno = 0;
@@ -252,7 +252,7 @@ namespace MyDb\Adodb;
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
 			} else {
-				$out = array();
+				$out = [];
 				while ($this->next_record(MYSQL_ASSOC)) {
 					$out[] = $this->Record;
 				}
@@ -671,7 +671,7 @@ namespace MyDb\Adodb;
 		 * @return array
 		 */
 		public function table_names() {
-			$return = array();
+			$return = [];
 			$this->query('SHOW TABLES');
 			$i = 0;
 			while ($info = $this->Query_ID->FetchRow()) {
@@ -689,7 +689,7 @@ namespace MyDb\Adodb;
 		 * @return array
 		 */
 		public function index_names() {
-			$return = array();
+			$return = [];
 			return $return;
 		}
 
