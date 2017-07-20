@@ -689,8 +689,7 @@ namespace MyDb\Adodb;
 		 * @return array
 		 */
 		public function index_names() {
-			$return = [];
-			return $return;
+			return [];
 		}
 
 		/**

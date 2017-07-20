@@ -737,8 +737,7 @@ namespace MyDb\Mysql;
 		 * @return array
 		 */
 		public function index_names() {
-			$return = [];
-			return $return;
+			return [];
 		}
 
 		/**

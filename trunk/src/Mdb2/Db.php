@@ -817,7 +817,7 @@ class Db implements \MyDb\Db_Interface
 			if(isset($backtrace[$level] ['args']))
 				for($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
 					$message .= ($argument > 0 ? ', ' : '').
-						(gettype($backtrace[$level]['args'][$argument]) == 'object' ? 'class '.get_class($backtrace[$level]['args'][$argument]) : myadmin_stringify($backtrace[$level]['args'][$argument]));
+						(is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : myadmin_stringify($backtrace[$level]['args'][$argument]));
 			$message.=')';
 			$this->log($message);
 		}
@@ -848,8 +848,7 @@ class Db implements \MyDb\Db_Interface
 	 * @return array
 	 */
 	public function index_names() {
-		$return = [];
-		return $return;
+		return [];
 	}
 
 	/**
