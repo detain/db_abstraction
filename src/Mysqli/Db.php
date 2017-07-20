@@ -146,7 +146,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::link_id()
-	 * @return int
+	 *
+	 * @return int|\MyDb\Mysqli\mysqli
 	 */
 	public function link_id() {
 		return $this->Link_ID;
@@ -367,7 +368,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * creates a prepaired statement from query
 	 *
 	 * @param string $query sql wuery like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
-	 * @return mysqli_stmt a statement object or FALSE if an error occurred.
+	 * @return int|\MyDb\Mysqli\mysqli_stmt
 	 */
 	public function prepare($query) {
 		if (!$this->connect()) {

@@ -202,7 +202,8 @@ class Db implements \MyDb\Db_Interface
 
 	/**
 	 * Db::link_id()
-	 * @return int
+	 *
+	 * @return int|\MyDb\Mdb2\mysqli
 	 */
 	public function link_id() {
 		return $this->Link_ID;
