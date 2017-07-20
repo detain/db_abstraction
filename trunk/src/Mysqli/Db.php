@@ -459,7 +459,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @param mixed  $offset
 	 * @param string $line
 	 * @param string $file
-	 * @param string $num_rows
+	 * @param string|int $num_rows
 	 * @return mixed
 	 */
 	public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
@@ -872,7 +872,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 /**
  * @param $result
  * @param $row
- * @param int $field
+ * @param int|string $field
  * @return bool
  */
 function mysqli_result($result, $row, $field=0) {

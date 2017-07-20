@@ -483,7 +483,7 @@ class Db implements \MyDb\Db_Interface
 	 * @param mixed  $offset
 	 * @param string $line
 	 * @param string $file
-	 * @param string $num_rows
+	 * @param string|int $num_rows
 	 * @return mixed
 	 */
 	public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
