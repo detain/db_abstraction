@@ -479,6 +479,9 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		return $this->query($Query_String, $line, $file);
 	}
 
+	/**
+	 * @return array|null|object
+	 */
 	public function fetch_object() {
 		$this->Record = @mysqli_fetch_object($this->Query_ID);
 		return $this->Record;

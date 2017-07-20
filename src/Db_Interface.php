@@ -9,8 +9,11 @@
 	*/
 
 namespace MyDb;
-
-
+/**
+ * Interface Db_Interface
+ *
+ * @package MyDb
+ */
 interface Db_Interface
 {
 
