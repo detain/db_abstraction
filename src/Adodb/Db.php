@@ -63,7 +63,7 @@ namespace MyDb\Adodb;
 		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
 			if (!defined('_ADODB_LAYER')) {
-				require_once(realpath(__DIR__).'/../vendor/adodb/adodb-php/adodb.inc.php');
+				require_once realpath(__DIR__).'/../vendor/adodb/adodb-php/adodb.inc.php';
 			}
 			$this->Database = $Database;
 			$this->User = $User;
