@@ -346,7 +346,7 @@ namespace MyDb\Pdo;
 			$this->Query_ID = $this->Link_ID->prepare($Query_String);
 			$success = $this->Query_ID->execute();
 			$this->Rows = $this->Query_ID->fetchAll();
-			$this->log("PDO Query $Query_String (S:$success) - " . sizeof($this->Rows).' Rows', __LINE__, __FILE__);
+			$this->log("PDO Query $Query_String (S:$success) - " . count($this->Rows).' Rows', __LINE__, __FILE__);
 			$this->Row = 0;
 			if ($success === FALSE) {
 				$email = "MySQL Error<br>\n".'Query: '.$Query_String . "<br>\n".'Error #'.print_r($this->Query_ID->errorInfo(), TRUE) . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
@@ -441,7 +441,7 @@ namespace MyDb\Pdo;
 			if (isset($this->Rows[$pos])) {
 				$this->Row = $pos;
 			} else {
-				$this->halt("seek($pos) failed: result has " . sizeof($this->Rows).' rows');
+				$this->halt("seek($pos) failed: result has " . count($this->Rows).' rows');
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
 				* desirable behaviour.
@@ -562,7 +562,7 @@ namespace MyDb\Pdo;
 		 * @return int
 		 */
 		public function num_rows() {
-			return sizeof($this->Rows);
+			return count($this->Rows);
 		}
 
 		/**
@@ -571,7 +571,7 @@ namespace MyDb\Pdo;
 		 */
 		public function num_fields() {
 			$keys = array_keys($this->Rows);
-			return sizeof($this->Rows[$keys[0]]);
+			return count($this->Rows[$keys[0]]);
 		}
 
 		/* public: shorthand notation */
