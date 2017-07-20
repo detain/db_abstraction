@@ -63,7 +63,7 @@ namespace MyDb\Adodb;
 		 */
 		public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
 			if (!defined('_ADODB_LAYER')) {
-				require_once(realpath(dirname(__FILE__)).'/../vendor/adodb/adodb-php/adodb.inc.php');
+				require_once(realpath(__DIR__).'/../vendor/adodb/adodb-php/adodb.inc.php');
 			}
 			$this->Database = $Database;
 			$this->User = $User;
@@ -339,7 +339,7 @@ namespace MyDb\Adodb;
 				admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
 				$this->halt('Invalid SQL: '.$Query_String, $line, $file);
 			}
-			$this->log("ADOdb Query $Query_String (S:$success) - " . sizeof($this->Rows).' Rows', __LINE__, __FILE__);
+			$this->log("ADOdb Query $Query_String (S:$success) - " . count($this->Rows).' Rows', __LINE__, __FILE__);
 			$this->Row = 0;
 
 			// Will return nada if it fails. That's fine.
@@ -407,7 +407,7 @@ namespace MyDb\Adodb;
 			if (isset($this->Rows[$pos])) {
 				$this->Row = $pos;
 			} else {
-				$this->halt("seek($pos) failed: result has " . sizeof($this->Rows).' rows');
+				$this->halt("seek($pos) failed: result has " . count($this->Rows).' rows');
 				/* half assed attempt to save the day,
 				* but do not consider this documented or even
 				* desirable behaviour.

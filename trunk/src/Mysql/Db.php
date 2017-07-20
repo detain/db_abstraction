@@ -197,7 +197,7 @@ namespace MyDb\Mysql;
 		 * @return string
 		 */
 		public function real_escape($string) {
-			if ((is_null($this->Link_ID) || $this->Link_ID == 0) && !$this->connect()) {
+			if ((null === $this->Link_ID || $this->Link_ID == 0) && !$this->connect()) {
 				return mysql_escape_string($string);
 			} else {
 				return mysql_real_escape_string($string);

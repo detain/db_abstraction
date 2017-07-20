@@ -416,7 +416,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$tries = 3;
 		$try = 0;
 		$this->Query_ID = FALSE;
-		while ((is_null($this->Query_ID) || $this->Query_ID === FALSE) && $try <= $tries) {
+		while ((null === $this->Query_ID || $this->Query_ID === FALSE) && $try <= $tries) {
 			$try++;
 			if ($try > 1) {
 				@mysqli_close($this->Link_ID);
@@ -426,7 +426,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$this->Row = 0;
 			$this->Errno = @mysqli_errno($this->Link_ID);
 			$this->Error = @mysqli_error($this->Link_ID);
-			if ($try == 1 && (is_null($this->Query_ID) || $this->Query_ID === FALSE)) {
+			if ($try == 1 && (null === $this->Query_ID || $this->Query_ID === FALSE)) {
 				$email = "MySQLi Error<br>\n".'Query: '.$Query_String . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 				$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
 				$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
@@ -443,7 +443,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			}
 		}
 		$this->Halt_On_Error = $halt_prev;
-		if (is_null($this->Query_ID) || $this->Query_ID === FALSE) {
+		if (null === $this->Query_ID || $this->Query_ID === FALSE) {
 			$this->halt('', $line, $file);
 		}
 
