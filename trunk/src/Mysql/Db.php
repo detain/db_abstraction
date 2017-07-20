@@ -433,7 +433,7 @@ namespace MyDb\Mysql;
 			}
 
 			$this->Record = @mysql_fetch_array($this->Query_ID, $result_type);
-			$this->Row += 1;
+			++$this->Row;
 			$this->Errno = mysql_errno();
 			$this->Error = mysql_error();
 
