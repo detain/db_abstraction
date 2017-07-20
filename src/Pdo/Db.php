@@ -414,13 +414,13 @@ namespace MyDb\Pdo;
 		 */
 		public function next_record($result_type = MYSQL_ASSOC) {
 			// PDO result types so far seem to be +1
-			$result_type += 1;
+			++$result_type;
 			if (!$this->Query_ID) {
 				$this->halt('next_record called with no query pending.');
 				return 0;
 			}
 
-			$this->Row += 1;
+			++$this->Row;
 			$this->Record = $this->Rows[$this->Row];
 
 			$stat = is_array($this->Record);

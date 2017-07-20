@@ -518,7 +518,7 @@ class Db implements \MyDb\Db_Interface
 		}
 
 		$this->Record = @mysqli_fetch_array($this->Query_ID, $result_type);
-		$this->Row += 1;
+		++$this->Row;
 		$this->Errno = mysqli_errno($this->Link_ID);
 		$this->Error = mysqli_error($this->Link_ID);
 
