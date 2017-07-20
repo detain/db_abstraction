@@ -723,8 +723,7 @@ namespace MyDb\Pdo;
 		 * @return array
 		 */
 		public function index_names() {
-			$return = [];
-			return $return;
+			return [];
 		}
 
 		/**
