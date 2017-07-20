@@ -9,7 +9,11 @@
 	 */
 
 namespace MyDb;
-
+/**
+ * Class Loader
+ *
+ * @package MyDb
+ */
 class Loader
 {
 	/* public: connection parameters */
