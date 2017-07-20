@@ -31,7 +31,7 @@ namespace MyDb\Mysql;
 		public $Seq_Table = 'db_sequence';
 
 		/* public: result array and current row number */
-		public $Record = array();
+		public $Record = [];
 		public $Row;
 
 		/* public: current error number and error text */
@@ -303,7 +303,7 @@ namespace MyDb\Mysql;
 				$this->next_record(MYSQL_ASSOC);
 				return $this->Record;
 			} else {
-				$out = array();
+				$out = [];
 				while ($this->next_record(MYSQL_ASSOC)) {
 					$out[] = $this->Record;
 				}
@@ -719,7 +719,7 @@ namespace MyDb\Mysql;
 		 * @return array
 		 */
 		public function table_names() {
-			$return = array();
+			$return = [];
 			$this->query('SHOW TABLES');
 			$i = 0;
 			while ($info = mysql_fetch_row($this->Query_ID)) {
@@ -737,7 +737,7 @@ namespace MyDb\Mysql;
 		 * @return array
 		 */
 		public function index_names() {
-			$return = array();
+			$return = [];
 			return $return;
 		}
 
