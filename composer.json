@@ -1,23 +1,36 @@
 {
-    "name": "detain/db_abstraction",
+    "name": "detain\/db_abstraction",
     "type": "library",
     "description": "Database Abstraction Class",
-    "keywords": ["db","database","sql","mysql","mysqli","adodb","pgsql","mdb2","sqlite","pdo"],
+    "keywords": [
+        "db",
+        "database",
+        "sql",
+        "mysql",
+        "mysqli",
+        "adodb",
+        "pgsql",
+        "mdb2",
+        "sqlite",
+        "pdo"
+    ],
     "license": "LGPL-2.1",
     "authors": [
         {
             "name": "Joe Huss",
-            "homepage": "https://my.interserver.net/"
+            "homepage": "https:\/\/my.interserver.net\/"
         }
     ],
     "require": {
         "php": ">=5.4.0",
         "ext-mysqli": "*",
-        "adodb/adodb-php": "^5.20"
+        "adodb\/adodb-php": ">=5.20",
+        "roave\/security-advisories": "dev-master"
     },
-    "require-dev": {
-    },
+    "require-dev": [],
     "autoload": {
-        "psr-4": {"MyDb\\": "src/"}
+        "psr-4": {
+            "MyDb\\": "src\/"
+        }
     }
 }
