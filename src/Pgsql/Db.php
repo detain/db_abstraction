@@ -673,11 +673,11 @@ namespace MyDb\Pgsql;
 			}
 			$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
 			$this->log(
-				(mb_strlen(getenv('REQUEST_URI')) ? ' '.getenv('REQUEST_URI') : '').
+				('' !== getenv('REQUEST_URI') ? ' '.getenv('REQUEST_URI') : '').
 				((isset($_POST) && count($_POST)) ? ' POST='.myadmin_stringify($_POST) : '').
 				((isset($_GET) && count($_GET)) ? ' GET='.myadmin_stringify($_GET) : '').
 				((isset($_FILES) && count($_FILES)) ? ' FILES='.myadmin_stringify($_FILES) : '').
-				(mb_strlen(getenv('HTTP_USER_AGENT')) ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
+				('' !== getenv('HTTP_USER_AGENT') ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 				(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
 													  ($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. myadmin_stringify($_POST). '"' : '') : ''));
 			for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
