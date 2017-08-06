@@ -1,5 +1,5 @@
 {
-    "name": "detain\/db_abstraction",
+    "name": "detain/db_abstraction",
     "type": "library",
     "description": "Database Abstraction Class",
     "keywords": [
@@ -24,8 +24,8 @@
     "require": {
         "php": ">=5.4.0",
         "ext-mysqli": "*",
-        "adodb\/adodb-php": ">=5.20",
-        "roave\/security-advisories": "dev-master"
+        "adodb/adodb-php": ">=5.20",
+        "roave/security-advisories": "dev-master"
     },
     "require-dev": [],
     "autoload": {
