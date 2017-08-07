@@ -356,10 +356,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::next_record()
+	 * @param mixed $result_type
 	 * @return bool
 	 */
-	public function next_record() {
-		$this->Record = @pg_fetch_array($this->Query_ID, $this->Row++);
+	public function next_record($result_type = PGSQL_BOTH) {
+		$this->Record = @pg_fetch_array($this->Query_ID, $this->Row++, $result_type);
 
 		$this->Error = pg_errormessage($this->Link_ID);
 		$this->Errno = ($this->Error == '') ? 0 : 1;

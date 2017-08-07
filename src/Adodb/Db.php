@@ -19,38 +19,12 @@ namespace MyDb\Adodb;
 	class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	{
 		/* public: connection parameters */
-		public $Host = 'localhost';
-		public $Database = '';
-		public $User = '';
-		public $Password = '';
 		public $Driver = 'mysql';
-
-		/* public: configuration parameters */
-		public $auto_stripslashes = FALSE;
 		public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
-		public $Debug = 0; // Set to 1 for debugging messages.
-		public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
-		public $Seq_Table = 'db_sequence';
 		public $max_matches = 1000000;
-
-		/* public: result array and current row number */
-		public $Record = [];
-		public $Row;
 		public $Rows = [];
-
-		/* public: current error number and error text */
-		public $Errno = 0;
-		public $Error = '';
-
 		/* public: this is an api revision, not a CVS revision. */
 		public $type = 'adodb';
-
-		/* private: link and query handles */
-		public $Link_ID = FALSE;
-		public $Query_ID = 0;
-
-		public $character_set = '';
-		public $collation = '';
 
 		/**
 		 * Constructs the db handler, can optionally specify connection parameters
