@@ -35,14 +35,15 @@ abstract class Generic
 	public $Errno = 0;
 	public $Error = '';
 
-	public $type;
+	/* public: this is an api revision, not a CVS revision. */
+	public $type = 'generic';
 
 	/* private: link and query handles */
 	public $Link_ID = 0;
 	public $Query_ID = 0;
 
-	public $character_set = '';
-	public $collation = '';
+	public $character_set = 'utf8mb4';
+	public $collation = 'utf8mb4_unicode_ci';
 
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters

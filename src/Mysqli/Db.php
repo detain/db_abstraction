@@ -1,12 +1,12 @@
 <?php
 /**
-	 * MySQL Related Functionality
-	 * Last Changed: $LastChangedDate$
-	 * @author detain
-	 * @copyright 2017
-	 * @package MyAdmin
-	 * @category SQL
-	 */
+ * MySQL Related Functionality
+ * Last Changed: $LastChangedDate$
+ * @author detain
+ * @copyright 2017
+ * @package MyAdmin
+ * @category SQL
+ */
 
 namespace MyDb\Mysqli;
 
@@ -21,72 +21,18 @@ use \MyDb\Db_Interface;
 class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 {
 	/**
-	 * @var string
-	 */
-	public $Host = 'localhost';
-	/**
-	 * @var string
-	 */
-	public $Database = '';
-	/**
-	 * @var string
-	 */
-	public $User = '';
-	/**
-	 * @var string
-	 */
-	public $Password = '';
-
-	/**
-	 * @var bool
-	 */
-	public $auto_stripslashes = FALSE;
-	/**
 	 * @var int
 	 */
 	public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
-	/**
-	 * @var int
-	 */
-	public $Debug = 0; // Set to 1 for debugging messages.
-	/**
-	 * @var string
-	 */
-	public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
-	/**
-	 * @var string
-	 */
-	public $Seq_Table = 'db_sequence';
-	/**
-	 * @var array result array and current row number
-	 */
-	public $Record = [];
-	/**
-	 * @var array
-	 */
-	public $Row;
-
-	/* public: current error number and error text */
-	public $Errno = 0;
-	public $Error = '';
 
 	/**
 	 * @var string
 	 */
 	public $type = 'mysqli';
 
-	/* private: link and query handles */
-	/** @var mysqli **/
-	public $Link_ID = 0;
-	public $Query_ID = 0;
-
 	public $max_connect_errors = 30;
 	public $connection_attempt = 0;
-
 	public $max_matches = 10000000;
-
-	public $character_set = 'utf8mb4';
-	public $collation = 'utf8mb4_unicode_ci';
 
 
 	/**
