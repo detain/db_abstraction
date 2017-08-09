@@ -19,13 +19,19 @@ cache:
 addons:
   code_climate:
     repo_token: $CODECLIMATE_REPO_TOKEN
-before_script:
+before_install:
   - mkdir -p build/logs
   - phpenv config-rm xdebug.ini
   - pear install pear/XML_RPC2
   - phpenv rehash
   - travis_retry composer self-update
+  - travis_retry composer self-update
+install:
+  - composer install --no-interaction --prefer-source
+before_script:
   - travis_retry composer update --with-dependencies --no-interaction --dev --prefer-source
+  - mysql -u root -e 'CREATE DATABASE testbase;'
+  - mysql -u root testbase < tests/testbase.sql
 script: 
   - if [ "$TRAVIS_PHP_VERSION" = "7.0" ]; then phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/; fi;
   - if [ "$TRAVIS_PHP_VERSION" != "7.0" ]; then vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v; fi
