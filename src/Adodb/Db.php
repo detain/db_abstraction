@@ -1,8 +1,7 @@
 <?php
 	/**
 	 * MySQL Related Functionality
-	 * Last Changed: $LastChangedDate$
-	 * @author detain
+	 * @author Joe Huss <detain@interserver.net>
 	 * @version $Revision$
 	 * @copyright 2017
 	 * @package MyAdmin
