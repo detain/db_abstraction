@@ -1,10 +1,10 @@
 env:
-  - DB=mysql
-  - DB=postgres
   - DBNAME=tests 
   - DBUSER=tests
   - DBPASS=tests
   - DBHOST=localhost
+  - DB=mysql
+  - DB=postgres
 language: php
 os: linux
 dist: trusty
