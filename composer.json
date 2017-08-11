@@ -27,9 +27,18 @@
         "adodb/adodb-php": ">=5.20",
         "roave/security-advisories": "dev-master"
     },
+    "require-dev": {
+        "phpunit/phpunit": ">=4.8.35, <6.0.0"
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.1.x-dev"
+        }
+    },
     "autoload": {
         "psr-4": {
             "MyDb\\": "src/"
+            "MyDb\\Tests\\": "tests/"
         }
     }
 }
