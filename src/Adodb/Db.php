@@ -156,7 +156,7 @@ namespace MyDb\Adodb;
 		 * @return bool|string
 		 */
 		public function to_timestamp($epoch) {
-			return date('YmdHis', $epoch);
+			return date('Y-m-d H:i:s', $epoch);
 		}
 
 		/**
