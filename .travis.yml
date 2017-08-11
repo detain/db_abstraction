@@ -25,7 +25,6 @@ services:
 before_install:
   - mkdir -p build/logs
   - phpenv config-rm xdebug.ini
-  - pear install pear/XML_RPC2
   - phpenv rehash
   - travis_retry composer self-update
 install:
