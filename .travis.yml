@@ -1,7 +1,7 @@
 env:
   global:
-    - GIT_COMMITTED_AT=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct; fi)`1
-  - DB=sqlite
+    - GIT_COMMITTED_AT=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct; fi)
+  # disabled for now DB=sqlite
   - DB=mysql
   - DB=postgres
 language: php
@@ -31,20 +31,20 @@ before_install:
   - pear install pear/XML_RPC2
   - phpenv rehash
   - travis_retry composer self-update
-  - travis_retry composer self-update
 install:
   - composer install --no-interaction --prefer-source
 before_script:
-  - sh -c "if [ '$DB' = 'pgsql' ]; then psql -c 'DROP DATABASE IF EXISTS tests;' -U postgres; fi"
-  - sh -c "if [ '$DB' = 'pgsql' ]; then psql -c 'CREATE DATABASE tests;' -U postgres; fi"
-  - sh -c "if [ '$DB' = 'mysql' ]; then mysql -e 'CREATE DATABASE IF NOT EXISTS tests; CREATE DATABASE IF NOT EXISTS tests;'; fi"
-  - sh -c "if [ '$DB' = 'mysql' ]; then mysql -u root tests < tests/tests.sql; fi"
+  - if [[ "$DB" = "pgsql" ]]; then psql -c "DROP DATABASE IF EXISTS tests;" -U postgres; fi
+  - if [[ "$DB" = "pgsql" ]]; then psql -c "CREATE DATABASE tests;" -U postgres; fi
+  - if [[ "$DB" = "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests; CREATE DATABASE IF NOT EXISTS tests;"; fi
+  - if [[ "$DB" = "mysql" ]]; then mysql -u root tests < tests/tests.sql; fi
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES;"; fi
   - travis_retry composer update --with-dependencies --no-interaction --dev --prefer-source
 script: 
-  - if [ "$TRAVIS_PHP_VERSION" = "7.0" ]; then phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/; fi;
-  - if [ "$TRAVIS_PHP_VERSION" != "7.0" ]; then vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v; fi
+  - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/; fi;
+  - if [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v; fi
 after_success:
-  - if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_PHP_VERSION" == "7.0" ]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
-  - if [ "$TRAVIS_PHP_VERSION" = "7.0" ]; then travis_retry bash <(curl -s https://codecov.io/bash); fi;
-  - if [ "$TRAVIS_PHP_VERSION" = "7.0" ]; then travis_retry php vendor/bin/coveralls -v --coverage_clover=coverage.xml; fi;
-  - if [ "$TRAVIS_PHP_VERSION" = "7.0" ]; then travis_retry php vendor/bin/codacycoverage clover coverage.xml; fi;
+  - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
+  - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry bash <(curl -s https://codecov.io/bash); fi;
+  - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry php vendor/bin/coveralls -v --coverage_clover=coverage.xml; fi;
+  - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry php vendor/bin/codacycoverage clover coverage.xml; fi;
