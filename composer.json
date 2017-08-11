@@ -28,7 +28,7 @@
         "roave/security-advisories": "dev-master"
     },
     "require-dev": {
-        "phpunit/phpunit": "dev-master"
+        "phpunit/phpunit": "*"
     },
     "extra": {
         "branch-alias": {
