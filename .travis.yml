@@ -1,8 +1,4 @@
 env:
-  - DBNAME=tests 
-  - DBUSER=tests
-  - DBPASS=tests
-  - DBHOST=localhost
   - DB=mysql
   - DB=postgres
 language: php
@@ -41,8 +37,8 @@ before_script:
   - if [[ "$DB" == "mysql" ]]; then mysql -u root tests < tests/tests.sql; fi
   - travis_retry composer update --with-dependencies --no-interaction --dev --prefer-source
 script: 
-  - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/; fi;
-  - if [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v; fi
+  - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/; fi;
+  - if [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v; fi
 after_success:
   - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
   - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry bash <(curl -s https://codecov.io/bash); fi;
