@@ -80,7 +80,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$DSN = "{$this->Driver}:dbname={$database};host={$this->Host}";
 		if ($this->character_set != '')
 			$DSN .= ';charset='.$this->character_set;
-		$this->Link_ID = new PDO($DSN, $this->User, $this->Password);
+		$this->Link_ID = new \PDO($DSN, $this->User, $this->Password);
 	}
 
 	/* public: some trivial reporting */
@@ -136,9 +136,9 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($this->Link_ID === FALSE) {
 			try
 			{
-				$this->Link_ID = new PDO($DSN, $User, $Password);
+				$this->Link_ID = new \PDO($DSN, $User, $Password);
 			}
-			catch (PDOException $e) {
+			catch (\PDOException $e) {
 				$this->halt('Connection Failed '.$e->getMessage());
 				return 0;
 			}
