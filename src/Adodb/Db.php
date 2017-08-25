@@ -129,7 +129,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function real_escape($string) {
-		return mysql_escape_string($string);
+		return mysqli_escape_string(mysqli_init(), $string);
 	}
 
 	/**
@@ -137,7 +137,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function escape($string) {
-		return mysql_escape_string($string);
+		return mysqli_escape_string(mysqli_init(), $string);
 	}
 
 	/**

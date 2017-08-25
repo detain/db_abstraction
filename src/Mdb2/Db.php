@@ -283,7 +283,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function real_escape($string) {
 		if ((!is_resource($this->Link_ID) || $this->Link_ID == 0) && !$this->connect()) {
-			return mysqli_escape_string($string);
+			return mysqli_escape_string(mysqli_init(), $string);
 		}
 		return mysqli_real_escape_string($this->Link_ID, $string);
 	}
@@ -293,7 +293,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function escape($string) {
-		return mysql_escape_string($string);
+		return mysqli_escape_string(mysqli_init(), $string);
 	}
 
 	/**
