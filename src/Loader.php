@@ -19,8 +19,8 @@ class Loader
 	public $Type = 'mysqli';
 	public $host = 'localhost';
 	public $database = '';
-	public $User = '';
-	public $Password = '';
+	public $user = '';
+	public $password = '';
 
 	/* public: configuration parameters */
 	public $autoStripslashes = FALSE;
@@ -50,12 +50,12 @@ class Loader
 	 *
 	 * @param string $Type Optional The database type mysql/mysqli/pdo/adodb/pgsql
 	 * @param string $database Optional The database name
-	 * @param string $User Optional The username to connect with
-	 * @param string $Password Optional The password to use
+	 * @param string $user Optional The username to connect with
+	 * @param string $password Optional The password to use
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($Type = '', $database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
+	public function __construct($Type = '', $database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
 		$this->Type = $Type;
 		if (!defined('db')) {
 			switch ($this->Type) {
@@ -83,8 +83,8 @@ class Loader
 			}
 		}
 		$this->database = $database;
-		$this->User = $User;
-		$this->Password = $Password;
+		$this->user = $user;
+		$this->password = $password;
 		$this->host = $host;
 		if ($query != '') {
 			$this->query($query);

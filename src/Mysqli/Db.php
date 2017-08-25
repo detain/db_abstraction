@@ -38,15 +38,15 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * Constructs the db handler, can optionally specify connection parameters
 	 *
 	 * @param string $database Optional The database name
-	 * @param string $User Optional The username to connect with
-	 * @param string $Password Optional The password to use
+	 * @param string $user Optional The username to connect with
+	 * @param string $password Optional The password to use
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
+	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
 		$this->database = $database;
-		$this->User = $User;
-		$this->Password = $Password;
+		$this->user = $user;
+		$this->password = $password;
 		$this->host = $host;
 		if ($query != '')
 			$this->query($query);
@@ -112,11 +112,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * Db::connect()
 	 * @param string $database
 	 * @param string $host
-	 * @param string $User
-	 * @param string $Password
+	 * @param string $user
+	 * @param string $password
 	 * @return int|\mysqli
 	 */
-	public function connect($database = '', $host = '', $User = '', $Password = '') {
+	public function connect($database = '', $host = '', $user = '', $password = '') {
 		/* Handle defaults */
 		if ('' == $database) {
 			$database = $this->database;
@@ -124,11 +124,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ('' == $host) {
 			$host = $this->host;
 		}
-		if ('' == $User) {
-			$User = $this->User;
+		if ('' == $user) {
+			$user = $this->user;
 		}
-		if ('' == $Password) {
-			$Password = $this->Password;
+		if ('' == $password) {
+			$password = $this->password;
 		}
 		/* establish connection, select database */
 		if (!is_object($this->Link_ID)) {
@@ -136,23 +136,23 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			if ($this->connection_atttempt > 1)
 				myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
 			if ($this->connection_atttempt >= $this->max_connect_errors) {
-				$this->halt("connect($host, $User, \$Password) failed. " . $mysqli->connect_error);
+				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}
-			//$this->Link_ID = new mysqli($host, $User, $Password, $database);
+			//$this->Link_ID = new mysqli($host, $user, $password, $database);
 			$this->Link_ID = mysqli_init();
 			$this->Link_ID->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
-			$this->Link_ID->real_connect($host, $User, $Password, $database);
+			$this->Link_ID->real_connect($host, $user, $password, $database);
 			$this->Link_ID->set_charset($this->character_set);
 			/*
-			* $this->Link_ID = $this->Link_Init->real_connect($host, $User, $Password, $database);
+			* $this->Link_ID = $this->Link_Init->real_connect($host, $user, $password, $database);
 			* if ($this->Link_ID)
 			* {
 			* $this->Link_ID = $this->Link_Init;
 			* }
 			*/
 			if ($this->Link_ID->connect_errno) {
-				$this->halt("connect($host, $User, \$Password) failed. " . $mysqli->connect_error);
+				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}
 			/*if ($this->character_set != '') {
@@ -791,13 +791,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function createDatabase($adminname = '', $adminpasswd = '') {
-		$currentUser = $this->User;
-		$currentPassword = $this->Password;
+		$currentUser = $this->user;
+		$currentPassword = $this->password;
 		$currentDatabase = $this->database;
 
 		if ($adminname != '') {
-			$this->User = $adminname;
-			$this->Password = $adminpasswd;
+			$this->user = $adminname;
+			$this->password = $adminpasswd;
 			$this->database = 'mysql';
 		}
 		$this->disconnect();
@@ -805,8 +805,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->query("grant all on $currentDatabase.* to $currentUser@localhost identified by '$currentPassword'");
 		$this->disconnect();
 
-		$this->User = $currentUser;
-		$this->Password = $currentPassword;
+		$this->user = $currentUser;
+		$this->password = $currentPassword;
 		$this->database = $currentDatabase;
 		$this->connect();
 		/*return $return; */

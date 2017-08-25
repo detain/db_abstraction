@@ -46,15 +46,15 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * Constructs the db handler, can optionally specify connection parameters
 	 *
 	 * @param string $database Optional The database name
-	 * @param string $User Optional The username to connect with
-	 * @param string $Password Optional The password to use
+	 * @param string $user Optional The username to connect with
+	 * @param string $password Optional The password to use
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
+	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
 		$this->database = $database;
-		$this->User = $User;
-		$this->Password = $Password;
+		$this->user = $user;
+		$this->password = $password;
 		$this->host = $host;
 		if ($query != '') {
 			$this->query($query);
@@ -135,7 +135,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function connect() {
 		if (0 == $this->Link_ID) {
-			$connect_string = 'dbname='.$this->database . $this->ifadd($this->host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'", 'password=');
+			$connect_string = 'dbname='.$this->database . $this->ifadd($this->host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->user, 'user=') . $this->ifadd("'" . $this->password . "'", 'password=');
 			if ($GLOBALS['phpgw_info']['server']['db_persistent']) {
 				$this->Link_ID = pg_pconnect($connect_string);
 			} else {
@@ -696,13 +696,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function createDatabase($adminname = '', $adminpasswd = '') {
-		$currentUser = $this->User;
-		$currentPassword = $this->Password;
+		$currentUser = $this->user;
+		$currentPassword = $this->password;
 		$currentDatabase = $this->database;
 
 		if ($adminname != '') {
-			$this->User = $adminname;
-			$this->Password = $adminpasswd;
+			$this->user = $adminname;
+			$this->password = $adminpasswd;
 		}
 
 		if (!$this->host) {
@@ -717,8 +717,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			echo 'please setup the postreSQL database manually<BR>';
 		}
 
-		$this->User = $currentUser;
-		$this->Password = $currentPassword;
+		$this->user = $currentUser;
+		$this->password = $currentPassword;
 		$this->database = $currentDatabase;
 		$this->connect();
 	}

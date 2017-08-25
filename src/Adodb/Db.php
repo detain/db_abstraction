@@ -32,18 +32,18 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * Constructs the db handler, can optionally specify connection parameters
 	 *
 	 * @param string $database Optional The database name
-	 * @param string $User Optional The username to connect with
-	 * @param string $Password Optional The password to use
+	 * @param string $user Optional The username to connect with
+	 * @param string $password Optional The password to use
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
+	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
 		if (!defined('_ADODB_LAYER')) {
 			require_once realpath(__DIR__).'/../vendor/adodb/adodb-php/adodb.inc.php';
 		}
 		$this->database = $database;
-		$this->User = $User;
-		$this->Password = $Password;
+		$this->user = $user;
+		$this->password = $password;
 		$this->host = $host;
 		if ($query != '') {
 			$this->query($query);
@@ -85,12 +85,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * Db::connect()
 	 * @param string $database
 	 * @param string $host
-	 * @param string $User
-	 * @param string $Password
+	 * @param string $user
+	 * @param string $password
 	 * @param string $Driver
 	 * @return bool|\the
 	 */
-	public function connect($database = '', $host = '', $User = '', $Password = '', $Driver = 'mysql') {
+	public function connect($database = '', $host = '', $user = '', $password = '', $Driver = 'mysql') {
 		/* Handle defaults */
 		if ('' == $database) {
 			$database = $this->database;
@@ -98,11 +98,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ('' == $host) {
 			$host = $this->host;
 		}
-		if ('' == $User) {
-			$User = $this->User;
+		if ('' == $user) {
+			$user = $this->user;
 		}
-		if ('' == $Password) {
-			$Password = $this->Password;
+		if ('' == $password) {
+			$password = $this->password;
 		}
 		if ('' == $Driver) {
 			$Driver = $this->Driver;
@@ -110,7 +110,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		/* establish connection, select database */
 		if ($this->Link_ID === FALSE) {
 			$this->Link_ID = NewADOConnection($Driver);
-			$this->Link_ID->Connect($host, $User, $Password, $database);
+			$this->Link_ID->Connect($host, $user, $password, $database);
 		}
 		return $this->Link_ID;
 	}
@@ -676,13 +676,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function createDatabase($adminname = '', $adminpasswd = '') {
-		$currentUser = $this->User;
-		$currentPassword = $this->Password;
+		$currentUser = $this->user;
+		$currentPassword = $this->password;
 		$currentDatabase = $this->database;
 
 		if ($adminname != '') {
-			$this->User = $adminname;
-			$this->Password = $adminpasswd;
+			$this->user = $adminname;
+			$this->password = $adminpasswd;
 			$this->database = 'mysql';
 		}
 		$this->disconnect();
@@ -690,8 +690,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->query("grant all on $currentDatabase.* to $currentUser@localhost identified by '$currentPassword'");
 		$this->disconnect();
 
-		$this->User = $currentUser;
-		$this->Password = $currentPassword;
+		$this->user = $currentUser;
+		$this->password = $currentPassword;
 		$this->database = $currentDatabase;
 		$this->connect();
 		/*return $return; */
