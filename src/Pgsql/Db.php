@@ -105,7 +105,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function link_id() {
-		return $this->Link_ID;
+		return $this->linkId;
 	}
 
 	/**
@@ -134,15 +134,15 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function connect() {
-		if (0 == $this->Link_ID) {
+		if (0 == $this->linkId) {
 			$connect_string = 'dbname='.$this->database . $this->ifadd($this->host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->user, 'user=') . $this->ifadd("'" . $this->password . "'", 'password=');
 			if ($GLOBALS['phpgw_info']['server']['db_persistent']) {
-				$this->Link_ID = pg_pconnect($connect_string);
+				$this->linkId = pg_pconnect($connect_string);
 			} else {
-				$this->Link_ID = pg_connect($connect_string);
+				$this->linkId = pg_connect($connect_string);
 			}
 
-			if (!$this->Link_ID) {
+			if (!$this->linkId) {
 				$this->halt('Link-ID == FALSE, '.($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '').'connect failed');
 			} else {
 				$this->query('select version()', __LINE__, __FILE__);
@@ -209,7 +209,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function disconnect() {
-		return @pg_close($this->Link_ID);
+		return @pg_close($this->linkId);
 	}
 
 	/**
@@ -283,10 +283,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		/* printf("<br>Debug: query = %s<br>\n", $queryString); */
 
-		$this->queryId = @pg_exec($this->Link_ID, $queryString);
+		$this->queryId = @pg_exec($this->linkId, $queryString);
 		$this->Row = 0;
 
-		$this->Error = pg_errormessage($this->Link_ID);
+		$this->Error = pg_errormessage($this->linkId);
 		$this->Errno = ($this->Error == '') ? 0 : 1;
 		if (!$this->queryId) {
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
@@ -303,18 +303,18 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @param mixed  $offset
 	 * @param string $line
 	 * @param string $file
-	 * @param string $num_rows
+	 * @param string $numRows
 	 * @return mixed
 	 */
-	public function limit_query($queryString, $offset, $line = '', $file = '', $num_rows = '') {
+	public function limit_query($queryString, $offset, $line = '', $file = '', $numRows = '') {
 		if ($offset == 0) {
-			$queryString .= ' LIMIT '.$num_rows;
+			$queryString .= ' LIMIT '.$numRows;
 		} else {
-			$queryString .= ' LIMIT '.$num_rows.','.$offset;
+			$queryString .= ' LIMIT '.$numRows.','.$offset;
 		}
 
 		if ($this->Debug) {
-			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $num_rows);
+			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
 		}
 
 		return $this->query($queryString, $line, $file);
@@ -340,7 +340,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function next_record($resultType = PGSQL_BOTH) {
 		$this->Record = @pg_fetch_array($this->queryId, $this->Row++, $resultType);
 
-		$this->Error = pg_errormessage($this->Link_ID);
+		$this->Error = pg_errormessage($this->linkId);
 		$this->Errno = ($this->Error == '') ? 0 : 1;
 
 		$stat = is_array($this->Record);
@@ -376,7 +376,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function transaction_commit() {
 		if (!$this->Errno) {
-			return pg_exec($this->Link_ID, 'commit');
+			return pg_exec($this->linkId, 'commit');
 		} else {
 			return FALSE;
 		}
@@ -387,7 +387,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return mixed
 	 */
 	public function transaction_abort() {
-		return pg_exec($this->Link_ID, 'rollback');
+		return pg_exec($this->linkId, 'rollback');
 	}
 
 	/**
@@ -412,7 +412,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return - 1;
 		}
 
-		$result = @pg_exec($this->Link_ID, "select $field from $table where oid=$oid");
+		$result = @pg_exec($this->linkId, "select $field from $table where oid=$oid");
 		if (!$result) {
 			return - 1;
 		}
@@ -439,10 +439,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($mode == 'write') {
 			if (is_array($table)) {
 				while ($t = each($table)) {
-					$result = pg_exec($this->Link_ID, 'lock table '.$t[1].' in share mode');
+					$result = pg_exec($this->linkId, 'lock table '.$t[1].' in share mode');
 				}
 			} else {
-				$result = pg_exec($this->Link_ID, 'lock table '.$table.' in share mode');
+				$result = pg_exec($this->linkId, 'lock table '.$table.' in share mode');
 			}
 		} else {
 			$result = 1;
@@ -472,20 +472,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($this->lock($this->seqTable)) {
 			/* get sequence number (locked) and increment */
 			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->seqTable, $seqName);
-			$id = @pg_exec($this->Link_ID, $q);
+			$id = @pg_exec($this->linkId, $q);
 			$res = @pg_fetch_array($id, 0);
 
 			/* No current value, make one */
 			if (!is_array($res)) {
 				$currentid = 0;
 				$q = sprintf("insert into %s values('%s', %s)", $this->seqTable, $seqName, $currentid);
-				$id = @pg_exec($this->Link_ID, $q);
+				$id = @pg_exec($this->linkId, $q);
 			} else {
 				$currentid = $res['nextid'];
 			}
 			$nextid = $currentid + 1;
 			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->seqTable, $nextid, $seqName);
-			$id = @pg_exec($this->Link_ID, $q);
+			$id = @pg_exec($this->linkId, $q);
 			$this->unlock();
 		} else {
 			$this->halt('cannot lock '.$this->seqTable.' - has it been created?');
@@ -537,11 +537,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * Db::f()
 	 * @param mixed  $Name
-	 * @param string $strip_slashes
+	 * @param string $stripSlashes
 	 * @return string
 	 */
-	public function f($Name, $strip_slashes = '') {
-		if ($strip_slashes || ($this->autoStripslashes && !$strip_slashes)) {
+	public function f($Name, $stripSlashes = '') {
+		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
 			return stripslashes($this->Record[$Name]);
 		} else {
 			return $this->Record[$Name];
@@ -624,7 +624,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function haltmsg($msg, $line = '', $file = '') {
 		$this->log("Database error: $msg", $line, $file);
 		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
-			$sqlstate = mysqli_sqlstate($this->Link_ID);
+			$sqlstate = mysqli_sqlstate($this->linkId);
 			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file);
 		}
 		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);

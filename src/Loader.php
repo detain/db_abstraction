@@ -39,7 +39,7 @@ class Loader
 	public $type;
 
 	/* private: link and query handles */
-	public $Link_ID = 0;
+	public $linkId = 0;
 	public $queryId = 0;
 
 	public $character_set = '';
@@ -107,7 +107,7 @@ class Loader
 	 * @return int
 	 */
 	public function link_id() {
-		return $this->Link_ID;
+		return $this->linkId;
 	}
 
 	/**

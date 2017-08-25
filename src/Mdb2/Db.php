@@ -72,7 +72,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/* private: link and query handles */
 	/** @var mysqli **/
-	public $Link_ID = 0;
+	public $linkId = 0;
 	public $queryId = 0;
 
 	public $max_connect_errors = 30;
@@ -89,7 +89,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function quote($text = '', $type = 'text') {
 		switch ($type) {
 			case 'text':
-				return "'" . mysqli_real_escape_string($this->Link_ID, $text) . "'";
+				return "'" . mysqli_real_escape_string($this->linkId, $text) . "'";
 				break;
 			case 'integer':
 				return (int)$text;
@@ -197,7 +197,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function select_db($database) {
 		$this->connect();
-		mysqli_select_db($this->Link_ID, $database);
+		mysqli_select_db($this->linkId, $database);
 	}
 
 	/* public: some trivial reporting */
@@ -208,7 +208,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int|\MyDb\Mdb2\mysqli
 	 */
 	public function link_id() {
-		return $this->Link_ID;
+		return $this->linkId;
 	}
 
 	/**
@@ -244,7 +244,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$password = $this->password;
 		}
 		/* establish connection, select database */
-		if (!is_object($this->Link_ID)) {
+		if (!is_object($this->linkId)) {
 			$this->connection_attempt++;
 			if ($this->connection_attempt > 1)
 				myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_attempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
@@ -252,16 +252,16 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}
-			$this->Link_ID = mysqli_init();
-			$this->Link_ID->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
-			$this->Link_ID->real_connect($host, $user, $password, $database);
-			$this->Link_ID->set_charset($this->character_set);
-			if ($this->Link_ID->connect_errno) {
+			$this->linkId = mysqli_init();
+			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
+			$this->linkId->real_connect($host, $user, $password, $database);
+			$this->linkId->set_charset($this->character_set);
+			if ($this->linkId->connect_errno) {
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}
 		}
-		return $this->Link_ID;
+		return $this->linkId;
 	}
 
 	/* This only affects systems not using persistent connections */
@@ -271,8 +271,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function disconnect() {
-		if (is_object($this->Link_ID))
-			return $this->Link_ID->close();
+		if (is_object($this->linkId))
+			return $this->linkId->close();
 		else
 			return 0;
 	}
@@ -282,10 +282,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function real_escape($string) {
-		if ((!is_resource($this->Link_ID) || $this->Link_ID == 0) && !$this->connect()) {
+		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
 			return mysqli_escape_string($link, $string);
 		}
-		return mysqli_real_escape_string($this->Link_ID, $string);
+		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
 	/**
@@ -293,7 +293,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function escape($string) {
-		return mysqli_real_escape_string($this->Link_ID, $string);
+		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
 	/**
@@ -444,14 +444,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 		$tries = 3;
 		$try = 1;
-		$this->queryId = @mysqli_query($this->Link_ID, $queryString, MYSQLI_STORE_RESULT);
+		$this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
 		$this->Row = 0;
-		$this->Errno = @mysqli_errno($this->Link_ID);
-		$this->Error = @mysqli_error($this->Link_ID);
+		$this->Errno = @mysqli_errno($this->linkId);
+		$this->Error = @mysqli_error($this->linkId);
 		while ($this->queryId === FALSE && $try <= $tries) {
-			$this->message = 'MySQL error '.@mysqli_errno($this->Link_ID).': '.@mysqli_error($this->Link_ID).' Query: '.$this->query;
+			$this->message = 'MySQL error '.@mysqli_errno($this->linkId).': '.@mysqli_error($this->linkId).' Query: '.$this->query;
 			$this->error = TRUE;
-			@mysqli_close($this->Link_ID);
+			@mysqli_close($this->linkId);
 			$this->connect();
 			$try++;
 		}
@@ -486,21 +486,21 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @param mixed  $offset
 	 * @param string $line
 	 * @param string $file
-	 * @param string|int $num_rows
+	 * @param string|int $numRows
 	 * @return mixed
 	 */
-	public function limit_query($queryString, $offset, $line = '', $file = '', $num_rows = '') {
-		if (!$num_rows) {
-			$num_rows = $this->maxMatches;
+	public function limit_query($queryString, $offset, $line = '', $file = '', $numRows = '') {
+		if (!$numRows) {
+			$numRows = $this->maxMatches;
 		}
 		if ($offset == 0) {
-			$queryString .= ' LIMIT '.$num_rows;
+			$queryString .= ' LIMIT '.$numRows;
 		} else {
-			$queryString .= ' LIMIT '.$offset.','.$num_rows;
+			$queryString .= ' LIMIT '.$offset.','.$numRows;
 		}
 
 		if ($this->Debug) {
-			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $num_rows);
+			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
 		}
 
 		return $this->query($queryString, $line, $file);
@@ -522,8 +522,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		$this->Record = @mysqli_fetch_array($this->queryId, $resultType);
 		++$this->Row;
-		$this->Errno = mysqli_errno($this->Link_ID);
-		$this->Error = mysqli_error($this->Link_ID);
+		$this->Errno = mysqli_errno($this->linkId);
+		$this->Error = mysqli_error($this->linkId);
 
 		$stat = is_array($this->Record);
 		if (!$stat && $this->autoFree && is_resource($this->queryId)) {
@@ -597,7 +597,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return - 1;
 		}
 
-		return @mysqli_insert_id($this->Link_ID);
+		return @mysqli_insert_id($this->linkId);
 	}
 
 	/* public: table locking */
@@ -624,7 +624,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		} else {
 			$query .= "$table $mode";
 		}
-		$res = @mysqli_query($this->Link_ID, $query);
+		$res = @mysqli_query($this->linkId, $query);
 		if (!$res) {
 			$this->halt("lock($table, $mode) failed.");
 			return 0;
@@ -639,7 +639,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function unlock() {
 		$this->connect();
 
-		$res = @mysqli_query($this->Link_ID, 'unlock tables');
+		$res = @mysqli_query($this->linkId, 'unlock tables');
 		if (!$res) {
 			$this->halt('unlock() failed.');
 			return 0;
@@ -654,7 +654,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function affected_rows() {
-		return @mysqli_affected_rows($this->Link_ID);
+		return @mysqli_affected_rows($this->linkId);
 	}
 
 	/**
@@ -695,11 +695,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * Db::f()
 	 *
 	 * @param mixed  $Name
-	 * @param string $strip_slashes
+	 * @param string $stripSlashes
 	 * @return string
 	 */
-	public function f($Name, $strip_slashes = '') {
-		if ($strip_slashes || ($this->autoStripslashes && !$strip_slashes)) {
+	public function f($Name, $stripSlashes = '') {
+		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
 			return stripslashes($this->Record[$Name]);
 		} else {
 			return $this->Record[$Name];
@@ -730,20 +730,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($this->lock($this->seqTable)) {
 			/* get sequence number (locked) and increment */
 			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->seqTable, $seqName);
-			$id = @$this->Link_ID->query($q);
+			$id = @$this->linkId->query($q);
 			$res = @$id->fetch_array();
 
 			/* No current value, make one */
 			if (!is_array($res)) {
 				$currentid = 0;
 				$q = sprintf("insert into %s values('%s', %s)", $this->seqTable, $seqName, $currentid);
-				$id = @$this->Link_ID->query($q);
+				$id = @$this->linkId->query($q);
 			} else {
 				$currentid = $res['nextid'];
 			}
 			$nextid = $currentid + 1;
 			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->seqTable, $nextid, $seqName);
-			$id = @$this->Link_ID->query($q);
+			$id = @$this->linkId->query($q);
 			$this->unlock();
 		} else {
 			$this->halt('cannot lock '.$this->seqTable.' - has it been created?');
@@ -766,8 +766,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->unlock();
 		/* Just in case there is a table currently locked */
 
-		//$this->Error = @$this->Link_ID->error;
-		//$this->Errno = @$this->Link_ID->errno;
+		//$this->Error = @$this->linkId->error;
+		//$this->Errno = @$this->linkId->errno;
 		if ($this->haltOnError == 'no') {
 			return;
 		}
@@ -799,7 +799,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function haltmsg($msg, $line = '', $file = '') {
 		$this->log("Database error: $msg", $line, $file);
 		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
-			$sqlstate = mysqli_sqlstate($this->Link_ID);
+			$sqlstate = mysqli_sqlstate($this->linkId);
 			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file);
 		}
 		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);

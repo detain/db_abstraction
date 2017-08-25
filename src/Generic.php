@@ -38,7 +38,7 @@ abstract class Generic
 	public $type = 'generic';
 
 	/* private: link and query handles */
-	public $Link_ID = 0;
+	public $linkId = 0;
 	public $queryId = 0;
 
 	public $character_set = 'utf8mb4';
@@ -79,7 +79,7 @@ abstract class Generic
 	 * @return int
 	 */
 	public function link_id() {
-		return $this->Link_ID;
+		return $this->linkId;
 	}
 
 	/**
@@ -94,10 +94,10 @@ abstract class Generic
 	 * @return string
 	 */
 	public function real_escape($string) {
-		if ((!is_resource($this->Link_ID) || $this->Link_ID == 0) && !$this->connect()) {
+		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
 			return mysqli_escape_string($string);
 		}
-		return mysqli_real_escape_string($this->Link_ID, $string);
+		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
 	/**
