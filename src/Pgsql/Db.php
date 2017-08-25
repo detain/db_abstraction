@@ -59,6 +59,22 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
+	 * @param $string
+	 * @return string
+	 */
+	public function real_escape($string) {
+		return mysqli_escape_string($string);
+	}
+
+	/**
+	 * @param $string
+	 * @return string
+	 */
+	public function escape($string) {
+		return mysqli_escape_string($string);
+	}
+
+	/**
 	 * alias function of select_db, changes the database we are working with.
 	 *
 	 * @param string $database the name of the database to use
