@@ -9,12 +9,15 @@
 
 namespace MyDb\Mdb2;
 
+use \MyDb\Generic;
+use \MyDb\Db_Interface;
+
 /**
  * Db
  *
  * @access public
  */
-class Db implements \MyDb\Db_Interface
+class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 {
 	public $Host = 'localhost';
 	public $User = 'pdns';

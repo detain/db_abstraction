@@ -9,6 +9,9 @@
 
 namespace MyDb\Mysql;
 
+use \MyDb\Generic;
+use \MyDb\Db_Interface;
+
 /**
  * Db
  *

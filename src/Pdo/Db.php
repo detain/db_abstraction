@@ -9,6 +9,9 @@
 
 namespace MyDb\Pdo;
 
+use \MyDb\Generic;
+use \MyDb\Db_Interface;
+
 /**
  * Db
  *
@@ -169,67 +172,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function escape($string) {
 		return mysql_escape_string($string);
-	}
-
-	/**
-	 * Db::db_addslashes()
-	 * @param mixed $str
-	 * @return string
-	 */
-	public function db_addslashes($str) {
-		if (!isset($str) || $str == '') {
-			return '';
-		}
-
-		return addslashes($str);
-	}
-
-	/**
-	 * Db::to_timestamp()
-	 * @param mixed $epoch
-	 * @return bool|string
-	 */
-	public function to_timestamp($epoch) {
-		return date('Y-m-d H:i:s', $epoch);
-	}
-
-	/**
-	 * Db::from_timestamp()
-	 *
-	 * @param mixed $timestamp
-	 * @return mixed
-	 */
-	public function from_timestamp($timestamp) {
-		if (mb_strlen($timestamp) == 19)
-			if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
-				return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-			elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
-				return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-			elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
-				return mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
-			elseif (is_numeric($timestamp) && $timestamp >= 943938000)
-				return $timestamp;
-			else {
-				$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
-				return FALSE;
-			}
-			return FALSE;
-	}
-
-	/**
-	 * Db::limit()
-	 * @param mixed $start
-	 * @return string
-	 */
-	public function limit($start) {
-		echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
-
-		if ($start == 0) {
-			$s = 'limit '.$this->max_matches;
-		} else {
-			$s = "limit $start," . $this->max_matches;
-		}
-		return $s;
 	}
 
 	/* public: discard the query result */

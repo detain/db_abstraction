@@ -9,6 +9,9 @@
 
 namespace MyDb\Pgsql;
 
+use \MyDb\Generic;
+use \MyDb\Db_Interface;
+
 /**
  * Db
  *
@@ -152,33 +155,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 	}
 
-	/**
-	 * Db::to_timestamp()
-	 * @param mixed $epoch
-	 * @return bool|string|void
-	 */
-	public function to_timestamp($epoch) {
-		$db_version = $this->db_version;
-		if (floor($db_version) == 6) {
-			return $this->to_timestamp_6($epoch);
-		} else {
-			return $this->to_timestamp_7($epoch);
-		}
-	}
-
-	/**
-	 * Db::from_timestamp()
-	 * @param mixed $timestamp
-	 * @return int|void
-	 */
-	public function from_timestamp($timestamp) {
-		if (floor($this->db_version) == 6) {
-			return $this->from_timestamp_6($timestamp);
-		} else {
-			return $this->from_timestamp_7($timestamp);
-		}
-	}
-
 	// For PostgreSQL 6.x
 
 /**
@@ -234,19 +210,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function disconnect() {
 		return @pg_close($this->Link_ID);
-	}
-
-	/**
-	 * Db::db_addslashes()
-	 * @param mixed $str
-	 * @return string
-	 */
-	public function db_addslashes($str) {
-		if (!isset($str) || $str == '') {
-			return '';
-		}
-
-		return addslashes($str);
 	}
 
 	/**
