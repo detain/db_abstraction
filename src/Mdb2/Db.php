@@ -283,7 +283,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function real_escape($string) {
 		if ((!is_resource($this->Link_ID) || $this->Link_ID == 0) && !$this->connect()) {
-			return mysqli_escape_string(mysqli_init(), $string);
+			return mysqli_escape_string($link, $string);
 		}
 		return mysqli_real_escape_string($this->Link_ID, $string);
 	}
@@ -293,7 +293,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function escape($string) {
-		return mysqli_escape_string(mysqli_init(), $string);
+		return mysqli_real_escape_string($this->Link_ID, $string);
 	}
 
 	/**
@@ -311,8 +311,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::to_timestamp()
-	 * @param mixed $epoch
-	 * @return bool|string
+	 * @param int $epoch a timestamp
+	 * @return string a formatted date string
 	 */
 	public function to_timestamp($epoch) {
 		return date('Y-m-d H:i:s', $epoch);
@@ -320,8 +320,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::from_timestamp()
-	 * @param mixed $timestamp
-	 * @return bool|int|mixed
+	 * @param string $timestamp a formatted date string
+	 * @return int a timestamp
 	 */
 	public function from_timestamp($timestamp) {
 		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
@@ -331,10 +331,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
 			return mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
 		elseif (is_numeric($timestamp) && $timestamp >= 943938000)
-			return $timestamp;
+			return (int)$timestamp;
 		else {
 			$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
-			return FALSE;
+			return time();
 		}
 	}
 

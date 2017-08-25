@@ -207,7 +207,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testFrom_timestamp()
 	{
 		$t = 1502439626;
-		$this->assertEquals($this->object->to_timestamp('2017-08-11 04:20:26'), $t);
+		$this->assertEquals($this->object->from_timestamp('2017-08-11 04:20:26'), $t);
 	}
 
 	/**

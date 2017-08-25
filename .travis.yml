@@ -35,8 +35,10 @@ before_script:
   - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests; GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES; use tests; source tests/tests.sql;"; fi
   - travis_retry composer update --with-dependencies --no-interaction --dev --prefer-source
 script: 
-  - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/; fi;
-  - if [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v; fi
+  - if [[ "$DB" == "pgsql" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/ tests/Pgsql; fi;
+  - if [[ "$DB" == "pgsql" ]] && [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v; fi
+  - if [[ "$DB" == "mysql" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/ -v --coverage-clover coverage.xml --whitelist src/ tests/Mysqli; fi;
+  - if [[ "$DB" == "mysql" ]] && [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v; fi
 after_success:
   - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
   - if [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then travis_retry bash <(curl -s https://codecov.io/bash); fi;

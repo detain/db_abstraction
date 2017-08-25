@@ -163,7 +163,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function real_escape($string) {
-		return mysqli_escape_string(mysqli_init(), $string);
+		return escapeshellarg($string);
 	}
 
 	/**
@@ -171,7 +171,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function escape($string) {
-		return mysqli_escape_string(mysqli_init(), $string);
+		return escapeshellarg($string);
 	}
 
 	/* public: discard the query result */
@@ -257,7 +257,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($this->Debug) {
 			printf("Debug: query = %s<br>\n", $Query_String);
 		}
-		if ($GLOBALS['log_queries'] !== FALSE) {
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE) {
 			$this->log($Query_String, $line, $file);
 		}
 
