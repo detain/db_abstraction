@@ -19,13 +19,13 @@ interface Db_Interface
 	/**
 	 * Db_Interface constructor.
 	 *
-	 * @param string $Database
+	 * @param string $database
 	 * @param string $User
 	 * @param string $Password
-	 * @param string $Host
+	 * @param string $host
 	 * @param string $query
 	 */
-	public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '');
+	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '');
 
 	/**
 	 * @param $message

@@ -45,17 +45,17 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters
 	 *
-	 * @param string $Database Optional The database name
+	 * @param string $database Optional The database name
 	 * @param string $User Optional The username to connect with
 	 * @param string $Password Optional The password to use
-	 * @param string $Host Optional The hostname where the server is, or default to localhost
+	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
-		$this->Database = $Database;
+	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
+		$this->database = $database;
 		$this->User = $User;
 		$this->Password = $Password;
-		$this->Host = $Host;
+		$this->host = $host;
 		if ($query != '') {
 			$this->query($query);
 		}
@@ -135,7 +135,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function connect() {
 		if (0 == $this->Link_ID) {
-			$connect_string = 'dbname='.$this->Database . $this->ifadd($this->Host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'", 'password=');
+			$connect_string = 'dbname='.$this->database . $this->ifadd($this->host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->User, 'user=') . $this->ifadd("'" . $this->Password . "'", 'password=');
 			if ($GLOBALS['phpgw_info']['server']['db_persistent']) {
 				$this->Link_ID = pg_pconnect($connect_string);
 			} else {
@@ -663,8 +663,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$i = 0;
 		while ($this->next_record()) {
 			$return[$i]['table_name'] = $this->f(0);
-			$return[$i]['tablespace_name'] = $this->Database;
-			$return[$i]['database'] = $this->Database;
+			$return[$i]['tablespace_name'] = $this->database;
+			$return[$i]['database'] = $this->database;
 			++$i;
 		}
 		return $return;
@@ -681,8 +681,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$i = 0;
 		while ($this->next_record()) {
 			$return[$i]['index_name'] = $this->f(0);
-			$return[$i]['tablespace_name'] = $this->Database;
-			$return[$i]['database'] = $this->Database;
+			$return[$i]['tablespace_name'] = $this->database;
+			$return[$i]['database'] = $this->database;
 			++$i;
 		}
 		return $return;
@@ -698,17 +698,17 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function createDatabase($adminname = '', $adminpasswd = '') {
 		$currentUser = $this->User;
 		$currentPassword = $this->Password;
-		$currentDatabase = $this->Database;
+		$currentDatabase = $this->database;
 
 		if ($adminname != '') {
 			$this->User = $adminname;
 			$this->Password = $adminpasswd;
 		}
 
-		if (!$this->Host) {
+		if (!$this->host) {
 			system('createdb '.$currentDatabase, $outval);
 		} else {
-			system('createdb -h '.$this->Host.' '.$currentDatabase, $outval);
+			system('createdb -h '.$this->host.' '.$currentDatabase, $outval);
 		}
 
 		if ($outval != 0) {
@@ -719,7 +719,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		$this->User = $currentUser;
 		$this->Password = $currentPassword;
-		$this->Database = $currentDatabase;
+		$this->database = $currentDatabase;
 		$this->connect();
 	}
 

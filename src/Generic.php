@@ -15,8 +15,8 @@ namespace MyDb;
 abstract class Generic
 {
 	/* public: connection parameters */
-	public $Host = 'localhost';
-	public $Database = '';
+	public $host = 'localhost';
+	public $database = '';
 	public $User = '';
 	public $Password = '';
 
@@ -47,17 +47,17 @@ abstract class Generic
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters
 	 *
-	 * @param string $Database Optional The database name
+	 * @param string $database Optional The database name
 	 * @param string $User Optional The username to connect with
 	 * @param string $Password Optional The password to use
-	 * @param string $Host Optional The hostname where the server is, or default to localhost
+	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
-		$this->Database = $Database;
+	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
+		$this->database = $database;
 		$this->User = $User;
 		$this->Password = $Password;
-		$this->Host = $Host;
+		$this->host = $host;
 		if ($query != '') {
 			$this->query($query);
 		}

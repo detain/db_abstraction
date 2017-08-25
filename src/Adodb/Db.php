@@ -31,20 +31,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters
 	 *
-	 * @param string $Database Optional The database name
+	 * @param string $database Optional The database name
 	 * @param string $User Optional The username to connect with
 	 * @param string $Password Optional The password to use
-	 * @param string $Host Optional The hostname where the server is, or default to localhost
+	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
+	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
 		if (!defined('_ADODB_LAYER')) {
 			require_once realpath(__DIR__).'/../vendor/adodb/adodb-php/adodb.inc.php';
 		}
-		$this->Database = $Database;
+		$this->database = $database;
 		$this->User = $User;
 		$this->Password = $Password;
-		$this->Host = $Host;
+		$this->host = $host;
 		if ($query != '') {
 			$this->query($query);
 		}
@@ -83,20 +83,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::connect()
-	 * @param string $Database
-	 * @param string $Host
+	 * @param string $database
+	 * @param string $host
 	 * @param string $User
 	 * @param string $Password
 	 * @param string $Driver
 	 * @return bool|\the
 	 */
-	public function connect($Database = '', $Host = '', $User = '', $Password = '', $Driver = 'mysql') {
+	public function connect($database = '', $host = '', $User = '', $Password = '', $Driver = 'mysql') {
 		/* Handle defaults */
-		if ('' == $Database) {
-			$Database = $this->Database;
+		if ('' == $database) {
+			$database = $this->database;
 		}
-		if ('' == $Host) {
-			$Host = $this->Host;
+		if ('' == $host) {
+			$host = $this->host;
 		}
 		if ('' == $User) {
 			$User = $this->User;
@@ -110,7 +110,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		/* establish connection, select database */
 		if ($this->Link_ID === FALSE) {
 			$this->Link_ID = NewADOConnection($Driver);
-			$this->Link_ID->Connect($Host, $User, $Password, $Database);
+			$this->Link_ID->Connect($host, $User, $Password, $database);
 		}
 		return $this->Link_ID;
 	}
@@ -652,8 +652,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$i = 0;
 		while ($info = $this->queryId->FetchRow()) {
 			$return[$i]['table_name'] = $info[0];
-			$return[$i]['tablespace_name'] = $this->Database;
-			$return[$i]['database'] = $this->Database;
+			$return[$i]['tablespace_name'] = $this->database;
+			$return[$i]['database'] = $this->database;
 			++$i;
 		}
 		return $return;
@@ -678,12 +678,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function createDatabase($adminname = '', $adminpasswd = '') {
 		$currentUser = $this->User;
 		$currentPassword = $this->Password;
-		$currentDatabase = $this->Database;
+		$currentDatabase = $this->database;
 
 		if ($adminname != '') {
 			$this->User = $adminname;
 			$this->Password = $adminpasswd;
-			$this->Database = 'mysql';
+			$this->database = 'mysql';
 		}
 		$this->disconnect();
 		$this->query("CREATE DATABASE $currentDatabase");
@@ -692,7 +692,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		$this->User = $currentUser;
 		$this->Password = $currentPassword;
-		$this->Database = $currentDatabase;
+		$this->database = $currentDatabase;
 		$this->connect();
 		/*return $return; */
 	}

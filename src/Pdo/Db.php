@@ -34,17 +34,17 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters
 	 *
-	 * @param string $Database Optional The database name
+	 * @param string $database Optional The database name
 	 * @param string $User Optional The username to connect with
 	 * @param string $Password Optional The password to use
-	 * @param string $Host Optional The hostname where the server is, or default to localhost
+	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($Database = '', $User = '', $Password = '', $Host = 'localhost', $query = '') {
-		$this->Database = $Database;
+	public function __construct($database = '', $User = '', $Password = '', $host = 'localhost', $query = '') {
+		$this->database = $database;
 		$this->User = $User;
 		$this->Password = $Password;
-		$this->Host = $Host;
+		$this->host = $host;
 		if ($query != '') {
 			$this->query($query);
 		}
@@ -80,7 +80,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function select_db($database) {
-		$DSN = "{$this->Driver}:dbname={$database};host={$this->Host}";
+		$DSN = "{$this->Driver}:dbname={$database};host={$this->host}";
 		if ($this->character_set != '')
 			$DSN .= ';charset='.$this->character_set;
 		$this->Link_ID = new \PDO($DSN, $this->User, $this->Password);
@@ -108,20 +108,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::connect()
-	 * @param string $Database
-	 * @param string $Host
+	 * @param string $database
+	 * @param string $host
 	 * @param string $User
 	 * @param string $Password
 	 * @param string $Driver
 	 * @return bool|int|\PDO
 	 */
-	public function connect($Database = '', $Host = '', $User = '', $Password = '', $Driver = 'mysql') {
+	public function connect($database = '', $host = '', $User = '', $Password = '', $Driver = 'mysql') {
 		/* Handle defaults */
-		if ('' == $Database) {
-			$Database = $this->Database;
+		if ('' == $database) {
+			$database = $this->database;
 		}
-		if ('' == $Host) {
-			$Host = $this->Host;
+		if ('' == $host) {
+			$host = $this->host;
 		}
 		if ('' == $User) {
 			$User = $this->User;
@@ -133,7 +133,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$Driver = $this->Driver;
 		}
 		/* establish connection, select database */
-		$DSN = "$Driver:dbname=$Database;host=$Host";
+		$DSN = "$Driver:dbname=$database;host=$host";
 		if ($this->character_set != '')
 			$DSN .= ';charset='.$this->character_set;
 		if ($this->Link_ID === FALSE) {
@@ -629,8 +629,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->query('SHOW TABLES');
 		foreach ($this->Rows as $i => $info) {
 			$return[$i]['table_name'] = $info[0];
-			$return[$i]['tablespace_name'] = $this->Database;
-			$return[$i]['database'] = $this->Database;
+			$return[$i]['tablespace_name'] = $this->database;
+			$return[$i]['database'] = $this->database;
 		}
 		return $return;
 	}
@@ -654,12 +654,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function createDatabase($adminname = '', $adminpasswd = '') {
 		$currentUser = $this->User;
 		$currentPassword = $this->Password;
-		$currentDatabase = $this->Database;
+		$currentDatabase = $this->database;
 
 		if ($adminname != '') {
 			$this->User = $adminname;
 			$this->Password = $adminpasswd;
-			$this->Database = 'mysql';
+			$this->database = 'mysql';
 		}
 		$this->disconnect();
 		$this->query("CREATE DATABASE $currentDatabase");
@@ -668,7 +668,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		$this->User = $currentUser;
 		$this->Password = $currentPassword;
-		$this->Database = $currentDatabase;
+		$this->database = $currentDatabase;
 		$this->connect();
 		/*return $return; */
 	}
