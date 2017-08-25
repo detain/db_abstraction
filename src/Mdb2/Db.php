@@ -412,18 +412,18 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 *
 	 *  Sends an SQL query to the database
 	 *
-	 * @param mixed $Query_String
+	 * @param mixed $queryString
 	 * @param string $line
 	 * @param string $file
 	 * @return mixed 0 if no query or query id handler, safe to ignore this return
 	 */
-	public function query($Query_String, $line = '', $file = '') {
+	public function query($queryString, $line = '', $file = '') {
 		/* No empty queries, please, since PHP4 chokes on them. */
 		/* The empty query string is passed on from the constructor,
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($Query_String == '') {
+		if ($queryString == '') {
 			return 0;
 		}
 		if (!$this->connect()) {
@@ -437,14 +437,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$this->free();
 		}
 		if ($this->Debug) {
-			printf("Debug: query = %s<br>\n", $Query_String);
+			printf("Debug: query = %s<br>\n", $queryString);
 		}
 		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE) {
-			$this->log($Query_String, $line, $file);
+			$this->log($queryString, $line, $file);
 		}
 		$tries = 3;
 		$try = 1;
-		$this->Query_ID = @mysqli_query($this->Link_ID, $Query_String, MYSQLI_STORE_RESULT);
+		$this->Query_ID = @mysqli_query($this->Link_ID, $queryString, MYSQLI_STORE_RESULT);
 		$this->Row = 0;
 		$this->Errno = @mysqli_errno($this->Link_ID);
 		$this->Error = @mysqli_error($this->Link_ID);
@@ -457,7 +457,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 		$this->Halt_On_Error = $halt_prev;
 		if ($this->Query_ID === FALSE) {
-			$email = "MySQLi Error<br>\n".'Query: '.$Query_String . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
+			$email = "MySQLi Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
 					'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
@@ -471,7 +471,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
 			admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
-			$this->halt('Invalid SQL: '.$Query_String, $line, $file);
+			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
 
 		// Will return nada if it fails. That's fine.
@@ -482,28 +482,28 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 /**
 	 * Db::limit_query()
-	 * @param mixed  $Query_String
+	 * @param mixed  $queryString
 	 * @param mixed  $offset
 	 * @param string $line
 	 * @param string $file
 	 * @param string|int $num_rows
 	 * @return mixed
 	 */
-	public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
+	public function limit_query($queryString, $offset, $line = '', $file = '', $num_rows = '') {
 		if (!$num_rows) {
 			$num_rows = $this->max_matches;
 		}
 		if ($offset == 0) {
-			$Query_String .= ' LIMIT '.$num_rows;
+			$queryString .= ' LIMIT '.$num_rows;
 		} else {
-			$Query_String .= ' LIMIT '.$offset.','.$num_rows;
+			$queryString .= ' LIMIT '.$offset.','.$num_rows;
 		}
 
 		if ($this->Debug) {
-			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $Query_String, $offset, $num_rows);
+			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $num_rows);
 		}
 
-		return $this->query($Query_String, $line, $file);
+		return $this->query($queryString, $line, $file);
 	}
 
 	/* public: walk result set */

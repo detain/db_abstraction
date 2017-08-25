@@ -32,6 +32,8 @@ engines:
         minimum: 250
         ignore-whitespace: true
     checks:
+      Design/TooManyFields:
+        enabled: false
       UnusedFormalParameter:
         enabled: false
       Design/NpathComplexity:
@@ -39,6 +41,8 @@ engines:
       Design/WeightedMethodCount:
         enabled: false
       Design/LongMethod:
+        enabled: false
+      Naming/ShortMethodName:
         enabled: false
       CyclomaticComplexity:
         enabled: false

@@ -258,15 +258,15 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 *
 	 *  Sends an SQL query to the database
 	 *
-	 * @param mixed $Query_String
+	 * @param mixed $queryString
 	 * @param string $line
 	 * @param string $file
 	 * @return mixed 0 if no query or query id handler, safe to ignore this return
 	 */
-	public function query($Query_String, $line = '', $file = '') {
+	public function query($queryString, $line = '', $file = '') {
 		if (!$line && !$file) {
 			if (isset($GLOBALS['tf'])) {
-				$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didn't pass __LINE__ and __FILE__ to db->query() - Actually query: $Query_String");
+				$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didn't pass __LINE__ and __FILE__ to db->query() - Actually query: $queryString");
 			}
 		}
 
@@ -275,21 +275,21 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($Query_String == '') {
+		if ($queryString == '') {
 			return 0;
 		}
 
 		$this->connect();
 
-		/* printf("<br>Debug: query = %s<br>\n", $Query_String); */
+		/* printf("<br>Debug: query = %s<br>\n", $queryString); */
 
-		$this->Query_ID = @pg_exec($this->Link_ID, $Query_String);
+		$this->Query_ID = @pg_exec($this->Link_ID, $queryString);
 		$this->Row = 0;
 
 		$this->Error = pg_errormessage($this->Link_ID);
 		$this->Errno = ($this->Error == '') ? 0 : 1;
 		if (!$this->Query_ID) {
-			$this->halt('Invalid SQL: '.$Query_String, $line, $file);
+			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
 
 		return $this->Query_ID;
@@ -299,25 +299,25 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::limit_query()
-	 * @param mixed  $Query_String
+	 * @param mixed  $queryString
 	 * @param mixed  $offset
 	 * @param string $line
 	 * @param string $file
 	 * @param string $num_rows
 	 * @return mixed
 	 */
-	public function limit_query($Query_String, $offset, $line = '', $file = '', $num_rows = '') {
+	public function limit_query($queryString, $offset, $line = '', $file = '', $num_rows = '') {
 		if ($offset == 0) {
-			$Query_String .= ' LIMIT '.$num_rows;
+			$queryString .= ' LIMIT '.$num_rows;
 		} else {
-			$Query_String .= ' LIMIT '.$num_rows.','.$offset;
+			$queryString .= ' LIMIT '.$num_rows.','.$offset;
 		}
 
 		if ($this->Debug) {
-			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $Query_String, $offset, $num_rows);
+			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $num_rows);
 		}
 
-		return $this->query($Query_String, $line, $file);
+		return $this->query($queryString, $line, $file);
 	}
 
 	// public: discard the query result
