@@ -23,13 +23,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public $Driver = 'mysql';
 
 	/* public: configuration parameters */
-	public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
+	public $autoFree = 0; // Set to 1 for automatic mysql_free_result()
 	public $Rows = [];
 
 	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'pdo';
 
-	public $max_matches = 10000000;
+	public $maxMatches = 10000000;
 
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters
@@ -101,7 +101,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function query_id() {
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	/* public: connection management */
@@ -181,8 +181,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function free() {
-		//			@mysql_free_result($this->Query_ID);
-		//			$this->Query_ID = 0;
+		//			@mysql_free_result($this->queryId);
+		//			$this->queryId = 0;
 	}
 
 	/**
@@ -250,7 +250,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			/* we already complained in connect() about that. */
 		}
 		// New query, discard previous result.
-		if ($this->Query_ID !== FALSE) {
+		if ($this->queryId !== FALSE) {
 			$this->free();
 		}
 
@@ -261,13 +261,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$this->log($queryString, $line, $file);
 		}
 
-		$this->Query_ID = $this->Link_ID->prepare($queryString);
-		$success = $this->Query_ID->execute();
-		$this->Rows = $this->Query_ID->fetchAll();
+		$this->queryId = $this->Link_ID->prepare($queryString);
+		$success = $this->queryId->execute();
+		$this->Rows = $this->queryId->fetchAll();
 		$this->log("PDO Query $queryString (S:$success) - " . count($this->Rows).' Rows', __LINE__, __FILE__);
 		$this->Row = 0;
 		if ($success === FALSE) {
-			$email = "MySQL Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.print_r($this->Query_ID->errorInfo(), TRUE) . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
+			$email = "MySQL Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.print_r($this->queryId->errorInfo(), TRUE) . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>';
 			foreach ($_REQUEST as $key => $value) {
@@ -291,7 +291,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 
 		// Will return nada if it fails. That's fine.
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	// public: perform a query with limited result set
@@ -307,7 +307,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function limit_query($queryString, $offset, $line = '', $file = '', $num_rows = '') {
 		if (!$num_rows) {
-			$num_rows = $this->max_matches;
+			$num_rows = $this->maxMatches;
 		}
 
 		if ($offset == 0) {
@@ -327,13 +327,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::next_record()
-	 * @param mixed $result_type
+	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($result_type = MYSQL_ASSOC) {
+	public function next_record($resultType = MYSQL_ASSOC) {
 		// PDO result types so far seem to be +1
-		++$result_type;
-		if (!$this->Query_ID) {
+		++$resultType;
+		if (!$this->queryId) {
 			$this->halt('next_record called with no query pending.');
 			return 0;
 		}
@@ -342,7 +342,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->Record = $this->Rows[$this->Row];
 
 		$stat = is_array($this->Record);
-		if (!$stat && $this->Auto_Free) {
+		if (!$stat && $this->autoFree) {
 			$this->free();
 		}
 		return $stat;
@@ -472,7 +472,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return mixed
 	 */
 	public function affected_rows() {
-		return @$this->Query_ID->rowCount();
+		return @$this->queryId->rowCount();
 	}
 
 	/**
@@ -517,7 +517,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function f($Name, $strip_slashes = '') {
-		if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes)) {
+		if ($strip_slashes || ($this->autoStripslashes && !$strip_slashes)) {
 			return stripslashes($this->Record[$Name]);
 		} else {
 			return $this->Record[$Name];
@@ -539,32 +539,32 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * Db::nextid()
 	 *
-	 * @param mixed $seq_name
+	 * @param mixed $seqName
 	 * @return int
 	 */
-	public function nextid($seq_name) {
+	public function nextid($seqName) {
 		$this->connect();
 
-		if ($this->lock($this->Seq_Table)) {
+		if ($this->lock($this->seqTable)) {
 			/* get sequence number (locked) and increment */
-			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->Seq_Table, $seq_name);
+			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->seqTable, $seqName);
 			$id = @mysql_query($q, $this->Link_ID);
 			$res = @mysql_fetch_array($id);
 
 			/* No current value, make one */
 			if (!is_array($res)) {
 				$currentid = 0;
-				$q = sprintf("insert into %s values('%s', %s)", $this->Seq_Table, $seq_name, $currentid);
+				$q = sprintf("insert into %s values('%s', %s)", $this->seqTable, $seqName, $currentid);
 				$id = @mysql_query($q, $this->Link_ID);
 			} else {
 				$currentid = $res['nextid'];
 			}
 			$nextid = $currentid + 1;
-			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->Seq_Table, $nextid, $seq_name);
+			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->seqTable, $nextid, $seqName);
 			$id = @mysql_query($q, $this->Link_ID);
 			$this->unlock();
 		} else {
-			$this->halt('cannot lock '.$this->Seq_Table.' - has it been created?');
+			$this->halt('cannot lock '.$this->seqTable.' - has it been created?');
 			return 0;
 		}
 		return $nextid;
@@ -586,7 +586,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		//$this->Error = @mysql_error($this->Link_ID);
 		//$this->Errno = @mysql_errno($this->Link_ID);
-		if ($this->Halt_On_Error == 'no') {
+		if ($this->haltOnError == 'no') {
 			return;
 		}
 		$this->haltmsg($msg);
@@ -598,7 +598,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			error_log("Line: $line");
 		}
 
-		if ($this->Halt_On_Error != 'report') {
+		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
 			if (isset($GLOBALS['tf']))

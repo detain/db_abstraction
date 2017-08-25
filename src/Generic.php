@@ -21,10 +21,10 @@ abstract class Generic
 	public $Password = '';
 
 	/* public: configuration parameters */
-	public $auto_stripslashes = FALSE;
+	public $autoStripslashes = FALSE;
 	public $Debug = 0; // Set to 1 for debugging messages.
-	public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
-	public $Seq_Table = 'db_sequence';
+	public $haltOnError = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
+	public $seqTable = 'db_sequence';
 
 	/* public: result array and current row number */
 	public $Record = [];
@@ -39,7 +39,7 @@ abstract class Generic
 
 	/* private: link and query handles */
 	public $Link_ID = 0;
-	public $Query_ID = 0;
+	public $queryId = 0;
 
 	public $character_set = 'utf8mb4';
 	public $collation = 'utf8mb4_unicode_ci';
@@ -86,7 +86,7 @@ abstract class Generic
 	 * @return int
 	 */
 	public function query_id() {
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	/**
@@ -158,9 +158,9 @@ abstract class Generic
 		echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
 		if ($start == 0) {
-			$s = 'limit '.$this->max_matches;
+			$s = 'limit '.$this->maxMatches;
 		} else {
-			$s = "limit $start," . $this->max_matches;
+			$s = "limit $start," . $this->maxMatches;
 		}
 		return $s;
 	}
@@ -190,7 +190,7 @@ abstract class Generic
 	public function halt($msg, $line = '', $file = '') {
 		$this->unlock(false);
 
-		if ($this->Halt_On_Error == 'no') {
+		if ($this->haltOnError == 'no') {
 			return;
 		}
 		$this->haltmsg($msg);
@@ -201,7 +201,7 @@ abstract class Generic
 		if ($line) {
 			error_log("Line: $line");
 		}
-		if ($this->Halt_On_Error != 'report') {
+		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
 			if (isset($GLOBALS['tf']))

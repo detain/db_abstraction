@@ -22,7 +22,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * @var int
 	 */
-	public $Auto_Free = 0; // Set to 1 for automatic mysql_free_result()
+	public $autoFree = 0; // Set to 1 for automatic mysql_free_result()
 
 	/**
 	 * @var string
@@ -31,7 +31,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	public $max_connect_errors = 30;
 	public $connection_attempt = 0;
-	public $max_matches = 10000000;
+	public $maxMatches = 10000000;
 
 
 	/**
@@ -103,7 +103,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function query_id() {
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	/* public: connection management */
@@ -249,9 +249,9 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
 
 		if ($start == 0) {
-			$s = 'limit '.$this->max_matches;
+			$s = 'limit '.$this->maxMatches;
 		} else {
-			$s = "limit $start," . $this->max_matches;
+			$s = "limit $start," . $this->maxMatches;
 		}
 		return $s;
 	}
@@ -263,9 +263,9 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function free() {
-		if (is_resource($this->Query_ID))
-			@mysqli_free_result($this->Query_ID);
-		$this->Query_ID = 0;
+		if (is_resource($this->queryId))
+			@mysqli_free_result($this->queryId);
+		$this->queryId = 0;
 	}
 
 	/**
@@ -319,8 +319,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if (!$this->connect()) {
 			return 0;
 		}
-		$halt_prev = $this->Halt_On_Error;
-		$this->Halt_On_Error = 'no';
+		$halt_prev = $this->haltOnError;
+		$this->haltOnError = 'no';
 		return mysqli_prepare($this->Link_ID, $query);
 	}
 
@@ -347,10 +347,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return 0;
 			/* we already complained in connect() about that. */
 		}
-		$halt_prev = $this->Halt_On_Error;
-		$this->Halt_On_Error = 'no';
+		$halt_prev = $this->haltOnError;
+		$this->haltOnError = 'no';
 		// New query, discard previous result.
-		if (is_resource($this->Query_ID)) {
+		if (is_resource($this->queryId)) {
 			$this->free();
 		}
 		if ($this->Debug) {
@@ -361,18 +361,18 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 		$tries = 3;
 		$try = 0;
-		$this->Query_ID = FALSE;
-		while ((null === $this->Query_ID || $this->Query_ID === FALSE) && $try <= $tries) {
+		$this->queryId = FALSE;
+		while ((null === $this->queryId || $this->queryId === FALSE) && $try <= $tries) {
 			$try++;
 			if ($try > 1) {
 				@mysqli_close($this->Link_ID);
 				$this->connect();
 			}
-			$this->Query_ID = @mysqli_query($this->Link_ID, $queryString, MYSQLI_STORE_RESULT);
+			$this->queryId = @mysqli_query($this->Link_ID, $queryString, MYSQLI_STORE_RESULT);
 			$this->Row = 0;
 			$this->Errno = @mysqli_errno($this->Link_ID);
 			$this->Error = @mysqli_error($this->Link_ID);
-			if ($try == 1 && (null === $this->Query_ID || $this->Query_ID === FALSE)) {
+			if ($try == 1 && (null === $this->queryId || $this->queryId === FALSE)) {
 				$email = "MySQLi Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 				$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
 				$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
@@ -388,13 +388,13 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 				$this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
 			}
 		}
-		$this->Halt_On_Error = $halt_prev;
-		if (null === $this->Query_ID || $this->Query_ID === FALSE) {
+		$this->haltOnError = $halt_prev;
+		if (null === $this->queryId || $this->queryId === FALSE) {
 			$this->halt('', $line, $file);
 		}
 
 		// Will return nada if it fails. That's fine.
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	// public: perform a query with limited result set
@@ -410,7 +410,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function limit_query($queryString, $offset, $line = '', $file = '', $num_rows = '') {
 		if (!$num_rows) {
-			$num_rows = $this->max_matches;
+			$num_rows = $this->maxMatches;
 		}
 		if ($offset == 0) {
 			$queryString .= ' LIMIT '.$num_rows;
@@ -429,7 +429,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return array|null|object
 	 */
 	public function fetch_object() {
-		$this->Record = @mysqli_fetch_object($this->Query_ID);
+		$this->Record = @mysqli_fetch_object($this->queryId);
 		return $this->Record;
 	}
 
@@ -438,22 +438,22 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * Db::next_record()
 	 *
-	 * @param mixed $result_type
+	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($result_type = MYSQLI_BOTH) {
-		if ($this->Query_ID === FALSE) {
+	public function next_record($resultType = MYSQLI_BOTH) {
+		if ($this->queryId === FALSE) {
 			$this->halt('next_record called with no query pending.');
 			return 0;
 		}
 
-		$this->Record = @mysqli_fetch_array($this->Query_ID, $result_type);
+		$this->Record = @mysqli_fetch_array($this->queryId, $resultType);
 		++$this->Row;
 		$this->Errno = mysqli_errno($this->Link_ID);
 		$this->Error = mysqli_error($this->Link_ID);
 
 		$stat = is_array($this->Record);
-		if (!$stat && $this->Auto_Free && is_resource($this->Query_ID)) {
+		if (!$stat && $this->autoFree && is_resource($this->queryId)) {
 			$this->free();
 		}
 		return $stat;
@@ -467,7 +467,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function seek($pos = 0) {
-		$status = @mysqli_data_seek($this->Query_ID, $pos);
+		$status = @mysqli_data_seek($this->queryId, $pos);
 		if ($status) {
 			$this->Row = $pos;
 		} else {
@@ -476,7 +476,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			* but do not consider this documented or even
 			* desirable behaviour.
 			*/
-			@mysqli_data_seek($this->Query_ID, $this->num_rows());
+			@mysqli_data_seek($this->queryId, $this->num_rows());
 			$this->Row = $this->num_rows;
 			return 0;
 		}
@@ -590,7 +590,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function num_rows() {
-		return @mysqli_num_rows($this->Query_ID);
+		return @mysqli_num_rows($this->queryId);
 	}
 
 	/**
@@ -598,7 +598,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function num_fields() {
-		return @mysqli_num_fields($this->Query_ID);
+		return @mysqli_num_fields($this->queryId);
 	}
 
 	/* public: shorthand notation */
@@ -627,7 +627,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function f($Name, $strip_slashes = '') {
-		if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes)) {
+		if ($strip_slashes || ($this->autoStripslashes && !$strip_slashes)) {
 			return stripslashes($this->Record[$Name]);
 		} else {
 			return $this->Record[$Name];
@@ -649,32 +649,32 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	/**
 	 * Db::nextid()
 	 *
-	 * @param mixed $seq_name
+	 * @param mixed $seqName
 	 * @return int
 	 */
-	public function nextid($seq_name) {
+	public function nextid($seqName) {
 		$this->connect();
 
-		if ($this->lock($this->Seq_Table)) {
+		if ($this->lock($this->seqTable)) {
 			/* get sequence number (locked) and increment */
-			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->Seq_Table, $seq_name);
+			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->seqTable, $seqName);
 			$id = @$this->Link_ID->query($q);
 			$res = @$id->fetch_array();
 
 			/* No current value, make one */
 			if (!is_array($res)) {
 				$currentid = 0;
-				$q = sprintf("insert into %s values('%s', %s)", $this->Seq_Table, $seq_name, $currentid);
+				$q = sprintf("insert into %s values('%s', %s)", $this->seqTable, $seqName, $currentid);
 				$id = @$this->Link_ID->query($q);
 			} else {
 				$currentid = $res['nextid'];
 			}
 			$nextid = $currentid + 1;
-			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->Seq_Table, $nextid, $seq_name);
+			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->seqTable, $nextid, $seqName);
 			$id = @$this->Link_ID->query($q);
 			$this->unlock();
 		} else {
-			$this->halt('cannot lock '.$this->Seq_Table.' - has it been created?');
+			$this->halt('cannot lock '.$this->seqTable.' - has it been created?');
 			return 0;
 		}
 		return $nextid;
@@ -696,7 +696,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		//$this->Error = @$this->Link_ID->error;
 		//$this->Errno = @$this->Link_ID->errno;
-		if ($this->Halt_On_Error == 'no') {
+		if ($this->haltOnError == 'no') {
 			return;
 		}
 		if ($msg != '')
@@ -709,7 +709,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			error_log("Line: $line");
 		}
 
-		if ($this->Halt_On_Error != 'report') {
+		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
 			if (isset($GLOBALS['tf']))
@@ -765,7 +765,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$return = [];
 		$this->query('SHOW TABLES');
 		$i = 0;
-		while ($info = $this->Query_ID->fetch_row()) {
+		while ($info = $this->queryId->fetch_row()) {
 			$return[$i]['table_name'] = $info[0];
 			$return[$i]['tablespace_name'] = $this->Database;
 			$return[$i]['database'] = $this->Database;

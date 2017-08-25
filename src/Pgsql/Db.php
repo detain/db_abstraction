@@ -23,7 +23,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public $type = 'pgsql';
 
 	/* Set this to 1 for automatic pg_freeresult on last record. */
-	public $Auto_Free = 0;
+	public $autoFree = 0;
 
 	// PostgreSQL changed somethings from 6.x -> 7.x
 	public $db_version;
@@ -113,7 +113,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function query_id() {
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	/**
@@ -283,16 +283,16 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		/* printf("<br>Debug: query = %s<br>\n", $queryString); */
 
-		$this->Query_ID = @pg_exec($this->Link_ID, $queryString);
+		$this->queryId = @pg_exec($this->Link_ID, $queryString);
 		$this->Row = 0;
 
 		$this->Error = pg_errormessage($this->Link_ID);
 		$this->Errno = ($this->Error == '') ? 0 : 1;
-		if (!$this->Query_ID) {
+		if (!$this->queryId) {
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
 
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	/* public: perform a query with limited result set */
@@ -328,25 +328,25 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function free() {
-		@pg_freeresult($this->Query_ID);
-		$this->Query_ID = 0;
+		@pg_freeresult($this->queryId);
+		$this->queryId = 0;
 	}
 
 	/**
 	 * Db::next_record()
-	 * @param mixed $result_type
+	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($result_type = PGSQL_BOTH) {
-		$this->Record = @pg_fetch_array($this->Query_ID, $this->Row++, $result_type);
+	public function next_record($resultType = PGSQL_BOTH) {
+		$this->Record = @pg_fetch_array($this->queryId, $this->Row++, $resultType);
 
 		$this->Error = pg_errormessage($this->Link_ID);
 		$this->Errno = ($this->Error == '') ? 0 : 1;
 
 		$stat = is_array($this->Record);
-		if (!$stat && $this->Auto_Free) {
-			pg_freeresult($this->Query_ID);
-			$this->Query_ID = 0;
+		if (!$stat && $this->autoFree) {
+			pg_freeresult($this->queryId);
+			$this->queryId = 0;
 		}
 		return $stat;
 	}
@@ -407,7 +407,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return - 1;
 		}
 
-		$oid = pg_getlastoid($this->Query_ID);
+		$oid = pg_getlastoid($this->queryId);
 		if ($oid == -1) {
 			return - 1;
 		}
@@ -463,32 +463,32 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::nextid()
-	 * @param mixed $seq_name
+	 * @param mixed $seqName
 	 * @return int
 	 */
-	public function nextid($seq_name) {
+	public function nextid($seqName) {
 		$this->connect();
 
-		if ($this->lock($this->Seq_Table)) {
+		if ($this->lock($this->seqTable)) {
 			/* get sequence number (locked) and increment */
-			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->Seq_Table, $seq_name);
+			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->seqTable, $seqName);
 			$id = @pg_exec($this->Link_ID, $q);
 			$res = @pg_fetch_array($id, 0);
 
 			/* No current value, make one */
 			if (!is_array($res)) {
 				$currentid = 0;
-				$q = sprintf("insert into %s values('%s', %s)", $this->Seq_Table, $seq_name, $currentid);
+				$q = sprintf("insert into %s values('%s', %s)", $this->seqTable, $seqName, $currentid);
 				$id = @pg_exec($this->Link_ID, $q);
 			} else {
 				$currentid = $res['nextid'];
 			}
 			$nextid = $currentid + 1;
-			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->Seq_Table, $nextid, $seq_name);
+			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->seqTable, $nextid, $seqName);
 			$id = @pg_exec($this->Link_ID, $q);
 			$this->unlock();
 		} else {
-			$this->halt('cannot lock '.$this->Seq_Table.' - has it been created?');
+			$this->halt('cannot lock '.$this->seqTable.' - has it been created?');
 			return 0;
 		}
 		return $nextid;
@@ -499,7 +499,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function affected_rows() {
-		return pg_cmdtuples($this->Query_ID);
+		return pg_cmdtuples($this->queryId);
 	}
 
 	/**
@@ -507,7 +507,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function num_rows() {
-		return pg_numrows($this->Query_ID);
+		return pg_numrows($this->queryId);
 	}
 
 	/**
@@ -515,7 +515,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function num_fields() {
-		return pg_numfields($this->Query_ID);
+		return pg_numfields($this->queryId);
 	}
 
 	/**
@@ -541,7 +541,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function f($Name, $strip_slashes = '') {
-		if ($strip_slashes || ($this->auto_stripslashes && !$strip_slashes)) {
+		if ($strip_slashes || ($this->autoStripslashes && !$strip_slashes)) {
 			return stripslashes($this->Record[$Name]);
 		} else {
 			return $this->Record[$Name];
@@ -567,7 +567,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function halt($msg, $line = '', $file = '') {
-		if ($this->Halt_On_Error == 'no') {
+		if ($this->haltOnError == 'no') {
 			return;
 		}
 
@@ -598,7 +598,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			}
 		}
 
-		if ($this->Halt_On_Error == 'yes') {
+		if ($this->haltOnError == 'yes') {
 			$s .= '<p><b>Session halted.</b>';
 		}
 

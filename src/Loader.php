@@ -23,10 +23,10 @@ class Loader
 	public $Password = '';
 
 	/* public: configuration parameters */
-	public $auto_stripslashes = FALSE;
+	public $autoStripslashes = FALSE;
 	public $Debug = 0; // Set to 1 for debugging messages.
-	public $Halt_On_Error = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
-	public $Seq_Table = 'db_sequence';
+	public $haltOnError = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
+	public $seqTable = 'db_sequence';
 
 	/* public: result array and current row number */
 	public $Record = [];
@@ -40,7 +40,7 @@ class Loader
 
 	/* private: link and query handles */
 	public $Link_ID = 0;
-	public $Query_ID = 0;
+	public $queryId = 0;
 
 	public $character_set = '';
 	public $collation = '';
@@ -114,7 +114,7 @@ class Loader
 	 * @return int
 	 */
 	public function query_id() {
-		return $this->Query_ID;
+		return $this->queryId;
 	}
 
 	/**
@@ -154,7 +154,7 @@ class Loader
 	public function halt($msg, $line = '', $file = '') {
 		$this->unlock(false);
 
-		if ($this->Halt_On_Error == 'no') {
+		if ($this->haltOnError == 'no') {
 			return;
 		}
 		$this->haltmsg($msg);
@@ -165,7 +165,7 @@ class Loader
 		if ($line) {
 			error_log("Line: $line");
 		}
-		if ($this->Halt_On_Error != 'report') {
+		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
 			if (isset($GLOBALS['tf']))
