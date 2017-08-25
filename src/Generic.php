@@ -41,7 +41,7 @@ abstract class Generic
 	public $linkId = 0;
 	public $queryId = 0;
 
-	public $character_set = 'utf8mb4';
+	public $characterSet = 'utf8mb4';
 	public $collation = 'utf8mb4_unicode_ci';
 
 	/**

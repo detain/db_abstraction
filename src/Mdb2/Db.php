@@ -25,14 +25,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public $database = 'pdns';
 	public $type = 'mdb2';
 
-	public $iface_lang = 'en_EN';
-
-	public $dns_hostmaster = 'hostmaster.interserver.net';
-	public $dns_ns1 = 'cdns1.interserver.net';
-	public $dns_ns2 = 'cdns2.interserver.net';
-	public $dns_ns3 = 'cdns3.interserver.net';
-
-	public $character_set = 'utf8mb4';
+	public $characterSet = 'utf8mb4';
 	public $collation = 'utf8mb4_unicode_ci';
 
 	/**
@@ -75,8 +68,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public $linkId = 0;
 	public $queryId = 0;
 
-	public $max_connect_errors = 30;
-	public $connection_attempt = 0;
+	public $maxConnectErrors = 30;
+	public $connectionAttempt = 0;
 
 	public $maxMatches = 10000000;
 
@@ -245,17 +238,17 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 		/* establish connection, select database */
 		if (!is_object($this->linkId)) {
-			$this->connection_attempt++;
-			if ($this->connection_attempt > 1)
-				myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_attempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
-			if ($this->connection_attempt >= $this->max_connect_errors) {
+			$this->connectionAttempt++;
+			if ($this->connectionAttempt > 1)
+				myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}", __LINE__, __FILE__);
+			if ($this->connectionAttempt >= $this->maxConnectErrors) {
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}
 			$this->linkId = mysqli_init();
-			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
+			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
 			$this->linkId->real_connect($host, $user, $password, $database);
-			$this->linkId->set_charset($this->character_set);
+			$this->linkId->set_charset($this->characterSet);
 			if ($this->linkId->connect_errno) {
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;

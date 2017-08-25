@@ -81,8 +81,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function select_db($database) {
 		$DSN = "{$this->driver}:dbname={$database};host={$this->host}";
-		if ($this->character_set != '')
-			$DSN .= ';charset='.$this->character_set;
+		if ($this->characterSet != '')
+			$DSN .= ';charset='.$this->characterSet;
 		$this->linkId = new \PDO($DSN, $this->user, $this->password);
 	}
 
@@ -134,8 +134,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 		/* establish connection, select database */
 		$DSN = "$driver:dbname=$database;host=$host";
-		if ($this->character_set != '')
-			$DSN .= ';charset='.$this->character_set;
+		if ($this->characterSet != '')
+			$DSN .= ';charset='.$this->characterSet;
 		if ($this->linkId === FALSE) {
 			try
 			{

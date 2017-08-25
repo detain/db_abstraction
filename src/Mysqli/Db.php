@@ -29,8 +29,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public $type = 'mysqli';
 
-	public $max_connect_errors = 30;
-	public $connection_attempt = 0;
+	public $maxConnectErrors = 30;
+	public $connectionAttempt = 0;
 	public $maxMatches = 10000000;
 
 
@@ -134,16 +134,16 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if (!is_object($this->linkId)) {
 			$this->connection_atttempt++;
 			if ($this->connection_atttempt > 1)
-				myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->max_connect_errors}", __LINE__, __FILE__);
-			if ($this->connection_atttempt >= $this->max_connect_errors) {
+				myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->maxConnectErrors}", __LINE__, __FILE__);
+			if ($this->connection_atttempt >= $this->maxConnectErrors) {
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}
 			//$this->linkId = new mysqli($host, $user, $password, $database);
 			$this->linkId = mysqli_init();
-			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
+			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
 			$this->linkId->real_connect($host, $user, $password, $database);
-			$this->linkId->set_charset($this->character_set);
+			$this->linkId->set_charset($this->characterSet);
 			/*
 			* $this->linkId = $this->Link_Init->real_connect($host, $user, $password, $database);
 			* if ($this->linkId)
@@ -155,12 +155,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}
-			/*if ($this->character_set != '') {
+			/*if ($this->characterSet != '') {
 				if ($this->collation != '')
-					@mysqli_query($this->linkId, "SET NAMES {$this->character_set} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", MYSQLI_STORE_RESULT);
+					@mysqli_query($this->linkId, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", MYSQLI_STORE_RESULT);
 				else
-					@mysqli_query($this->linkId, "SET NAMES {$this->character_set};", MYSQLI_STORE_RESULT);
-				mysqli_set_charset($this->linkId, $this->character_set);
+					@mysqli_query($this->linkId, "SET NAMES {$this->characterSet};", MYSQLI_STORE_RESULT);
+				mysqli_set_charset($this->linkId, $this->characterSet);
 			}*/
 		}
 		return $this->linkId;
@@ -561,14 +561,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Db::unlock()
-	 * @param bool $halt_on_error optional, defaults to TRUE, whether or not to halt on error
+	 * @param bool $haltOnError optional, defaults to TRUE, whether or not to halt on error
 	 * @return bool|int|\mysqli_result
 	 */
-	public function unlock($halt_on_error = TRUE) {
+	public function unlock($haltOnError = TRUE) {
 		$this->connect();
 
 		$res = @mysqli_query($this->linkId, 'unlock tables');
-		if ($halt_on_error === TRUE && !$res) {
+		if ($haltOnError === TRUE && !$res) {
 			$this->halt('unlock() failed.');
 			return 0;
 		}

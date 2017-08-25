@@ -42,7 +42,7 @@ class Loader
 	public $linkId = 0;
 	public $queryId = 0;
 
-	public $character_set = '';
+	public $characterSet = '';
 	public $collation = '';
 
 	/**
