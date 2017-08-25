@@ -394,12 +394,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::get_last_insert_id()
+	 * Db::getLastInsertId()
 	 * @param mixed $table
 	 * @param mixed $field
 	 * @return int
 	 */
-	public function get_last_insert_id($table, $field) {
+	public function getLastInsertId($table, $field) {
 		if (!isset($table) || $table == '' || !isset($field) || $field == '') {
 			return - 1;
 		}

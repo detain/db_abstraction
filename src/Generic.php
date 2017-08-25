@@ -121,20 +121,20 @@ abstract class Generic
 	}
 
 	/**
-	 * Db::to_timestamp()
+	 * Db::toTimestamp()
 	 * @param mixed $epoch
 	 * @return bool|string
 	 */
-	public function to_timestamp($epoch) {
+	public function toTimestamp($epoch) {
 		return date('Y-m-d H:i:s', $epoch);
 	}
 
 	/**
-	 * Db::from_timestamp()
+	 * Db::fromTimestamp()
 	 * @param mixed $timestamp
 	 * @return bool|int|mixed
 	 */
-	public function from_timestamp($timestamp) {
+	public function fromTimestamp($timestamp) {
 		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
 			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))

@@ -158,33 +158,33 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	// For PostgreSQL 6.x
 
 /**
-	 * Db::to_timestamp_6()
+	 * Db::toTimestamp6()
 	 * @param mixed $epoch
 	 * @return void
 	 */
-	public function to_timestamp_6($epoch) {
+	public function toTimestamp6($epoch) {
 
 	}
 
 	// For PostgreSQL 6.x
 
 /**
-	 * Db::from_timestamp_6()
+	 * Db::fromTimestamp6()
 	 * @param mixed $timestamp
 	 * @return void
 	 */
-	public function from_timestamp_6($timestamp) {
+	public function fromTimestamp6($timestamp) {
 
 	}
 
 	// For PostgreSQL 7.x
 
 /**
-	 * Db::to_timestamp_7()
+	 * Db::toTimestamp7()
 	 * @param mixed $epoch
 	 * @return bool|string
 	 */
-	public function to_timestamp_7($epoch) {
+	public function toTimestamp7($epoch) {
 		// This needs the GMT offset!
 		return date('Y-m-d H:i:s-00', $epoch);
 	}
@@ -192,11 +192,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	// For PostgreSQL 7.x
 
 /**
-	 * Db::from_timestamp_7()
+	 * Db::fromTimestamp7()
 	 * @param mixed $timestamp
 	 * @return int
 	 */
-	public function from_timestamp_7($timestamp) {
+	public function fromTimestamp7($timestamp) {
 		preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts);
 
 		return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
@@ -391,12 +391,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::get_last_insert_id()
+	 * Db::getLastInsertId()
 	 * @param mixed $table
 	 * @param mixed $field
 	 * @return int
 	 */
-	public function get_last_insert_id($table, $field) {
+	public function getLastInsertId($table, $field) {
 		/* This will get the last insert ID created on the current connection.  Should only be called
 		* after an insert query is run on a table that has an auto incrementing field.  Of note, table
 		* and field are required because pgsql returns the last inserted OID, which is unique across

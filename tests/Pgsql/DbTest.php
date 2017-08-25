@@ -157,25 +157,25 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::to_timestamp
+	 * @covers MyDb\Mysqli\Db::toTimestamp
 	 */
 	public function testTo_timestamp()
 	{
 	$t = 1502439626;
-	$this->assertEquals($this->object->to_timestamp($t), '2017-08-11 04:20:26');
+	$this->assertEquals($this->object->toTimestamp($t), '2017-08-11 04:20:26');
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::from_timestamp
+	 * @covers MyDb\Mysqli\Db::fromTimestamp
 	 */
 	public function testFrom_timestamp()
 	{
 	$t = 1502439626;
-	$this->assertEquals($this->object->from_timestamp('2017-08-11 04:20:26'), $t);
+	$this->assertEquals($this->object->fromTimestamp('2017-08-11 04:20:26'), $t);
 	}
 
 	/**
-	 * @covers MyDb\Pgsql\Db::to_timestamp_6
+	 * @covers MyDb\Pgsql\Db::toTimestamp6
 	 * @todo   Implement testTo_timestamp_6().
 	 */
 	public function testTo_timestamp_6()
@@ -187,7 +187,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Pgsql\Db::from_timestamp_6
+	 * @covers MyDb\Pgsql\Db::fromTimestamp6
 	 * @todo   Implement testFrom_timestamp_6().
 	 */
 	public function testFrom_timestamp_6()
@@ -199,7 +199,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Pgsql\Db::to_timestamp_7
+	 * @covers MyDb\Pgsql\Db::toTimestamp7
 	 * @todo   Implement testTo_timestamp_7().
 	 */
 	public function testTo_timestamp_7()
@@ -211,7 +211,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Pgsql\Db::from_timestamp_7
+	 * @covers MyDb\Pgsql\Db::fromTimestamp7
 	 * @todo   Implement testFrom_timestamp_7().
 	 */
 	public function testFrom_timestamp_7()
@@ -343,7 +343,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Pgsql\Db::get_last_insert_id
+	 * @covers MyDb\Pgsql\Db::getLastInsertId
 	 * @todo   Implement testGet_last_insert_id().
 	 */
 	public function testGet_last_insert_id()

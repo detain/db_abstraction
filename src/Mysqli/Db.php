@@ -212,20 +212,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::to_timestamp()
+	 * Db::toTimestamp()
 	 * @param mixed $epoch
 	 * @return bool|string
 	 */
-	public function to_timestamp($epoch) {
+	public function toTimestamp($epoch) {
 		return date('Y-m-d H:i:s', $epoch);
 	}
 
 	/**
-	 * Db::from_timestamp()
+	 * Db::fromTimestamp()
 	 * @param mixed $timestamp
 	 * @return bool|int|mixed
 	 */
-	public function from_timestamp($timestamp) {
+	public function fromTimestamp($timestamp) {
 		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
 			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
@@ -508,12 +508,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::get_last_insert_id()
+	 * Db::getLastInsertId()
 	 * @param mixed $table
 	 * @param mixed $field
 	 * @return int|string
 	 */
-	public function get_last_insert_id($table, $field) {
+	public function getLastInsertId($table, $field) {
 		/* This will get the last insert ID created on the current connection.  Should only be called
 		* after an insert query is run on a table that has an auto incrementing field.  $table and
 		* $field are required, but unused here since it's unnecessary for mysql.  For compatibility
