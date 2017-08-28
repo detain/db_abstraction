@@ -22,9 +22,10 @@ addons:
     repo_token: $CODECLIMATE_REPO_TOKEN
 services:
   - mysql
+  - postgresql
 before_install:
   - mkdir -p build/logs
-  - phpenv config-rm xdebug.ini
+  - if [[ "$TRAVIS_PHP_VERSION" != "7.2" ]]; then phpenv config-rm xdebug.ini; fi
   - phpenv rehash
   - travis_retry composer self-update
 install:
