@@ -28,6 +28,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	// PostgreSQL changed somethings from 6.x -> 7.x
 	public $db_version;
 
+	public $port = '5432';
+
 	/**
 	 * Db::ifadd()
 	 *
@@ -135,12 +137,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function connect() {
 		if (0 == $this->linkId) {
-			$connect_string = 'dbname='.$this->database . $this->ifadd($this->host, 'host=') . $this->ifadd($this->Port, 'port=') . $this->ifadd($this->user, 'user=') . $this->ifadd("'" . $this->password . "'", 'password=');
-			if ($GLOBALS['phpgw_info']['server']['db_persistent']) {
-				$this->linkId = pg_pconnect($connect_string);
-			} else {
-				$this->linkId = pg_connect($connect_string);
-			}
+			$connect_string = 'dbname='.$this->database . $this->ifadd($this->host, 'host=') . $this->ifadd($this->port, 'port=') . $this->ifadd($this->user, 'user=') . $this->ifadd("'" . $this->password . "'", 'password=');
+			$this->linkId = pg_pconnect($connect_string);
 
 			if (!$this->linkId) {
 				$this->halt('Link-ID == FALSE, '.($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '').'connect failed');
