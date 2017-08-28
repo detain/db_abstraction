@@ -33,11 +33,13 @@ install:
 before_script:
   - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests;" -U postgres; fi
   - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests;" -U postgres; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE ROLE tests;" -U postgres; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "GRANT ALL ON tests TO tests;" -U postgres; fi
   - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests; GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES; use tests; source tests/tests.sql;"; fi
   - travis_retry composer update --with-dependencies --no-interaction --dev --prefer-source
 script:
-  - if [[ "$DB" == "postgres" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi;
-  - if [[ "$DB" == "postgres" ]] && [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v; fi
+  - if [[ "$DB" == "postgres" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi;
+  - if [[ "$DB" == "postgres" ]] && [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v; fi
   - if [[ "$DB" == "mysql" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi;
   - if [[ "$DB" == "mysql" ]] && [[ "$TRAVIS_PHP_VERSION" != "7.0" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v; fi
 after_success:
