@@ -572,43 +572,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		/* Just in case there is a table currently locked */
 		$this->transaction_abort();
 
-		if ($this->xmlrpc || $this->soap) {
-			$s = sprintf("Database error: %s\n", $msg);
-			$s .= sprintf("PostgreSQL Error: %s\n\n (%s)\n\n", $this->Errno, $this->Error);
-		} else {
-			$s = sprintf("<b>Database error:</b> %s<br>\n", $msg);
-			$s .= sprintf("<b>PostgreSQL Error</b>: %s (%s)<br>\n", $this->Errno, $this->Error);
-		}
+		$s = sprintf("Database error: %s\n", $msg);
+		$s .= sprintf("PostgreSQL Error: %s\n\n (%s)\n\n", $this->Errno, $this->Error);
 
-		if ($file) {
-			if ($this->xmlrpc || $this->soap) {
-				$s .= sprintf("File: %s\n", $file);
-			} else {
-				$s .= sprintf('<br><b>File:</b> %s', $file);
-			}
-		}
-
-		if ($line) {
-			if ($this->xmlrpc || $this->soap) {
-				$s .= sprintf("Line: %s\n", $line);
-			} else {
-				$s .= sprintf('<br><b>Line:</b> %s', $line);
-			}
-		}
-
-		if ($this->haltOnError == 'yes') {
+		if ($file)
+			$s .= sprintf("File: %s\n", $file);
+		if ($line)
+			$s .= sprintf("Line: %s\n", $line);
+		if ($this->haltOnError == 'yes')
 			$s .= '<p><b>Session halted.</b>';
-		}
-
-		if ($this->xmlrpc) {
-			xmlrpcfault($s);
-		} elseif ($this->soap) {
-
-		} else {
-			error_log($s);
-			if (isset($GLOBALS['tf']))
-				$GLOBALS['tf']->terminate();
-		}
+		error_log($s);
+		echo $s;
+		if (isset($GLOBALS['tf']))
+			$GLOBALS['tf']->terminate();
+		die($s);
 	}
 
 	/**
