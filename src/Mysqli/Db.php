@@ -61,7 +61,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function log($message, $line = '', $file = '') {
 		if (function_exists('myadmin_log'))
-			myadmin_log('db', 'info', $message, $line, $file, FALSE);
+			myadmin_log('db', 'info', $message, $line, $file, isset($GLOBALS['tf']));
 		else
 			error_log($message);
 	}
