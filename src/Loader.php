@@ -86,9 +86,8 @@ class Loader
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-		if ($query != '') {
+		if ($query != '')
 			$this->query($query);
-		}
 	}
 
 	/**
@@ -122,9 +121,8 @@ class Loader
 	 * @return string
 	 */
 	public function db_addslashes($str) {
-		if (!isset($str) || $str == '') {
+		if (!isset($str) || $str == '')
 			return '';
-		}
 
 		return addslashes($str);
 	}
@@ -154,17 +152,14 @@ class Loader
 	public function halt($msg, $line = '', $file = '') {
 		$this->unlock(false);
 
-		if ($this->haltOnError == 'no') {
+		if ($this->haltOnError == 'no')
 			return;
-		}
 		$this->haltmsg($msg);
 
-		if ($file) {
+		if ($file)
 			error_log("File: $file");
-		}
-		if ($line) {
+		if ($line)
 			error_log("Line: $line");
-		}
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
@@ -178,9 +173,8 @@ class Loader
 	 */
 	public function haltmsg($msg) {
 		$this->log("Database error: $msg", __LINE__, __FILE__);
-		if ($this->Errno != '0' || $this->Error != '()') {
+		if ($this->Errno != '0' || $this->Error != '()')
 			$this->log('SQL Error: '.$this->Errno.' ('.$this->Error.')', __LINE__, __FILE__);
-		}
 	}
 
 	/**

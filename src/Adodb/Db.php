@@ -38,16 +38,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @param string $query Optional query to perform immediately
 	 */
 	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
-		if (!defined('_ADODB_LAYER')) {
+		if (!defined('_ADODB_LAYER'))
 			require_once realpath(__DIR__).'/../vendor/adodb/adodb-php/adodb.inc.php';
-		}
 		$this->database = $database;
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-		if ($query != '') {
+		if ($query != '')
 			$this->query($query);
-		}
 	}
 
 	/**
@@ -92,21 +90,16 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function connect($database = '', $host = '', $user = '', $password = '', $driver = 'mysql') {
 		/* Handle defaults */
-		if ('' == $database) {
+		if ('' == $database)
 			$database = $this->database;
-		}
-		if ('' == $host) {
+		if ('' == $host)
 			$host = $this->host;
-		}
-		if ('' == $user) {
+		if ('' == $user)
 			$user = $this->user;
-		}
-		if ('' == $password) {
+		if ('' == $password)
 			$password = $this->password;
-		}
-		if ('' == $driver) {
+		if ('' == $driver)
 			$driver = $this->driver;
-		}
 		/* establish connection, select database */
 		if ($this->linkId === FALSE) {
 			$this->linkId = NewADOConnection($driver);
@@ -146,9 +139,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function db_addslashes($str) {
-		if (!isset($str) || $str == '') {
+		if (!isset($str) || $str == '')
 			return '';
-		}
 
 		return addslashes($str);
 	}
@@ -229,9 +221,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQL_ASSOC)) {
+			while ($this->next_record(MYSQL_ASSOC))
 				$out[] = $this->Record;
-			}
 			return $out;
 		}
 	}
@@ -266,22 +257,19 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '') {
+		if ($queryString == '')
 			return 0;
-		}
 		if (!$this->connect()) {
 			return 0;
 			/* we already complained in connect() about that. */
 		}
 
 		// New query, discard previous result.
-		if ($this->queryId !== FALSE) {
+		if ($this->queryId !== FALSE)
 			$this->free();
-		}
 
-		if ($this->Debug) {
+		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
-		}
 		if ($GLOBALS['log_queries'] !== FALSE) {
 			$this->log($queryString, $line, $file);
 
@@ -296,14 +284,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 					'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>';
-			foreach ($_REQUEST as $key => $value) {
+			foreach ($_REQUEST as $key => $value)
 				$email .= $key.': '.$value . "<br>\n";
-			}
 
 			$email .= '<br><br>Server Variables:<br>';
-			foreach ($_SERVER as $key => $value) {
+			foreach ($_SERVER as $key => $value)
 				$email .= $key.': '.$value . "<br>\n";
-			}
 			$subject = DOMAIN.' ADOdb MySQL Error On '.TITLE;
 			$headers = '';
 			$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
@@ -334,9 +320,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return mixed
 	 */
 	public function limit_query($queryString, $offset, $line = '', $file = '', $numRows = '') {
-		if (!$numRows) {
+		if (!$numRows)
 			$numRows = $this->maxMatches;
-		}
 
 		if ($offset == 0) {
 			$queryString .= ' LIMIT '.$numRows;
@@ -344,9 +329,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$queryString .= ' LIMIT '.$offset.','.$numRows;
 		}
 
-		if ($this->Debug) {
+		if ($this->Debug)
 			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
-		}
 
 		return $this->query($queryString, $line, $file);
 	}
@@ -366,9 +350,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		++$this->Row;
 		$this->Record = $this->queryId->FetchRow();
 		$stat = is_array($this->Record);
-		if (!$stat && $this->autoFree) {
+		if (!$stat && $this->autoFree)
 			$this->free();
-		}
 		return $stat;
 	}
 
@@ -609,17 +592,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		//$this->Error = @mysql_error($this->linkId);
 		//$this->Errno = @mysql_errno($this->linkId);
-		if ($this->haltOnError == 'no') {
+		if ($this->haltOnError == 'no')
 			return;
-		}
 		$this->haltmsg($msg);
 
-		if ($file) {
+		if ($file)
 			error_log("File: $file");
-		}
-		if ($line) {
+		if ($line)
 			error_log("Line: $line");
-		}
 
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
@@ -636,9 +616,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function haltmsg($msg) {
 		$this->log("Database error: $msg", __LINE__, __FILE__);
-		if ($this->linkId->ErrorNo() != '0' && $this->linkId->ErrorMsg() != '') {
+		if ($this->linkId->ErrorNo() != '0' && $this->linkId->ErrorMsg() != '')
 			$this->log('ADOdb MySQL Error: '.$this->linkId->ErrorMsg(), __LINE__, __FILE__);
-		}
 	}
 
 	/**

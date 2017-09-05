@@ -38,9 +38,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function ifadd($add, $me) {
-		if ('' != $add) {
+		if ('' != $add)
 			return ' '.$me . $add;
-		}
 		return '';
 	}
 
@@ -58,9 +57,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-		if ($query != '') {
+		if ($query != '')
 			$this->query($query);
-		}
 	}
 
 	/**
@@ -230,9 +228,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQL_ASSOC)) {
+			while ($this->next_record(MYSQL_ASSOC))
 				$out[] = $this->Record;
-			}
 			return $out;
 		}
 	}
@@ -263,9 +260,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function query($queryString, $line = '', $file = '') {
 		if (!$line && !$file) {
-			if (isset($GLOBALS['tf'])) {
+			if (isset($GLOBALS['tf']))
 				$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didn't pass __LINE__ and __FILE__ to db->query() - Actually query: $queryString");
-			}
 		}
 
 		/* No empty queries, please, since PHP4 chokes on them. */
@@ -273,9 +269,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '') {
+		if ($queryString == '')
 			return 0;
-		}
 
 		$this->connect();
 
@@ -286,9 +281,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		$this->Error = pg_errormessage($this->linkId);
 		$this->Errno = ($this->Error == '') ? 0 : 1;
-		if (!$this->queryId) {
+		if (!$this->queryId)
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
-		}
 
 		return $this->queryId;
 	}
@@ -311,9 +305,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$queryString .= ' LIMIT '.$numRows.','.$offset;
 		}
 
-		if ($this->Debug) {
+		if ($this->Debug)
 			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
-		}
 
 		return $this->query($queryString, $line, $file);
 	}
@@ -401,19 +394,16 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		* an entire installation.  These params allow us to retrieve the sequenced field without adding
 		* conditional code to the apps.
 		*/
-		if (!isset($table) || $table == '' || !isset($field) || $field == '') {
+		if (!isset($table) || $table == '' || !isset($field) || $field == '')
 			return - 1;
-		}
 
 		$oid = pg_getlastoid($this->queryId);
-		if ($oid == -1) {
+		if ($oid == -1)
 			return - 1;
-		}
 
 		$result = @pg_exec($this->linkId, "select $field from $table where oid=$oid");
-		if (!$result) {
+		if (!$result)
 			return - 1;
-		}
 
 		$Record = @pg_fetch_array($result, 0);
 		@pg_freeresult($result);
@@ -436,9 +426,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		if ($mode == 'write') {
 			if (is_array($table)) {
-				while ($t = each($table)) {
+				while ($t = each($table))
 					$result = pg_exec($this->linkId, 'lock table '.$t[1].' in share mode');
-				}
 			} else {
 				$result = pg_exec($this->linkId, 'lock table '.$table.' in share mode');
 			}
@@ -565,9 +554,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return void
 	 */
 	public function halt($msg, $line = '', $file = '') {
-		if ($this->haltOnError == 'no') {
+		if ($this->haltOnError == 'no')
 			return;
-		}
 
 		/* Just in case there is a table currently locked */
 		$this->transaction_abort();

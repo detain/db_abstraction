@@ -58,9 +58,8 @@ abstract class Generic
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-		if ($query != '') {
+		if ($query != '')
 			$this->query($query);
-		}
 	}
 
 	/**
@@ -94,9 +93,8 @@ abstract class Generic
 	 * @return string
 	 */
 	public function real_escape($string) {
-		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
+		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect())
 			return mysqli_escape_string($string);
-		}
 		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
@@ -113,9 +111,8 @@ abstract class Generic
 	 * @return string
 	 */
 	public function db_addslashes($str) {
-		if (!isset($str) || $str == '') {
+		if (!isset($str) || $str == '')
 			return '';
-		}
 
 		return addslashes($str);
 	}
@@ -190,17 +187,14 @@ abstract class Generic
 	public function halt($msg, $line = '', $file = '') {
 		$this->unlock(false);
 
-		if ($this->haltOnError == 'no') {
+		if ($this->haltOnError == 'no')
 			return;
-		}
 		$this->haltmsg($msg);
 
-		if ($file) {
+		if ($file)
 			error_log("File: $file");
-		}
-		if ($line) {
+		if ($line)
 			error_log("Line: $line");
-		}
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
@@ -214,9 +208,8 @@ abstract class Generic
 	 */
 	public function haltmsg($msg) {
 		$this->log("Database error: $msg", __LINE__, __FILE__);
-		if ($this->Errno != '0' || $this->Error != '()') {
+		if ($this->Errno != '0' || $this->Error != '()')
 			$this->log('SQL Error: '.$this->Errno.' ('.$this->Error.')', __LINE__, __FILE__);
-		}
 	}
 
 	/**

@@ -118,18 +118,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function connect($database = '', $host = '', $user = '', $password = '') {
 		/* Handle defaults */
-		if ('' == $database) {
+		if ('' == $database)
 			$database = $this->database;
-		}
-		if ('' == $host) {
+		if ('' == $host)
 			$host = $this->host;
-		}
-		if ('' == $user) {
+		if ('' == $user)
 			$user = $this->user;
-		}
-		if ('' == $password) {
+		if ('' == $password)
 			$password = $this->password;
-		}
 		/* establish connection, select database */
 		if (!is_object($this->linkId)) {
 			$this->connection_atttempt++;
@@ -184,9 +180,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function real_escape($string) {
-		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
+		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect())
 			return mysqli_escape_string($string);
-		}
 		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
@@ -204,9 +199,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return string
 	 */
 	public function db_addslashes($str) {
-		if (!isset($str) || $str == '') {
+		if (!isset($str) || $str == '')
 			return '';
-		}
 
 		return addslashes($str);
 	}
@@ -288,9 +282,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQL_ASSOC)) {
+			while ($this->next_record(MYSQL_ASSOC))
 				$out[] = $this->Record;
-			}
 			return $out;
 		}
 	}
@@ -316,9 +309,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int|\MyDb\Mysqli\mysqli_stmt
 	 */
 	public function prepare($query) {
-		if (!$this->connect()) {
+		if (!$this->connect())
 			return 0;
-		}
 		$halt_prev = $this->haltOnError;
 		$this->haltOnError = 'no';
 		return mysqli_prepare($this->linkId, $query);
@@ -340,9 +332,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '') {
+		if ($queryString == '')
 			return 0;
-		}
 		if (!$this->connect()) {
 			return 0;
 			/* we already complained in connect() about that. */
@@ -350,15 +341,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$halt_prev = $this->haltOnError;
 		$this->haltOnError = 'no';
 		// New query, discard previous result.
-		if (is_resource($this->queryId)) {
+		if (is_resource($this->queryId))
 			$this->free();
-		}
-		if ($this->Debug) {
+		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
-		}
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE) {
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE)
 			$this->log($queryString, $line, $file);
-		}
 		$tries = 3;
 		$try = 0;
 		$this->queryId = FALSE;
@@ -389,9 +377,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			}
 		}
 		$this->haltOnError = $halt_prev;
-		if (null === $this->queryId || $this->queryId === FALSE) {
+		if (null === $this->queryId || $this->queryId === FALSE)
 			$this->halt('', $line, $file);
-		}
 
 		// Will return nada if it fails. That's fine.
 		return $this->queryId;
@@ -409,18 +396,16 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return mixed
 	 */
 	public function limit_query($queryString, $offset, $line = '', $file = '', $numRows = '') {
-		if (!$numRows) {
+		if (!$numRows)
 			$numRows = $this->maxMatches;
-		}
 		if ($offset == 0) {
 			$queryString .= ' LIMIT '.$numRows;
 		} else {
 			$queryString .= ' LIMIT '.$offset.','.$numRows;
 		}
 
-		if ($this->Debug) {
+		if ($this->Debug)
 			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
-		}
 
 		return $this->query($queryString, $line, $file);
 	}
@@ -453,9 +438,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->Error = mysqli_error($this->linkId);
 
 		$stat = is_array($this->Record);
-		if (!$stat && $this->autoFree && is_resource($this->queryId)) {
+		if (!$stat && $this->autoFree && is_resource($this->queryId))
 			$this->free();
-		}
 		return $stat;
 	}
 
@@ -520,9 +504,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		* with pgsql, the params must be supplied.
 		*/
 
-		if (!isset($table) || $table == '' || !isset($field) || $field == '') {
+		if (!isset($table) || $table == '' || !isset($field) || $field == '')
 			return - 1;
-		}
 
 		return @mysqli_insert_id($this->linkId);
 	}
@@ -696,18 +679,15 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		//$this->Error = @$this->linkId->error;
 		//$this->Errno = @$this->linkId->errno;
-		if ($this->haltOnError == 'no') {
+		if ($this->haltOnError == 'no')
 			return;
-		}
 		if ($msg != '')
 			$this->haltmsg($msg);
 
-		if ($file) {
+		if ($file)
 			error_log("File: $file");
-		}
-		if ($line) {
+		if ($line)
 			error_log("Line: $line");
-		}
 
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';

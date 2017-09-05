@@ -45,9 +45,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-		if ($query != '') {
+		if ($query != '')
 			$this->query($query);
-		}
 	}
 
 	/**
@@ -117,21 +116,16 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function connect($database = '', $host = '', $user = '', $password = '', $driver = 'mysql') {
 		/* Handle defaults */
-		if ('' == $database) {
+		if ('' == $database)
 			$database = $this->database;
-		}
-		if ('' == $host) {
+		if ('' == $host)
 			$host = $this->host;
-		}
-		if ('' == $user) {
+		if ('' == $user)
 			$user = $this->user;
-		}
-		if ('' == $password) {
+		if ('' == $password)
 			$password = $this->password;
-		}
-		if ('' == $driver) {
+		if ('' == $driver)
 			$driver = $this->driver;
-		}
 		/* establish connection, select database */
 		$DSN = "$driver:dbname=$database;host=$host";
 		if ($this->characterSet != '')
@@ -205,9 +199,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQL_ASSOC)) {
+			while ($this->next_record(MYSQL_ASSOC))
 				$out[] = $this->Record;
-			}
 			return $out;
 		}
 	}
@@ -242,24 +235,20 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '') {
+		if ($queryString == '')
 			return 0;
-		}
 		if (!$this->connect()) {
 			return 0;
 			/* we already complained in connect() about that. */
 		}
 		// New query, discard previous result.
-		if ($this->queryId !== FALSE) {
+		if ($this->queryId !== FALSE)
 			$this->free();
-		}
 
-		if ($this->Debug) {
+		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
-		}
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE) {
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE)
 			$this->log($queryString, $line, $file);
-		}
 
 		$this->queryId = $this->linkId->prepare($queryString);
 		$success = $this->queryId->execute();
@@ -270,14 +259,12 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$email = "MySQL Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.print_r($this->queryId->errorInfo(), TRUE) . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>';
-			foreach ($_REQUEST as $key => $value) {
+			foreach ($_REQUEST as $key => $value)
 				$email .= $key.': '.$value . "<br>\n";
-			}
 
 			$email .= '<br><br>Server Variables:<br>';
-			foreach ($_SERVER as $key => $value) {
+			foreach ($_SERVER as $key => $value)
 				$email .= $key.': '.$value . "<br>\n";
-			}
 			$subject = DOMAIN.' PDO MySQL Error On '.TITLE;
 			$headers = '';
 			$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
@@ -306,9 +293,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return mixed
 	 */
 	public function limit_query($queryString, $offset, $line = '', $file = '', $numRows = '') {
-		if (!$numRows) {
+		if (!$numRows)
 			$numRows = $this->maxMatches;
-		}
 
 		if ($offset == 0) {
 			$queryString .= ' LIMIT '.$numRows;
@@ -316,9 +302,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$queryString .= ' LIMIT '.$offset.','.$numRows;
 		}
 
-		if ($this->Debug) {
+		if ($this->Debug)
 			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
-		}
 
 		return $this->query($queryString, $line, $file);
 	}
@@ -342,9 +327,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		$this->Record = $this->Rows[$this->Row];
 
 		$stat = is_array($this->Record);
-		if (!$stat && $this->autoFree) {
+		if (!$stat && $this->autoFree)
 			$this->free();
-		}
 		return $stat;
 	}
 
@@ -400,9 +384,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return int
 	 */
 	public function getLastInsertId($table, $field) {
-		if (!isset($table) || $table == '' || !isset($field) || $field == '') {
+		if (!isset($table) || $table == '' || !isset($field) || $field == '')
 			return - 1;
-		}
 		return $this->linkId->lastInsertId();
 	}
 
@@ -586,17 +569,14 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		//$this->Error = @mysql_error($this->linkId);
 		//$this->Errno = @mysql_errno($this->linkId);
-		if ($this->haltOnError == 'no') {
+		if ($this->haltOnError == 'no')
 			return;
-		}
 		$this->haltmsg($msg);
 
-		if ($file) {
+		if ($file)
 			error_log("File: $file");
-		}
-		if ($line) {
+		if ($line)
 			error_log("Line: $line");
-		}
 
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
@@ -614,9 +594,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function haltmsg($msg) {
 		$this->log("Database error: $msg", __LINE__, __FILE__);
-		if ($this->Errno != '0' || $this->Error != '()') {
+		if ($this->Errno != '0' || $this->Error != '()')
 			$this->log('PDO MySQL Error: '.print_r($this->linkId->errorInfo(), TRUE), __LINE__, __FILE__);
-		}
 	}
 
 	/**
