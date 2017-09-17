@@ -63,13 +63,14 @@ abstract class Generic
 	}
 
 	/**
-	 * @param string $message
+	 * @param        $message
 	 * @param string $line
 	 * @param string $file
+	 * @return mixed|void
 	 */
-	public function log($message, $line = '', $file = '') {
+	public function log($message, $line = '', $file = '', $level = 'info') {
 		if (function_exists('myadmin_log'))
-			myadmin_log('db', 'info', $message, $line, $file, FALSE);
+			myadmin_log('db', $level, $message, $line, $file, isset($GLOBALS['tf']));
 		else
 			error_log($message);
 	}

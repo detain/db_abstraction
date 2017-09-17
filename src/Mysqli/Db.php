@@ -54,19 +54,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * @param        $message
-	 * @param string $line
-	 * @param string $file
-	 * @return mixed|void
-	 */
-	public function log($message, $line = '', $file = '') {
-		if (function_exists('myadmin_log'))
-			myadmin_log('db', 'info', $message, $line, $file, isset($GLOBALS['tf']));
-		else
-			error_log($message);
-	}
-
-	/**
 	 * alias function of select_db, changes the database we are working with.
 	 *
 	 * @param string $database the name of the database to use
@@ -682,13 +669,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($this->haltOnError == 'no')
 			return;
 		if ($msg != '')
-			$this->haltmsg($msg);
-
-		if ($file)
-			error_log("File: $file");
-		if ($line)
-			error_log("Line: $line");
-
+			$this->haltmsg($msg, $line, $file);
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
@@ -706,10 +687,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return mixed|void
 	 */
 	public function haltmsg($msg, $line = '', $file = '') {
-		$this->log("Database error: $msg", $line, $file);
+		$this->log("Database error: $msg", $line, $file, 'error');
 		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
 			$sqlstate = mysqli_sqlstate($this->linkId);
-			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file);
+			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file, 'error');
 		}
 		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
 		$this->log(
@@ -719,7 +700,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			((isset($_FILES) && count($_FILES)) ? ' FILES='.myadmin_stringify($_FILES) : '').
 			('' !== getenv('HTTP_USER_AGENT') ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 			(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
-			($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. myadmin_stringify($_POST). '"' : '') : ''));
+			($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. myadmin_stringify($_POST). '"' : '') : ''), $line, $file, 'error');
 		for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
 			$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
 				(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
@@ -731,7 +712,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 					$message .= ($argument > 0 ? ', ' : '').
 						(is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : myadmin_stringify($backtrace[$level]['args'][$argument]));
 			$message.=')';
-			$this->log($message);
+			$this->log($message, $line, $file, 'error');
 		}
 
 	}
