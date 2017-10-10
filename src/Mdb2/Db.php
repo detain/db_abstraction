@@ -157,22 +157,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * @param        $message
-	 * @param string $line
-	 * @param string $file
-	 * @return mixed|void
-	 */
-	public function log($message, $line = '', $file = '') {
-		if (function_exists('myadmin_log')) {
-			if (isset($GLOBALS['tf']) && isset($GLOBALS['tf']->session) && $GLOBALS['tf']->session->sessionid != '')
-				myadmin_log('db', 'info', $message, $line, $file);
-			else
-				myadmin_log('db', 'info', $message, $line, $file, FALSE);
-		} else
-			error_log($message);
-	}
-
-	/**
 	 * alias function of select_db, changes the database we are working with.
 	 *
 	 * @param string $database the name of the database to use
