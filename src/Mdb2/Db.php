@@ -163,7 +163,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return mixed|void
 	 */
 	public function log($message, $line = '', $file = '') {
-		if (function_exists('billingd_log')) {
+		if (function_exists('myadmin_log')) {
 			if (isset($GLOBALS['tf']) && isset($GLOBALS['tf']->session) && $GLOBALS['tf']->session->sessionid != '')
 				myadmin_log('db', 'info', $message, $line, $file);
 			else
