@@ -117,7 +117,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if (!is_object($this->linkId)) {
 			$this->connection_atttempt++;
 			if ($this->connection_atttempt > 1)
-				myadmin_log('db', 'info', "MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->maxConnectErrors}", __LINE__, __FILE__);
+				error_log("MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->maxConnectErrors}");
 			if ($this->connection_atttempt >= $this->maxConnectErrors) {
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
