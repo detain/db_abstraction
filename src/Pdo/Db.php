@@ -273,7 +273,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
 
 			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
-			admin_mail($subject, $email, $headers, FALSE, 'admin_email_sql_error.tpl');
+			admin_mail($subject, $email, $headers, FALSE, 'admin/sql_error.tpl');
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
 
