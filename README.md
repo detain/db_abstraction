@@ -24,5 +24,5 @@ composer require detain/db_abstraction
 
 ## License
 
-The Database Abstraction Class class is licensed under the LGPL-v2 license.
+The Database Abstraction Class class is licensed under the LGPL-v2.1 license.
 
