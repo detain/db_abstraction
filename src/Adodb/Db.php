@@ -3,7 +3,7 @@
  * MySQL Related Functionality
  * @author Joe Huss <detain@interserver.net>
  * @version $Revision$
- * @copyright 2017
+ * @copyright 2018
  * @package MyAdmin
  * @category SQL
  */
