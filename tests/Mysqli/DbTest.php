@@ -31,7 +31,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::log
 	 * @todo   Implement testLog().
 	 */
 	public function testLog()
@@ -43,7 +42,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::use_db
 	 */
 	public function testUse_db()
 	{
@@ -55,7 +53,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::select_db
 	 */
 	public function testSelect_db()
 	{
@@ -67,7 +64,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::link_id
 	 * @todo   Implement testLink_id().
 	 */
 	public function testLink_id()
@@ -79,7 +75,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::query_id
 	 * @todo   Implement testQuery_id().
 	 */
 	public function testQuery_id()
@@ -91,7 +86,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::connect
 	 * @todo   Implement testConnect().
 	 */
 	public function testConnect()
@@ -103,7 +97,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::disconnect
 	 * @todo   Implement testDisconnect().
 	 */
 	public function testDisconnect()
@@ -115,7 +108,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::real_escape
 	 */
 	public function testReal_escape()
 	{
@@ -125,7 +117,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::escape
 	 */
 	public function testEscape()
 	{
@@ -135,7 +126,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::db_addslashes
 	 */
 	public function testDb_addslashes()
 	{
@@ -145,7 +135,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::toTimestamp
 	 */
 	public function testTo_timestamp()
 	{
@@ -154,7 +143,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::fromTimestamp
 	 */
 	public function testFrom_timestamp()
 	{
@@ -163,7 +151,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::limit
 	 * @todo   Implement testLimit().
 	 */
 	public function testLimit()
@@ -175,7 +162,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::free
 	 * @todo   Implement testFree().
 	 */
 	public function testFree()
@@ -187,7 +173,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::query_return
 	 * @todo   Implement testQuery_return().
 	 */
 	public function testQuery_return()
@@ -199,7 +184,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::qr
 	 * @todo   Implement testQr().
 	 */
 	public function testQr()
@@ -211,7 +195,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::prepare
 	 * @todo   Implement testPrepare().
 	 */
 	public function testPrepare()
@@ -223,7 +206,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::query
 	 * @todo   Implement testQuery().
 	 */
 	public function testQuery()
@@ -235,7 +217,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::limit_query
 	 * @todo   Implement testLimit_query().
 	 */
 	public function testLimit_query()
@@ -247,7 +228,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::fetch_object
 	 * @todo   Implement testFetch_object().
 	 */
 	public function testFetch_object()
@@ -259,7 +239,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::next_record
 	 * @todo   Implement testNext_record().
 	 */
 	public function testNext_record()
@@ -271,7 +250,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::seek
 	 * @todo   Implement testSeek().
 	 */
 	public function testSeek()
@@ -283,7 +261,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::transaction_begin
 	 * @todo   Implement testTransaction_begin().
 	 */
 	public function testTransaction_begin()
@@ -295,7 +272,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::transaction_commit
 	 * @todo   Implement testTransaction_commit().
 	 */
 	public function testTransaction_commit()
@@ -307,7 +283,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::transaction_abort
 	 * @todo   Implement testTransaction_abort().
 	 */
 	public function testTransaction_abort()
@@ -319,7 +294,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::getLastInsertId
 	 * @todo   Implement testGet_last_insert_id().
 	 */
 	public function testGet_last_insert_id()
@@ -331,7 +305,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::lock
 	 * @todo   Implement testLock().
 	 */
 	public function testLock()
@@ -343,7 +316,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::unlock
 	 * @todo   Implement testUnlock().
 	 */
 	public function testUnlock()
@@ -355,7 +327,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::affected_rows
 	 * @todo   Implement testAffected_rows().
 	 */
 	public function testAffected_rows()
@@ -367,7 +338,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::num_rows
 	 * @todo   Implement testNum_rows().
 	 */
 	public function testNum_rows()
@@ -379,7 +349,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::num_fields
 	 * @todo   Implement testNum_fields().
 	 */
 	public function testNum_fields()
@@ -391,7 +360,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::nf
 	 * @todo   Implement testNf().
 	 */
 	public function testNf()
@@ -403,7 +371,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::np
 	 * @todo   Implement testNp().
 	 */
 	public function testNp()
@@ -415,7 +382,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::f
 	 * @todo   Implement testF().
 	 */
 	public function testF()
@@ -427,7 +393,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::p
 	 * @todo   Implement testP().
 	 */
 	public function testP()
@@ -439,7 +404,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::nextid
 	 * @todo   Implement testNextid().
 	 */
 	public function testNextid()
@@ -451,7 +415,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::halt
 	 * @todo   Implement testHalt().
 	 */
 	public function testHalt()
@@ -463,7 +426,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::haltmsg
 	 * @todo   Implement testHaltmsg().
 	 */
 	public function testHaltmsg()
@@ -475,7 +437,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::table_names
 	 * @todo   Implement testTable_names().
 	 */
 	public function testTable_names()
@@ -487,7 +448,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::index_names
 	 * @todo   Implement testIndex_names().
 	 */
 	public function testIndex_names()
@@ -499,7 +459,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	 * @covers MyDb\Mysqli\Db::createDatabase
 	 * @todo   Implement testCreateDatabase().
 	 */
 	public function testCreateDatabase()
