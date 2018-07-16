@@ -354,27 +354,27 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::transaction_begin()
+	 * Initiates a transaction
 	 * @return bool
 	 */
 	public function transaction_begin() {
-		return TRUE;
+		return $this->linkId->beginTransaction();
 	}
 
 	/**
-	 * Db::transaction_commit()
+	 * Commits a transaction
 	 * @return bool
 	 */
 	public function transaction_commit() {
-		return TRUE;
+		return $this->linkId->commit();
 	}
 
 	/**
-	 * Db::transaction_abort()
+	 * Rolls back a transaction
 	 * @return bool
 	 */
 	public function transaction_abort() {
-		return TRUE;
+		return $this->linkId->rollBack();
 	}
 
 	/**
