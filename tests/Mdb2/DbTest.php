@@ -11,15 +11,21 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	/**
 	 * @var Db
 	 */
-	protected $object;
+	protected $db;
 
+	function __construct($name = null, array $data = array(), $dataName = '')
+	{
+		parent::__construct($name, $data, $dataName);
+		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));;
+	}    
+	
 	/**
 	 * Sets up the fixture, for example, opens a network connection.
 	 * This method is called before a test is executed.
 	 */
 	protected function setUp()
 	{
-		$this->object = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+		$this->db->transaction_begin();
 	}
 
 	/**
@@ -28,6 +34,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	 */
 	protected function tearDown()
 	{
+		$this->db->transaction_abort();
 	}
 
 	/**
@@ -90,10 +97,10 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testUse_db()
 	{
 		$db = 'tests';
-		$this->object->use_db($db);
-		$this->object->query("select database()");
-		$this->object->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->object->Record[0]);
+		$this->db->use_db($db);
+		$this->db->query("select database()");
+		$this->db->next_record(MYSQLI_NUM);
+		$this->assertEquals($db, $this->db->Record[0]);
 	}
 
 	/**
@@ -101,10 +108,10 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testSelect_db()
 	{
 		$db = 'tests';
-		$this->object->use_db($db);
-		$this->object->query("select database()");
-		$this->object->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->object->Record[0]);
+		$this->db->use_db($db);
+		$this->db->query("select database()");
+		$this->db->next_record(MYSQLI_NUM);
+		$this->assertEquals($db, $this->db->Record[0]);
 	}
 
 	/**
@@ -156,7 +163,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testReal_escape()
 	{
 		$string1 = 'hi there"dude';
-		$string2 = $this->object->real_escape($string1);
+		$string2 = $this->db->real_escape($string1);
 		$this->assertNotEquals($string1, $string2);
 	}
 
@@ -165,7 +172,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testEscape()
 	{
 		$string1 = 'hi there"dude';
-		$string2 = $this->object->real_escape($string1);
+		$string2 = $this->db->real_escape($string1);
 		$this->assertNotEquals($string1, $string2);
 	}
 
@@ -174,7 +181,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testDb_addslashes()
 	{
 		$string1 = 'hi there"dude';
-		$string2 = $this->object->real_escape($string1);
+		$string2 = $this->db->real_escape($string1);
 		$this->assertNotEquals($string1, $string2);
 	}
 
@@ -183,7 +190,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testTo_timestamp()
 	{
 		$t = 1502439626;
-		$this->assertEquals($this->object->toTimestamp($t), '2017-08-11 04:20:26');
+		$this->assertEquals($this->db->toTimestamp($t), '2017-08-11 04:20:26');
 	}
 
 	/**
@@ -191,7 +198,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testFrom_timestamp()
 	{
 		$t = 1502439626;
-		$this->assertEquals($this->object->fromTimestamp('2017-08-11 04:20:26'), $t);
+		$this->assertEquals($this->db->fromTimestamp('2017-08-11 04:20:26'), $t);
 	}
 
 	/**
