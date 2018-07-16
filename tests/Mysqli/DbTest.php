@@ -37,48 +37,72 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->db->transaction_abort();
 	}
 
-	/**
-	* @todo   Implement testLog().
-	*/
-	public function testLog()
+	public function testConnect()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->db->linkId = null;
+		$this->db->connect();
+		$this->assertTrue(is_object($this->db->linkId), 'connect sets the link id');
 	}
 
-	/**
-	*/
-	public function testUse_db()
-	{
-		$db = 'tests';
-		$this->db->use_db($db);
-		$this->db->query("select database()");
-		$this->db->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->db->Record[0]);
-	}
-
-	/**
-	*/
-	public function testSelect_db()
-	{
-		$db = 'tests';
-		$this->db->use_db($db);
-		$this->db->query("select database()");
-		$this->db->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->db->Record[0]);
-	}
-
-	/**
-	* @todo   Implement testLink_id().
-	*/
 	public function testLink_id()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->db->linkId = null;
+		$this->assetEquals($this->db->linkId, $this->db->link_id(), 'link_id() returns the linkId variable');
+		$this->db->connect();
+		$this->assetEquals($this->db->linkId, $this->db->link_id(), 'link_id() returns the linkId variable');
+	}
+
+	public function testUse_db()
+	{
+		foreach (['tests', 'tests2', 'tests'] as $db) {
+			$this->db->use_db($db);
+			$this->db->query("select database()");
+			$this->db->next_record(MYSQLI_NUM);
+			$this->assertEquals($db, $this->db->Record[0], 'use_db properly changes database');
+		}
+	}
+
+	public function testSelect_db()
+	{
+		foreach (['tests', 'tests2', 'tests'] as $db) {
+			$this->db->use_db($db);
+			$this->db->query("select database()");
+			$this->db->next_record(MYSQLI_NUM);
+			$this->assertEquals($db, $this->db->Record[0], 'use_db properly changes database');
+		}
+	}
+
+	public function testReal_escape()
+	{
+		$string1 = 'hi there"dude';
+		$string2 = $this->db->real_escape($string1);
+		$this->assertNotEquals($string1, $string2);
+	}
+
+	public function testEscape()
+	{
+		$string1 = 'hi there"dude';
+		$string2 = $this->db->real_escape($string1);
+		$this->assertNotEquals($string1, $string2);
+	}
+
+	public function testDb_addslashes()
+	{
+		$string1 = 'hi there"dude';
+		$string2 = $this->db->real_escape($string1);
+		$this->assertNotEquals($string1, $string2);
+	}
+
+	public function testTo_timestamp()
+	{
+		$t = 1502439626;
+		$this->assertEquals($this->db->toTimestamp($t), '2017-08-11 04:20:26');
+	}
+
+	public function testFrom_timestamp()
+	{
+		$t = 1502439626;
+		$this->assertEquals($this->db->fromTimestamp('2017-08-11 04:20:26'), $t);
 	}
 
 	/**
@@ -93,9 +117,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	* @todo   Implement testConnect().
+	* @todo   Implement testLog().
 	*/
-	public function testConnect()
+	public function testLog()
 	{
 		// Remove the following lines when you implement this test.
 		$this->markTestIncomplete(
@@ -112,49 +136,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->markTestIncomplete(
 			'This test has not been implemented yet.'
 		);
-	}
-
-	/**
-	*/
-	public function testReal_escape()
-	{
-		$string1 = 'hi there"dude';
-		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
-	}
-
-	/**
-	*/
-	public function testEscape()
-	{
-		$string1 = 'hi there"dude';
-		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
-	}
-
-	/**
-	*/
-	public function testDb_addslashes()
-	{
-		$string1 = 'hi there"dude';
-		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
-	}
-
-	/**
-	*/
-	public function testTo_timestamp()
-	{
-		$t = 1502439626;
-		$this->assertEquals($this->db->toTimestamp($t), '2017-08-11 04:20:26');
-	}
-
-	/**
-	*/
-	public function testFrom_timestamp()
-	{
-		$t = 1502439626;
-		$this->assertEquals($this->db->fromTimestamp('2017-08-11 04:20:26'), $t);
 	}
 
 	/**
