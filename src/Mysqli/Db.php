@@ -459,6 +459,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_begin() {
+		if (!$this->connect()) {
+			return 0;
 		return mysqli_begin_transaction($this->linkId);
 	}
 
