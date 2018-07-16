@@ -31,7 +31,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::log
      * @todo   Implement testLog().
      */
     public function testLog()
@@ -43,7 +42,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::link_id
      * @todo   Implement testLink_id().
      */
     public function testLink_id()
@@ -55,7 +53,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::query_id
      * @todo   Implement testQuery_id().
      */
     public function testQuery_id()
@@ -67,7 +64,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::db_addslashes
      * @todo   Implement testDb_addslashes().
      */
     public function testDb_addslashes()
@@ -79,7 +75,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::qr
      * @todo   Implement testQr().
      */
     public function testQr()
@@ -91,7 +86,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::halt
      * @todo   Implement testHalt().
      */
     public function testHalt()
@@ -103,7 +97,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::haltmsg
      * @todo   Implement testHaltmsg().
      */
     public function testHaltmsg()
@@ -115,7 +108,6 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @covers MyDb\Loader::index_names
      * @todo   Implement testIndex_names().
      */
     public function testIndex_names()

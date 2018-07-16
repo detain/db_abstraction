@@ -4,7 +4,6 @@ env:
 language: php
 os: linux
 dist: trusty
-sudo: false
 php:
   - 5.4
   - 5.5
@@ -12,6 +11,8 @@ php:
   - 7.0
   - 7.1
   - 7.2
+  - hhvm
+  - hhvm-nightly
 cache:
   directories:
 	- $HOME/.composer/cache/files
@@ -27,13 +28,18 @@ before_install:
   - mkdir -p build/logs
   - if [[ "$TRAVIS_PHP_VERSION" != "7.2" ]]; then phpenv config-rm xdebug.ini; fi
   - phpenv rehash
-  - travis_retry composer self-update
 install:
+  - travis_retry composer self-update
   - composer install --no-interaction --prefer-source
 before_script:
-  - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests;" -U postgres; fi
-  - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests;" -U postgres; fi
-  - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests; GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES; use tests; source tests/tests.sql;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql tests < tests.sql;"; fi
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests;"
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests;"
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests';"
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "FLUSH PRIVILEGES;"
+  - if [[ "$DB" == "mysql" ]]; then mysql --default-character-set=utf8mb4 tests < tests/tests.sql
   - travis_retry composer install -o --ansi --no-interaction --dev --prefer-source
 script:
   - if [[ "$DB" == "postgres" ]] && [[ "$TRAVIS_PHP_VERSION" == "7.0" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi;
