@@ -111,9 +111,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testQuery_return() {
-		$return = $this->db->query_return("select * from services_types limit 1");
+		$return = $this->db->query_return("select * from service_types limit 1");
 		$this->assertTrue(array_key_exists('st_id', $return));
-		$return = $this->db->qr("select * from services_types limit 1");
+		$return = $this->db->qr("select * from service_types limit 1");
 		$this->assertTrue(array_key_exists('st_id', $return));
 	}
 
