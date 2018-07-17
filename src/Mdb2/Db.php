@@ -414,10 +414,10 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
 			$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
 			$headers = '';
-			$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
-			$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
-			$headers .= 'From: No-Reply <no-reply@interserver.net>'.EMAIL_NEWLINE;
-			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
+			$headers .= 'MIME-Version: 1.0'.PHP_EOL;
+			$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
+			$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
+			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
 			admin_mail($subject, $email, $headers, FALSE, 'admin/sql_error.tpl');
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
