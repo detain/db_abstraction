@@ -103,7 +103,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$tables = $this->db->table_names();
 		$this->assertTrue(is_array($tables), 'table_names returns array');
 		$this->assertEquals(1, count($tables), 'table_names returns array');
-		$this->assertEquals('service_types', $tables[0]['database']), 'table_names returns proper entries');
+		$this->assertEquals('service_types', $tables[0]['database'], 'table_names returns proper entries');
 	}
 
 	public function testLog() {
