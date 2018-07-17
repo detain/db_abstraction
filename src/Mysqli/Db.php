@@ -221,22 +221,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		}
 	}
 
-	/**
-	 * Db::limit()
-	 * @param mixed $start
-	 * @return string
-	 */
-	public function limit($start) {
-		echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
-
-		if ($start == 0) {
-			$s = 'limit '.$this->maxMatches;
-		} else {
-			$s = "limit $start," . $this->maxMatches;
-		}
-		return $s;
-	}
-
 	/* public: discard the query result */
 
 	/**
@@ -369,32 +353,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 		// Will return nada if it fails. That's fine.
 		return $this->queryId;
-	}
-
-	// public: perform a query with limited result set
-
-/**
-	 * Db::limit_query()
-	 * @param mixed  $queryString
-	 * @param mixed  $offset
-	 * @param string $line
-	 * @param string $file
-	 * @param string|int $numRows
-	 * @return mixed
-	 */
-	public function limit_query($queryString, $offset, $line = '', $file = '', $numRows = '') {
-		if (!$numRows)
-			$numRows = $this->maxMatches;
-		if ($offset == 0) {
-			$queryString .= ' LIMIT '.$numRows;
-		} else {
-			$queryString .= ' LIMIT '.$offset.','.$numRows;
-		}
-
-		if ($this->Debug)
-			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
-
-		return $this->query($queryString, $line, $file);
 	}
 
 	/**

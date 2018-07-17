@@ -287,33 +287,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		return $this->queryId;
 	}
 
-	/* public: perform a query with limited result set */
-
 	/**
-	 * Db::limit_query()
-	 * @param mixed  $queryString
-	 * @param mixed  $offset
-	 * @param string $line
-	 * @param string $file
-	 * @param string $numRows
-	 * @return mixed
-	 */
-	public function limit_query($queryString, $offset, $line = '', $file = '', $numRows = '') {
-		if ($offset == 0) {
-			$queryString .= ' LIMIT '.$numRows;
-		} else {
-			$queryString .= ' LIMIT '.$numRows.','.$offset;
-		}
-
-		if ($this->Debug)
-			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
-
-		return $this->query($queryString, $line, $file);
-	}
-
-	// public: discard the query result
-
-/**
 	 * Db::free()
 	 *
 	 * @return void
