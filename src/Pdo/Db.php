@@ -252,13 +252,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$email .= '<br><br>Server Variables:<br>';
 			foreach ($_SERVER as $key => $value)
 				$email .= $key.': '.$value . "<br>\n";
-			$subject = DOMAIN.' PDO MySQL Error On '.TITLE;
+			$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
 			$headers = '';
 			$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
 			$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
-			$headers .= 'From: '.TITLE.' <'.EMAIL_FROM.'>'.EMAIL_NEWLINE;
-			//				$headers .= "To: \"John Quaglieri\" <john@interserver.net>" . EMAIL_NEWLINE;
-
+			$headers .= 'From: No-Reply <no-reply@interserver.net>'.EMAIL_NEWLINE;
 			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
 			admin_mail($subject, $email, $headers, FALSE, 'admin/sql_error.tpl');
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);

@@ -335,12 +335,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 				$email = "MySQLi Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
 				$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
 				$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
-				$subject = DOMAIN.' MySQLi Error On '.TITLE;
+				$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
 				$headers = '';
 				$headers .= 'MIME-Version: 1.0'.EMAIL_NEWLINE;
 				$headers .= 'Content-type: text/html; charset=UTF-8'.EMAIL_NEWLINE;
-				$headers .= 'From: '.TITLE.' <'.EMAIL_FROM.'>'.EMAIL_NEWLINE;
-
+				$headers .= 'From: No-Reply <no-reply@interserver.net>'.EMAIL_NEWLINE;
 				$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.EMAIL_NEWLINE;
 				mail('john@interserver.net', $subject, $email, $headers);
 				mail('detain@interserver.net', $subject, $email, $headers);
