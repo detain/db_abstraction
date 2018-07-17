@@ -456,6 +456,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Initiates a transaction
+	 * 
 	 * @return bool
 	 */
 	public function transaction_begin() {
@@ -466,6 +467,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Commits a transaction
+	 * 
 	 * @return bool
 	 */
 	public function transaction_commit() {
@@ -474,6 +476,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 
 	/**
 	 * Rolls back a transaction
+	 * 
 	 * @return bool
 	 */
 	public function transaction_abort() {
@@ -481,18 +484,15 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::getLastInsertId()
-	 * @param mixed $table
-	 * @param mixed $field
+	 * This will get the last insert ID created on the current connection.  Should only be called after an insert query is 
+	 * run on a table that has an auto incrementing field.  $table and $field are required, but unused here since it's 
+	 * unnecessary for mysql.  For compatibility with pgsql, the params must be supplied.
+	 * 
+	 * @param string $table
+	 * @param string $field
 	 * @return int|string
 	 */
 	public function getLastInsertId($table, $field) {
-		/* This will get the last insert ID created on the current connection.  Should only be called
-		* after an insert query is run on a table that has an auto incrementing field.  $table and
-		* $field are required, but unused here since it's unnecessary for mysql.  For compatibility
-		* with pgsql, the params must be supplied.
-		*/
-
 		if (!isset($table) || $table == '' || !isset($field) || $field == '')
 			return - 1;
 
@@ -720,7 +720,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::table_names()
+	 * gets an array of the table names in teh current datase
 	 *
 	 * @return array
 	 */
