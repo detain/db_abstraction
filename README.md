@@ -1,6 +1,6 @@
 # Database Abstraction Class
 
-Database Abstraction Class
+Provides a simple unified interface for connecting to a bunch of different database types.  Supports php native mysqli and pgsql extensions, as well as PDO, AdoDB, and MDB2 connections as well as everything supported by PDO and AdoDB.
 
 ## Build Status and Code Analysis
 
