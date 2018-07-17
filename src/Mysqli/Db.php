@@ -249,11 +249,11 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		if ($this->num_rows() == 0) {
 			return FALSE;
 		} elseif ($this->num_rows() == 1) {
-			$this->next_record(MYSQL_ASSOC);
+			$this->next_record(MYSQLI_ASSOC);
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQL_ASSOC))
+			while ($this->next_record(MYSQLI_ASSOC))
 				$out[] = $this->Record;
 			return $out;
 		}
