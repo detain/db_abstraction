@@ -462,7 +462,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	public function transaction_begin() {
 		if (!$this->connect())
 			return 0;
-		return mysqli_begin_transaction($this->linkId);
+		return version_compare(PHP_VERSION, '5.5.0') >= 0 ? mysqli_begin_transaction($this->linkId) : true;
 	}
 
 	/**
@@ -471,7 +471,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_commit() {
-		return mysqli_commit($this->linkId);
+		return version_compare(PHP_VERSION, '5.5.0') >= 0 ? mysqli_commit($this->linkId) : true;
 	}
 
 	/**
@@ -480,7 +480,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 * @return bool
 	 */
 	public function transaction_abort() {
-		return mysqli_rollback($this->linkId);
+		return version_compare(PHP_VERSION, '5.5.0') >= 0 ? mysqli_rollback($this->linkId) : true;
 	}
 
 	/**
