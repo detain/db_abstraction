@@ -12,7 +12,6 @@ php:
   - 7.1
   - 7.2
   - hhvm
-  - hhvm-nightly
 cache:
   directories:
 	- $HOME/.composer/cache/files
@@ -37,7 +36,7 @@ before_script:
   - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests2;"; fi
   - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests;"; fi
   - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests2;"; fi
-  - if [[ "$DB" == "postgres" ]]; then psql tests < tests.sql;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql tests < tests.sql; fi
   - if [[ "$DB" == "mysql" ]]; then mysqladmin -f drop tests; mysqladmin -f drop tests2; mysqladmin create tests; mysqladmin create tests2; fi;
   - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests;"; fi
   - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests2;"; fi
