@@ -95,8 +95,12 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testQuery() {
 		$this->db->query("select * from service_types");
 		$this->assertEquals(37, $this->db->num_rows(), 'num_rows Returns proper number of rows');
+		$old = $this->db->Record;
 		$this->db->next_record(MYSQLI_ASSOC);
+		$this->assertNotEquals($old, $this->db->Record);
 		$this->assertTrue(array_key_exists('st_id', $this->db->Record));
+		$this->assertEquals($this->db->f('st_id'), $this->db->Record['st_id']);
+		
 	}
 
 	public function testTable_names() {
@@ -104,6 +108,13 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertTrue(is_array($tables), 'table_names returns array');
 		$this->assertEquals(1, count($tables), 'table_names returns array');
 		$this->assertEquals('service_types', $tables[0]['table_name'], 'table_names returns proper entries');
+	}
+
+	public function testQuery_return() {
+		$return = $this->db->query_return("select * from services_types limit 1");
+		$this->assertTrue(array_key_exists('st_id', $return));
+		$return = $this->db->qr("select * from services_types limit 1");
+		$this->assertTrue(array_key_exists('st_id', $return));
 	}
 
 	public function testLog() {
@@ -119,14 +130,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testFree() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testQuery_return() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testQr() {
 		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 
@@ -175,22 +178,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testNum_fields() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testNf() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testNp() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testF() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testP() {
 		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 

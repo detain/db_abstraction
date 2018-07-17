@@ -531,26 +531,8 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 		return @mysqli_num_fields($this->queryId);
 	}
 
-	/* public: shorthand notation */
-
 	/**
-	 * Db::nf()
-	 * @return int
-	 */
-	public function nf() {
-		return $this->num_rows();
-	}
-
-	/**
-	 * Db::np()
-	 * @return void
-	 */
-	public function np() {
-		print $this->num_rows();
-	}
-
-	/**
-	 * Db::f()
+	 * gets a field
 	 *
 	 * @param mixed  $Name
 	 * @param string $stripSlashes
@@ -565,19 +547,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	}
 
 	/**
-	 * Db::p()
-	 *
-	 * @param mixed $Name
-	 * @return void
-	 */
-	public function p($Name) {
-		print $this->Record[$Name];
-	}
-
-	/* public: sequence numbers */
-
-	/**
-	 * Db::nextid()
+	 * sequence numbers
 	 *
 	 * @param mixed $seqName
 	 * @return int

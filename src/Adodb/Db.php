@@ -48,19 +48,6 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 			$this->query($query);
 	}
 
-	/**
-	 * @param        $message
-	 * @param string $line
-	 * @param string $file
-	 * @return mixed|void
-	 */
-	public function log($message, $line = '', $file = '') {
-		if (function_exists('myadmin_log'))
-			myadmin_log('db', 'info', $message, $line, $file, FALSE);
-		else
-			error_log($message);
-	}
-
 	/* public: some trivial reporting */
 
 	/**

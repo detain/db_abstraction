@@ -63,10 +63,10 @@ abstract class Generic
 	}
 
 	/**
-	 * @param        $message
+	 * @param string $message
 	 * @param string $line
 	 * @param string $file
-	 * @return mixed|void
+	 * @return void
 	 */
 	public function log($message, $line = '', $file = '', $level = 'info') {
 		//if (function_exists('myadmin_log'))
