@@ -33,16 +33,16 @@ install:
   - composer install --no-interaction --prefer-source
 before_script:
   - if [[ "$DB" == "postgres" ]]; then dropdb tests; dropdb tests2; createdb tests; createdb tests2; fi
-#  - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests;"; fi
-#  - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests2;"; fi
-#  - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests;"; fi
-#  - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests2;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests2;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests;"; fi
+  - if [[ "$DB" == "postgres" ]]; then psql -c "CREATE DATABASE tests2;"; fi
   - if [[ "$DB" == "postgres" ]]; then psql tests < tests.sql;"; fi
   - if [[ "$DB" == "mysql" ]]; then mysqladmin -f drop tests; mysqladmin -f drop tests2; mysqladmin create tests; mysqladmin create tests2; fi;
-#  - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests;"; fi
-#  - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests2;"; fi
-#  - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests;"; fi
-#  - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests2;"; fi
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests;"; fi
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests2;"; fi
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests;"; fi
+  - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests2;"; fi
   - if [[ "$DB" == "mysql" ]]; then mysql -e "GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; GRANT ALL PRIVILEGES ON tests2.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES;"; fi
   - if [[ "$DB" == "mysql" ]]; then mysql --default-character-set=utf8mb4 tests < tests/tests.sql; fi
   - travis_retry composer install -o --ansi --no-interaction --dev --prefer-source
