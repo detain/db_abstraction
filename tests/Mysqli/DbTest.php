@@ -95,7 +95,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testQuery() {
 		$this->db->query("select * from service_types");
 		$this->assertEquals(37, $this->db->num_rows(), 'num_rows Returns proper number of rows');
-		$this->db->next_record(MYSQL_ASSOC);
+		$this->db->next_record(MYSQLI_ASSOC);
 		$this->assertTrue(array_key_exists('st_it', $this->db->Record));
 	}
 
