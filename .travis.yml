@@ -32,7 +32,7 @@ install:
   - composer install --no-interaction --prefer-source
 before_script:
   - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests;"; psql -c "DROP DATABASE IF EXISTS tests2;"; psql -c "CREATE DATABASE tests;"; psql -c "CREATE DATABASE tests2;"; fi
-  - if [[ "$DB" == "postgres" ]]; then psql tests < psql.sql; fi
+  - if [[ "$DB" == "postgres" ]]; then psql tests < tests/psql.sql; fi
   - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests; DROP DATABASE IF EXISTS tests2; CREATE DATABASE IF NOT EXISTS tests; CREATE DATABASE IF NOT EXISTS tests2; GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; GRANT ALL PRIVILEGES ON tests2.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES;"; fi
   - if [[ "$DB" == "mysql" ]]; then mysql --default-character-set=utf8mb4 tests < tests/mysql.sql; fi
   - travis_retry composer install -o --ansi --no-interaction --dev --prefer-source
