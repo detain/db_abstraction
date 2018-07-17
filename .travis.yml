@@ -1,9 +1,13 @@
+language: php
+
+os: linux
+
+dist: trusty
+
 env:
   - DB=mysql
   - DB=postgres
-language: php
-os: linux
-dist: trusty
+
 php:
   - 5.4
   - 5.5
@@ -11,36 +15,44 @@ php:
   - 7.0
   - 7.1
   - 7.2
+
 cache:
   directories:
     - $HOME/.composer/cache/files
     - tmp/pear/download/
     - vendor/
+
 addons:
   code_climate:
     repo_token: $CODECLIMATE_REPO_TOKEN
+
 services:
   - mysql
   - postgresql
+
 before_install:
   - mkdir -p build/logs
   - if [[ "$TRAVIS_PHP_VERSION" != "7.2" ]] && [[ "$TRAVIS_PHP_VERSION" != "hhvm" ]]; then phpenv config-rm xdebug.ini; fi
   - phpenv rehash
+
 install:
   - travis_retry composer self-update
   - composer install --no-interaction --prefer-source
+
 before_script:
   - if [[ "$DB" == "postgres" ]]; then psql -c "DROP DATABASE IF EXISTS tests;"; psql -c "DROP DATABASE IF EXISTS tests2;"; psql -c "CREATE DATABASE tests;"; psql -c "CREATE DATABASE tests2;"; fi
   - if [[ "$DB" == "postgres" ]]; then psql tests < tests/psql.sql; fi
   - if [[ "$DB" == "mysql" ]]; then mysql -e "DROP DATABASE IF EXISTS tests; DROP DATABASE IF EXISTS tests2; CREATE DATABASE IF NOT EXISTS tests; CREATE DATABASE IF NOT EXISTS tests2; GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; GRANT ALL PRIVILEGES ON tests2.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES;"; fi
   - if [[ "$DB" == "mysql" ]]; then mysql --default-character-set=utf8mb4 tests < tests/mysql.sql; fi
   - travis_retry composer install -o --ansi --no-interaction --dev --prefer-source
+
 script:
   - if [[ "$DB" == "postgres" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi;
   - if [[ "$DB" == "postgres" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v; fi
   - if [[ "$DB" == "mysql" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi;
   - if [[ "$DB" == "mysql" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v; fi
-after_success:
+
+after_script:
   - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
   - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then travis_retry bash <(curl -s https://codecov.io/bash); fi;
   - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then travis_retry php vendor/bin/coveralls -v --coverage_clover=coverage.xml; fi;
