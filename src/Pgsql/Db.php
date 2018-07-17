@@ -95,7 +95,7 @@ class Db extends \MyDb\Generic implements \MyDb\Db_Interface
 	 */
 	public function select_db($database) {
 		$this->connect();
-		$this->query("use {$database}", __LINE__, __FILE__);
+		$this->query("\c {$database}", __LINE__, __FILE__);
 	}
 
 	/* public: some trivial reporting */
