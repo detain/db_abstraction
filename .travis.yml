@@ -53,7 +53,7 @@ script:
   - if [[ "$DB" == "mysql" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v; fi
 
 after_script:
-  - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
-  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then travis_retry bash <(curl -s https://codecov.io/bash); fi;
-  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then travis_retry php vendor/bin/coveralls -v --coverage_clover=coverage.xml; fi;
-  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then travis_retry php vendor/bin/codacycoverage clover coverage.xml; fi;
+  - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
+  - travis_retry bash <(curl -s https://codecov.io/bash);
+  - travis_retry php vendor/bin/coveralls -v --coverage_clover=coverage.xml;
+  - travis_retry php vendor/bin/codacycoverage clover coverage.xml;
