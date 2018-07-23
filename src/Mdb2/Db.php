@@ -281,38 +281,7 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::toTimestamp()
-	 * @param int $epoch a timestamp
-	 * @return string a formatted date string
-	 */
-	public function toTimestamp($epoch) {
-		return date('Y-m-d H:i:s', $epoch);
-	}
-
-	/**
-	 * Db::fromTimestamp()
-	 * @param string $timestamp a formatted date string
-	 * @return int a timestamp
-	 */
-	public function fromTimestamp($timestamp) {
-		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
-			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
-			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
-			return mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
-		elseif (is_numeric($timestamp) && $timestamp >= 943938000)
-			return (int)$timestamp;
-		else {
-			$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
-			return time();
-		}
-	}
-
-	/* public: discard the query result */
-
-	/**
-	 * Db::free()
+	 * discard the query result
 	 * @return void
 	 */
 	public function free() {

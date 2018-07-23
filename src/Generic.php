@@ -133,6 +133,7 @@ abstract class Generic
 	 * @return bool|int|mixed
 	 */
 	public function fromTimestamp($timestamp) {
+
 		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
 			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
@@ -163,7 +164,7 @@ abstract class Generic
 
 	/**
 	 * perform a query with limited result set
-	 * 
+	 *
 	 * @param string $queryString
 	 * @param int $offset
 	 * @param string|int $line

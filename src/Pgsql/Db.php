@@ -138,53 +138,6 @@ class Db extends Generic implements Db_Interface
 		}
 	}
 
-	// For PostgreSQL 6.x
-
-/**
-	 * Db::toTimestamp6()
-	 * @param mixed $epoch
-	 * @return void
-	 */
-	public function toTimestamp6($epoch) {
-
-	}
-
-	// For PostgreSQL 6.x
-
-/**
-	 * Db::fromTimestamp6()
-	 * @param mixed $timestamp
-	 * @return void
-	 */
-	public function fromTimestamp6($timestamp) {
-
-	}
-
-	// For PostgreSQL 7.x
-
-/**
-	 * Db::toTimestamp7()
-	 * @param mixed $epoch
-	 * @return bool|string
-	 */
-	public function toTimestamp7($epoch) {
-		// This needs the GMT offset!
-		return date('Y-m-d H:i:s-00', $epoch);
-	}
-
-	// For PostgreSQL 7.x
-
-/**
-	 * Db::fromTimestamp7()
-	 * @param mixed $timestamp
-	 * @return int
-	 */
-	public function fromTimestamp7($timestamp) {
-		preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts);
-
-		return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-	}
-
 	/* This only affects systems not using persistent connections */
 
 	/**
