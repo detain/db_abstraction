@@ -133,19 +133,19 @@ abstract class Generic
 	 * @return bool|int|mixed
 	 */
 	public function fromTimestamp($timestamp) {
-
 		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
-			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
+			$time = mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
-			return mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
+			$time = mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
 		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
-			return mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
+			$time = mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
 		elseif (is_numeric($timestamp) && $timestamp >= 943938000)
-			return $timestamp;
+			$time = $timestamp;
 		else {
 			$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
-			return FALSE;
+			$time = FALSE;
 		}
+		return $time;
 	}
 
 	/**
