@@ -74,25 +74,6 @@ class Db extends Generic implements Db_Interface
 		mysqli_select_db($this->linkId, $database);
 	}
 
-	/* public: some trivial reporting */
-
-	/**
-	 * Db::link_id()
-	 *
-	 * @return int|\MyDb\Mysqli\mysqli
-	 */
-	public function link_id() {
-		return $this->linkId;
-	}
-
-	/**
-	 * Db::query_id()
-	 * @return int
-	 */
-	public function query_id() {
-		return $this->queryId;
-	}
-
 	/* public: connection management */
 
 	/**
@@ -550,73 +531,6 @@ class Db extends Generic implements Db_Interface
 		return $nextid;
 	}
 
-	/* private: error handling */
-
-	/**
-	 * Db::halt()
-	 *
-	 * @param mixed  $msg
-	 * @param string $line
-	 * @param string $file
-	 * @return void
-	 */
-	public function halt($msg, $line = '', $file = '') {
-		$this->unlock(false);
-		/* Just in case there is a table currently locked */
-
-		//$this->Error = @$this->linkId->error;
-		//$this->Errno = @$this->linkId->errno;
-		if ($this->haltOnError == 'no')
-			return;
-		if ($msg != '')
-			$this->haltmsg($msg, $line, $file);
-		if ($this->haltOnError != 'report') {
-			echo '<p><b>Session halted.</b>';
-			// FIXME! Add check for error levels
-			if (isset($GLOBALS['tf']))
-				$GLOBALS['tf']->terminate();
-		}
-	}
-
-	/**
-	 * Db::haltmsg()
-	 *
-	 * @param mixed $msg
-	 * @param string $line
-	 * @param string $file
-	 * @return mixed|void
-	 */
-	public function haltmsg($msg, $line = '', $file = '') {
-		$this->log("Database error: $msg", $line, $file, 'error');
-		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
-			$sqlstate = mysqli_sqlstate($this->linkId);
-			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file, 'error');
-		}
-		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
-		$this->log(
-			('' !== getenv('REQUEST_URI') ? ' '.getenv('REQUEST_URI') : '').
-			((isset($_POST) && count($_POST)) ? ' POST='.myadmin_stringify($_POST) : '').
-			((isset($_GET) && count($_GET)) ? ' GET='.myadmin_stringify($_GET) : '').
-			((isset($_FILES) && count($_FILES)) ? ' FILES='.myadmin_stringify($_FILES) : '').
-			('' !== getenv('HTTP_USER_AGENT') ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
-			(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
-			($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. myadmin_stringify($_POST). '"' : '') : ''), $line, $file, 'error');
-		for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
-			$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
-				(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
-				' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
-				(isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
-				$backtrace[$level] ['function'].'(';
-			if(isset($backtrace[$level] ['args']))
-				for($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
-					$message .= ($argument > 0 ? ', ' : '').
-						(is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : myadmin_stringify($backtrace[$level]['args'][$argument]));
-			$message.=')';
-			$this->log($message, $line, $file, 'error');
-		}
-
-	}
-
 	/**
 	 * gets an array of the table names in teh current datase
 	 *
@@ -633,15 +547,6 @@ class Db extends Generic implements Db_Interface
 			++$i;
 		}
 		return $return;
-	}
-
-	/**
-	 * Db::index_names()
-	 *
-	 * @return array
-	 */
-	public function index_names() {
-		return [];
 	}
 
 	/**

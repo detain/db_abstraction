@@ -48,24 +48,6 @@ class Db extends Generic implements Db_Interface
 			$this->query($query);
 	}
 
-	/* public: some trivial reporting */
-
-	/**
-	 * Db::link_id()
-	 * @return bool
-	 */
-	public function link_id() {
-		return $this->linkId;
-	}
-
-	/**
-	 * Db::query_id()
-	 * @return int
-	 */
-	public function query_id() {
-		return $this->queryId;
-	}
-
 	/**
 	 * Db::connect()
 	 * @param string $database
@@ -485,50 +467,6 @@ class Db extends Generic implements Db_Interface
 		return $nextid;
 	}
 
-	/* private: error handling */
-
-	/**
-	 * Db::halt()
-	 *
-	 * @param mixed  $msg
-	 * @param string $line
-	 * @param string $file
-	 * @return void
-	 */
-	public function halt($msg, $line = '', $file = '') {
-		$this->unlock();
-		/* Just in case there is a table currently locked */
-
-		//$this->Error = @mysql_error($this->linkId);
-		//$this->Errno = @mysql_errno($this->linkId);
-		if ($this->haltOnError == 'no')
-			return;
-		$this->haltmsg($msg);
-
-		if ($file)
-			error_log("File: $file");
-		if ($line)
-			error_log("Line: $line");
-
-		if ($this->haltOnError != 'report') {
-			echo '<p><b>Session halted.</b>';
-			// FIXME! Add check for error levels
-			if (isset($GLOBALS['tf']))
-				$GLOBALS['tf']->terminate();
-		}
-	}
-
-	/**
-	 * Db::haltmsg()
-	 * @param mixed $msg
-	 * @return void
-	 */
-	public function haltmsg($msg) {
-		$this->log("Database error: $msg", __LINE__, __FILE__);
-		if ($this->linkId->ErrorNo() != '0' && $this->linkId->ErrorMsg() != '')
-			$this->log('ADOdb MySQL Error: '.$this->linkId->ErrorMsg(), __LINE__, __FILE__);
-	}
-
 	/**
 	 * Db::table_names()
 	 *
@@ -545,15 +483,6 @@ class Db extends Generic implements Db_Interface
 			++$i;
 		}
 		return $return;
-	}
-
-	/**
-	 * Db::index_names()
-	 *
-	 * @return array
-	 */
-	public function index_names() {
-		return [];
 	}
 
 	/**
