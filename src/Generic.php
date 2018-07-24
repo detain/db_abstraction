@@ -44,7 +44,9 @@ abstract class Generic {
 	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'generic';
 
-	/* private: link and query handles */
+	/**
+	* @var int|object
+	*/
 	public $linkId = 0;
 	public $queryId = 0;
 
@@ -84,14 +86,14 @@ abstract class Generic {
 	}
 
 	/**
-	 * @return int
+	 * @return int|object
 	 */
 	public function linkId() {
 		return $this->linkId;
 	}
 
 	/**
-	 * @return int
+	 * @return int|object
 	 */
 	public function queryId() {
 		return $this->queryId;
