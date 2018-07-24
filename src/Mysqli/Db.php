@@ -127,8 +127,8 @@ class Db extends Generic implements Db_Interface {
 	 * @return string
 	 */
 	public function escape($string) {
-		if (function_exists('mysql_escape_string'))
-			return mysql_escape_string($string);
+		//if (function_exists('mysql_escape_string'))
+			//return mysql_escape_string($string);
 		return str_replace(array('\\', "\0", "\n", "\r", "'", '"', "\x1a"), array('\\\\', '\\0', '\\n', '\\r', "\\'", '\\"', '\\Z'), $string);
 	}
 
