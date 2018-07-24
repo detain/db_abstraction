@@ -1,3 +1,4 @@
+composer.lock
 vendor/
 .bettercodehub.yml
 .idea/workspace.xml
