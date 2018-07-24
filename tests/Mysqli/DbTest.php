@@ -205,7 +205,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testLock() {
 		$this->assertTrue($this->db->lock('service_types'));
 		$this->assertTrue($this->db->unlock());
-		$this->assertTrue($this->db->lock([['read', 'service_types']]));
+		$this->assertTrue($this->db->lock(['service_types']));
 		$this->assertTrue($this->db->unlock());
 	}
 
