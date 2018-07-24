@@ -54,7 +54,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testUse_db()
 	{
 		$db = 'tests';
-		$this->db->use_db($db);
+		$this->db->useDb($db);
 		$this->db->query("select database()");
 		$this->db->next_record(MYSQLI_NUM);
 		$this->assertEquals($db, $this->db->Record[0]);
@@ -65,7 +65,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testSelect_db()
 	{
 		$db = 'tests';
-		$this->db->use_db($db);
+		$this->db->useDb($db);
 		$this->db->query("select database()");
 		$this->db->next_record(MYSQLI_NUM);
 		$this->assertEquals($db, $this->db->Record[0]);

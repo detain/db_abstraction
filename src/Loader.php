@@ -119,7 +119,7 @@ class Loader
 	 * @param $str
 	 * @return string
 	 */
-	public function db_addslashes($str) {
+	public function dbAddslashes($str) {
 		if (!isset($str) || $str == '')
 			return '';
 
@@ -129,7 +129,7 @@ class Loader
 	/**
 	 * db:qr()
 	 *
-	 *  alias of query_return()
+	 *  alias of queryReturn()
 	 *
 	 * @param mixed $query SQL Query to be used
 	 * @param string $line optionally pass __LINE__ calling the query for logging
@@ -137,7 +137,7 @@ class Loader
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
 	public function qr($query, $line = '', $file = '') {
-		return $this->query_return($query, $line, $file);
+		return $this->queryReturn($query, $line, $file);
 	}
 
 	/**

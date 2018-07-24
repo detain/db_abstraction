@@ -59,8 +59,8 @@ class Db extends Generic implements Db_Interface
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function use_db($database) {
-		$this->select_db($database);
+	public function useDb($database) {
+		$this->selectDb($database);
 	}
 
 	/**
@@ -69,7 +69,7 @@ class Db extends Generic implements Db_Interface
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function select_db($database) {
+	public function selectDb($database) {
 		$this->connect();
 		mysqli_select_db($this->linkId, $database);
 	}
@@ -162,11 +162,11 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::db_addslashes()
+	 * Db::dbAddslashes()
 	 * @param mixed $str
 	 * @return string
 	 */
-	public function db_addslashes($str) {
+	public function dbAddslashes($str) {
 		if (!isset($str) || $str == '')
 			return '';
 
@@ -186,7 +186,7 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::query_return()
+	 * Db::queryReturn()
 	 *
 	 * Sends an SQL query to the server like the normal query() command but iterates through
 	 * any rows and returns the row or rows immediately or FALSE on error
@@ -196,7 +196,7 @@ class Db extends Generic implements Db_Interface
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function query_return($query, $line = '', $file = '') {
+	public function queryReturn($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
 			return FALSE;
@@ -214,7 +214,7 @@ class Db extends Generic implements Db_Interface
 	/**
 	 * db:qr()
 	 *
-	 *  alias of query_return()
+	 *  alias of queryReturn()
 	 *
 	 * @param mixed $query SQL Query to be used
 	 * @param string $line optionally pass __LINE__ calling the query for logging
@@ -222,7 +222,7 @@ class Db extends Generic implements Db_Interface
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
 	public function qr($query, $line = '', $file = '') {
-		return $this->query_return($query, $line, $file);
+		return $this->queryReturn($query, $line, $file);
 	}
 
 	/**
@@ -309,7 +309,7 @@ class Db extends Generic implements Db_Interface
 	/**
 	 * @return array|null|object
 	 */
-	public function fetch_object() {
+	public function fetchObject() {
 		$this->Record = @mysqli_fetch_object($this->queryId);
 		return $this->Record;
 	}

@@ -43,7 +43,7 @@ interface Db_Interface
 	 * @param $str
 	 * @return mixed
 	 */
-	public function db_addslashes($str);
+	public function dbAddslashes($str);
 
 	/**
 	 * @param $query

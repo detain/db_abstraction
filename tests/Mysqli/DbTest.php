@@ -44,19 +44,19 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testUse_db() {
 		foreach (['tests', 'tests2', 'tests'] as $db) {
-			$this->db->use_db($db);
+			$this->db->useDb($db);
 			$this->db->query("select database()");
 			$this->db->next_record(MYSQLI_NUM);
-			$this->assertEquals($db, $this->db->Record[0], 'use_db properly changes database');
+			$this->assertEquals($db, $this->db->Record[0], 'useDb properly changes database');
 		}
 	}
 
 	public function testSelect_db() {
 		foreach (['tests', 'tests2', 'tests'] as $db) {
-			$this->db->use_db($db);
+			$this->db->useDb($db);
 			$this->db->query("select database()");
 			$this->db->next_record(MYSQLI_NUM);
-			$this->assertEquals($db, $this->db->Record[0], 'use_db properly changes database');
+			$this->assertEquals($db, $this->db->Record[0], 'useDb properly changes database');
 		}
 	}
 
@@ -111,7 +111,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testQuery_return() {
-		$return = $this->db->query_return("select * from service_types limit 1");
+		$return = $this->db->queryReturn("select * from service_types limit 1");
 		$this->assertTrue(array_key_exists('st_id', $return));
 		$return = $this->db->qr("select * from service_types limit 1");
 		$this->assertTrue(array_key_exists('st_id', $return));
@@ -150,7 +150,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testTransactions() {
-		$this->db->disconnect();
+		$this->db->linkId = null;
 		if (version_compare(PHP_VERSION, '5.5.0') >= 0) {
 			$this->assertTrue($this->db->transactionBegin(), 'transactionBegin returns proper response');;
 			$this->assertTrue($this->db->transactionCommit(), 'transactionBegin returns proper response');;
