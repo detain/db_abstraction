@@ -24,54 +24,8 @@ class Db extends Generic implements Db_Interface
 	public $password = '';
 	public $database = 'pdns';
 	public $type = 'mdb2';
-
-	public $characterSet = 'utf8mb4';
-	public $collation = 'utf8mb4_unicode_ci';
-
-	/**
-	 * @var bool
-	 */
-	public $autoStripslashes = FALSE;
-	/**
-	 * @var int
-	 */
-	public $autoFree = 1; // Set to 1 for automatic mysql_free_result()
-	/**
-	 * @var int
-	 */
-	public $Debug = 0; // Set to 1 for debugging messages.
-	/**
-	 * @var string
-	 */
-	public $haltOnError = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
-	/**
-	 * @var string
-	 */
-	public $seqTable = 'db_sequence';
-	/**
-	 * @var array result array and current row number
-	 */
-	public $Record = [];
-	/**
-	 * @var array
-	 */
-	public $Row;
-
-	/* public: current error number and error text */
-	public $Errno = 0;
-	public $Error = '';
 	public $error = FALSE;
 	public $message = '';
-
-	/* private: link and query handles */
-	/** @var mysqli **/
-	public $linkId = 0;
-	public $queryId = 0;
-
-	public $maxConnectErrors = 30;
-	public $connectionAttempt = 0;
-
-	public $maxMatches = 10000000;
 
 	/**
 	 * Db::quote()
@@ -135,25 +89,6 @@ class Db extends Generic implements Db_Interface
 	 */
 	public function lastInsertId($table, $field) {
 		return $this->getLastInsertId($table, $field);
-	}
-
-	/**
-	 * Constructs the db handler, can optionally specify connection parameters
-	 *
-	 * @param string $database Optional The database name
-	 * @param string $user Optional The username to connect with
-	 * @param string $password Optional The password to use
-	 * @param string $host Optional The hostname where the server is, or default to localhost
-	 * @param string $query Optional query to perform immediately
-	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
-		$this->database = $database;
-		$this->user = $user;
-		$this->password = $password;
-		$this->host = $host;
-		if ($query != '')
-			$this->query($query);
-		$this->connection_atttempt = 0;
 	}
 
 	/**

@@ -20,38 +20,9 @@ use \MyDb\Db_Interface;
 class Db extends Generic implements Db_Interface
 {
 	/**
-	 * @var int
-	 */
-	public $autoFree = 0; // Set to 1 for automatic mysql_free_result()
-
-	/**
 	 * @var string
 	 */
 	public $type = 'mysqli';
-
-	public $maxConnectErrors = 30;
-	public $connectionAttempt = 0;
-	public $maxMatches = 10000000;
-
-
-	/**
-	 * Constructs the db handler, can optionally specify connection parameters
-	 *
-	 * @param string $database Optional The database name
-	 * @param string $user Optional The username to connect with
-	 * @param string $password Optional The password to use
-	 * @param string $host Optional The hostname where the server is, or default to localhost
-	 * @param string $query Optional query to perform immediately
-	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
-		$this->database = $database;
-		$this->user = $user;
-		$this->password = $password;
-		$this->host = $host;
-		if ($query != '')
-			$this->query($query);
-		$this->connection_atttempt = 0;
-	}
 
 	/**
 	 * alias function of select_db, changes the database we are working with.
@@ -96,10 +67,10 @@ class Db extends Generic implements Db_Interface
 			$password = $this->password;
 		/* establish connection, select database */
 		if (!is_object($this->linkId)) {
-			$this->connection_atttempt++;
-			if ($this->connection_atttempt > 1)
-				error_log("MySQLi Connection Attempt #{$this->connection_atttempt}/{$this->maxConnectErrors}");
-			if ($this->connection_atttempt >= $this->maxConnectErrors) {
+			$this->connectionAttempt++;
+			if ($this->connectionAttempt > 1)
+				error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
+			if ($this->connectionAttempt >= $this->maxConnectErrors) {
 				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
 				return 0;
 			}

@@ -20,33 +20,9 @@ use \MyDb\Db_Interface;
  */
 class Db extends Generic implements Db_Interface
 {
-	/* public: connection parameters */
 	public $driver = 'mysql';
-	public $autoFree = 0; // Set to 1 for automatic mysql_free_result()
-	public $maxMatches = 1000000;
 	public $Rows = [];
-	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'adodb';
-
-	/**
-	 * Constructs the db handler, can optionally specify connection parameters
-	 *
-	 * @param string $database Optional The database name
-	 * @param string $user Optional The username to connect with
-	 * @param string $password Optional The password to use
-	 * @param string $host Optional The hostname where the server is, or default to localhost
-	 * @param string $query Optional query to perform immediately
-	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
-		if (!defined('_ADODB_LAYER'))
-			require_once realpath(__DIR__).'/../vendor/adodb/adodb-php/adodb.inc.php';
-		$this->database = $database;
-		$this->user = $user;
-		$this->password = $password;
-		$this->host = $host;
-		if ($query != '')
-			$this->query($query);
-	}
 
 	/**
 	 * Db::connect()

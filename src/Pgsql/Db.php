@@ -21,13 +21,6 @@ class Db extends Generic implements Db_Interface
 {
 	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'pgsql';
-
-	/* Set this to 1 for automatic pg_freeresult on last record. */
-	public $autoFree = 0;
-
-	// PostgreSQL changed somethings from 6.x -> 7.x
-	public $db_version;
-
 	public $port = '5432';
 
 	/**
@@ -41,24 +34,6 @@ class Db extends Generic implements Db_Interface
 		if ('' != $add)
 			return ' '.$me . $add;
 		return '';
-	}
-
-	/**
-	 * Constructs the db handler, can optionally specify connection parameters
-	 *
-	 * @param string $database Optional The database name
-	 * @param string $user Optional The username to connect with
-	 * @param string $password Optional The password to use
-	 * @param string $host Optional The hostname where the server is, or default to localhost
-	 * @param string $query Optional query to perform immediately
-	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
-		$this->database = $database;
-		$this->user = $user;
-		$this->password = $password;
-		$this->host = $host;
-		if ($query != '')
-			$this->query($query);
 	}
 
 	/**
@@ -112,13 +87,6 @@ class Db extends Generic implements Db_Interface
 
 			if (!$this->linkId) {
 				$this->halt('Link-ID == FALSE, '.($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '').'connect failed');
-			} else {
-				$this->query('select version()', __LINE__, __FILE__);
-				$this->next_record();
-
-				$version = $this->f('version');
-				$parts = explode(' ', $version);
-				$this->db_version = $parts[1];
 			}
 		}
 	}

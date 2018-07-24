@@ -25,6 +25,15 @@ abstract class Generic
 	public $Debug = 0; // Set to 1 for debugging messages.
 	public $haltOnError = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 
+	public $maxConnectErrors = 30;
+	public $connectionAttempt = 0;
+	public $maxMatches = 10000000;
+
+	/**
+	 * @var int
+	 */
+	public $autoFree = 0; // Set to 1 for automatic mysql_free_result()
+
 	/* public: result array and current row number */
 	public $Record = [];
 	public $Row;
@@ -59,6 +68,7 @@ abstract class Generic
 		$this->host = $host;
 		if ($query != '')
 			$this->query($query);
+		$this->connection_atttempt = 0;
 	}
 
 	/**

@@ -21,33 +21,9 @@ class Db extends Generic implements Db_Interface
 {
 	/* public: connection parameters */
 	public $driver = 'mysql';
-
-	/* public: configuration parameters */
-	public $autoFree = 0; // Set to 1 for automatic mysql_free_result()
 	public $Rows = [];
-
 	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'pdo';
-
-	public $maxMatches = 10000000;
-
-	/**
-	 * Constructs the db handler, can optionally specify connection parameters
-	 *
-	 * @param string $database Optional The database name
-	 * @param string $user Optional The username to connect with
-	 * @param string $password Optional The password to use
-	 * @param string $host Optional The hostname where the server is, or default to localhost
-	 * @param string $query Optional query to perform immediately
-	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
-		$this->database = $database;
-		$this->user = $user;
-		$this->password = $password;
-		$this->host = $host;
-		if ($query != '')
-			$this->query($query);
-	}
 
 	/**
 	 * alias function of select_db, changes the database we are working with.
