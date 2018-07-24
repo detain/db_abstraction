@@ -369,7 +369,7 @@ class Db extends Generic implements Db_Interface
 	 * @return bool
 	 */
 	public function transactionBegin() {
-		if (version_compare(PHP_VERSION, '5.5.0') >= 0)
+		if (version_compare(PHP_VERSION, '5.5.0') < 0)
 			return true;
 		if (!$this->connect())
 			return 0;
@@ -382,7 +382,7 @@ class Db extends Generic implements Db_Interface
 	 * @return bool
 	 */
 	public function transactionCommit() {
-		if (version_compare(PHP_VERSION, '5.5.0') >= 0)
+		if (version_compare(PHP_VERSION, '5.5.0') < 0)
 			return true;
 		return mysqli_commit($this->linkId);
 	}
@@ -393,7 +393,7 @@ class Db extends Generic implements Db_Interface
 	 * @return bool
 	 */
 	public function transactionAbort() {
-		if (version_compare(PHP_VERSION, '5.5.0') >= 0)
+		if (version_compare(PHP_VERSION, '5.5.0') < 0)
 			return true;
 		return mysqli_rollback($this->linkId);
 	}
