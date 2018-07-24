@@ -21,11 +21,11 @@ build:
             #- jshint-run $(ls public_html/js/*.js)
             #- shellcheck-run -s bash $(ls scripts/*/*.sh)
             #- csslint-run --exclude-list=public_html/css/domains.css,public_html/css/minified,public_html/css/reset.css,public_html/css/price_win.css public_html/css
-            - mysql -u root --default-character-set=utf8mb4 < tests/mysql.sql
-            - DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/
-        coverage:
-            file: 'coverage.xml'
-            format: 'php-clover'
+            -
+            command: 'mysql -u root --default-character-set=utf8mb4 < tests/mysql.sql; DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/'
+            coverage:
+                file: 'coverage.xml'
+                format: 'php-clover'
 checks:
     php:
         duplication: true
