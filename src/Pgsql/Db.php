@@ -94,8 +94,9 @@ class Db extends Generic implements Db_Interface
 	 * @return void
 	 */
 	public function selectDb($database) {
+		$this->database = $database;
+		$this->linkId = null;
 		$this->connect();
-		$this->query("\\c {$database}", __LINE__, __FILE__);
 	}
 
 	/**
