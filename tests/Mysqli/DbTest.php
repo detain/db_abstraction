@@ -142,11 +142,11 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testLimit_query() {
 		$this->db->limitQuery("select * from service_types", 1);
 		$this->assertEquals(1, $this->db->num_rows());
-		$this->db->next_record(MYSQL_ASSOC);
+		$this->db->next_record(MYSQLI_ASSOC);
 		$id = $this->db->Record['st_id'];
 		$this->db->limitQuery("select * from service_types", 2, 1);
 		$this->assertEquals(2, $this->db->num_rows());
-		$this->db->next_record(MYSQL_ASSOC);
+		$this->db->next_record(MYSQLI_ASSOC);
 		$this->assertNotEquals($id, $this->db->Record['st_id']);
 	}
 
