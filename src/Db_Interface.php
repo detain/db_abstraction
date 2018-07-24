@@ -35,9 +35,9 @@ interface Db_Interface
 	 */
 	public function log($message, $line = '', $file = '');
 
-	public function link_id();
+	public function linkId();
 
-	public function query_id();
+	public function queryId();
 
 	/**
 	 * @param $str

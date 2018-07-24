@@ -346,10 +346,10 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::affected_rows()
+	 * Db::affectedRows()
 	 * @return void
 	 */
-	public function affected_rows() {
+	public function affectedRows() {
 		return pg_cmdtuples($this->queryId);
 	}
 

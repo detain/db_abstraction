@@ -77,14 +77,14 @@ abstract class Generic
 	/**
 	 * @return int
 	 */
-	public function link_id() {
+	public function linkId() {
 		return $this->linkId;
 	}
 
 	/**
 	 * @return int
 	 */
-	public function query_id() {
+	public function queryId() {
 		return $this->queryId;
 	}
 

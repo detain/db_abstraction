@@ -39,9 +39,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testLink_id() {
 		$this->db->linkId = null;
-		$this->assertEquals($this->db->linkId, $this->db->link_id(), 'link_id() returns the linkId variable');
+		$this->assertEquals($this->db->linkId, $this->db->linkId(), 'linkId() returns the linkId variable');
 		$this->db->connect();
-		$this->assertEquals($this->db->linkId, $this->db->link_id(), 'link_id() returns the linkId variable');
+		$this->assertEquals($this->db->linkId, $this->db->linkId(), 'linkId() returns the linkId variable');
 	}
 
 	public function testUse_db() {
@@ -91,7 +91,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testQuery_id() {
-		$this->assertEquals($this->db->queryId, $this->db->query_id(), 'query_id() returns the queryId variable');
+		$this->assertEquals($this->db->queryId, $this->db->queryId(), 'queryId() returns the queryId variable');
 	}
 
 	public function testQuery() {
@@ -162,7 +162,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 			$this->db->query("select * from service_types where st_name='KVM Windows 2'", __LINE__, __FILE__);
 			$this->assertEquals(1, $this->db->num_rows());
 			$this->db->query("update services_types set st_name='KVM Windows' where st_name='KVM Windows 2'", __LINE__, __FILE__);
-			$this->assertEquals(1, $this->db->affected_rows(), 'affected_rows() returns the proper effected row count after an update');
+			$this->assertEquals(1, $this->db->affectedRows(), 'affected_rows() returns the proper effected row count after an update');
 			$this->assertTrue($this->db->transactionBegin(), 'transactionBegin returns proper response');;
 			$this->db->query("update services_types set st_name='KVM Windows 2' where st_name='KVM Windows'", __LINE__, __FILE__);
 			$this->assertTrue($this->db->transactionAbort(), 'transactionBegin returns proper response');;

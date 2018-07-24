@@ -390,11 +390,11 @@ class Db extends Generic implements Db_Interface
 	/* public: evaluate the result (size, width) */
 
 	/**
-	 * Db::affected_rows()
+	 * Db::affectedRows()
 	 *
 	 * @return mixed
 	 */
-	public function affected_rows() {
+	public function affectedRows() {
 		return @$this->queryId->rowCount();
 	}
 
