@@ -1,3 +1,9 @@
+CREATE DATABASE IF NOT EXISTS tests2; 
+CREATE DATABASE IF NOT EXISTS tests; 
+GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests';
+GRANT ALL PRIVILEGES ON tests2.* to tests@'%' identified by 'tests';
+FLUSH PRIVILEGES;
+USE tests;
 -- MySQL dump 10.13  Distrib 5.7.19, for Linux (x86_64)
 --
 -- Host: localhost    Database: my

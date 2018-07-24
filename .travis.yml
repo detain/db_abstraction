@@ -36,7 +36,6 @@ before_install:
   - sh -c "if [ '$DB' = 'postgres' ]; then psql -c 'DROP DATABASE IF EXISTS tests2;' -U postgres; fi"
   - sh -c "if [ '$DB' = 'postgres' ]; then psql -c 'CREATE DATABASE tests;' -U postgres; fi"
   - sh -c "if [ '$DB' = 'postgres' ]; then psql -c 'CREATE DATABASE tests2;' -U postgres; fi"
-  - if [[ "$DB" == "mysql" ]]; then mysql -e "CREATE DATABASE IF NOT EXISTS tests2; CREATE DATABASE IF NOT EXISTS tests; GRANT ALL PRIVILEGES ON tests.* to tests@'%' identified by 'tests'; GRANT ALL PRIVILEGES ON tests2.* to tests@'%' identified by 'tests'; FLUSH PRIVILEGES;"; fi
 
 install:
   - travis_retry composer selfupdate
@@ -44,7 +43,7 @@ install:
 
 before_script:
   - if [[ "$DB" == "postgres" ]]; then psql tests < tests/psql.sql; fi
-  - if [[ "$DB" == "mysql" ]]; then mysql --default-character-set=utf8mb4 tests < tests/mysql.sql; fi
+  - if [[ "$DB" == "mysql" ]]; then mysql --default-character-set=utf8mb4 < tests/mysql.sql; fi
 
 script:
   - if [[ "$DB" == "postgres" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi;
