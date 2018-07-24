@@ -83,28 +83,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
-	*/
-	public function testUse_db()
-	{
-		$db = 'tests';
-		$this->db->useDb($db);
-		$this->db->query("select database()");
-		$this->db->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->db->Record[0]);
-	}
-
-	/**
-	*/
-	public function testSelect_db()
-	{
-		$db = 'tests';
-		$this->db->useDb($db);
-		$this->db->query("select database()");
-		$this->db->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->db->Record[0]);
-	}
-
-	/**
 	* @todo   Implement testConnect().
 	*/
 	public function testConnect()
