@@ -164,9 +164,9 @@ abstract class Generic
 	public function limit($start = 0) {
 		echo '<b>Warning: limit() is no longer used, use limitQuery()</b>';
 		if ($start == 0) {
-			$s = 'limit '.(int)$this->maxMatches;
+			$s = 'limit '.(int) $this->maxMatches;
 		} else {
-			$s = 'limit '.(int)$start.','.(int)$this->maxMatches;
+			$s = 'limit '.(int) $start.','.(int) $this->maxMatches;
 		}
 		return $s;
 	}
@@ -185,9 +185,9 @@ abstract class Generic
 		if (!$numRows)
 			$numRows = $this->maxMatches;
 		if ($offset == 0) {
-			$queryString .= ' LIMIT '.(int)$numRows;
+			$queryString .= ' LIMIT '.(int) $numRows;
 		} else {
-			$queryString .= ' LIMIT '.(int)$offset.','.(int)$numRows;
+			$queryString .= ' LIMIT '.(int) $offset.','.(int) $numRows;
 		}
 
 		if ($this->Debug)
@@ -258,26 +258,26 @@ abstract class Generic
 	 * @return mixed|void
 	 */
 	public function logBackTrace($msg, $line = '', $file = '') {
-		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
+		$backtrace = (function_exists('debug_backtrace') ? debug_backtrace() : []);
 		$this->log(
 			('' !== getenv('REQUEST_URI') ? ' '.getenv('REQUEST_URI') : '').
 			((isset($_POST) && count($_POST)) ? ' POST='.json_encode($_POST) : '').
 			((isset($_GET) && count($_GET)) ? ' GET='.json_encode($_GET) : '').
 			((isset($_FILES) && count($_FILES)) ? ' FILES='.json_encode($_FILES) : '').
 			('' !== getenv('HTTP_USER_AGENT') ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
-			(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
-				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. json_encode($_POST). '"' : '') : ''), $line, $file, 'error');
-		for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
-			$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
-				(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
-				' Function: '.(isset($backtrace[$level] ['class']) ? '(class '. $backtrace[$level] ['class'].') ' : '') .
+			(isset($_SERVER['REQUEST_METHOD']) ? ' METHOD="'.$_SERVER['REQUEST_METHOD'].'"'.
+				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'.json_encode($_POST).'"' : '') : ''), $line, $file, 'error');
+		for ($level = 1, $levelMax = count($backtrace); $level < $levelMax; $level++) {
+			$message = (isset($backtrace[$level]['file']) ? 'File: '.$backtrace[$level]['file'] : '').
+				(isset($backtrace[$level]['line']) ? ' Line: '.$backtrace[$level]['line'] : '').
+				' Function: '.(isset($backtrace[$level] ['class']) ? '(class '.$backtrace[$level] ['class'].') ' : '').
 				(isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
 				$backtrace[$level] ['function'].'(';
-			if(isset($backtrace[$level] ['args']))
-				for($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
+			if (isset($backtrace[$level] ['args']))
+				for ($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
 					$message .= ($argument > 0 ? ', ' : '').
 						(is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : json_encode($backtrace[$level]['args'][$argument]));
-			$message.=')';
+			$message .= ')';
 			$this->log($message, $line, $file, 'error');
 		}
 	}
@@ -292,7 +292,7 @@ abstract class Generic
 		$this->log("Database error: $msg", $line, $file, 'error');
 		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
 			$sqlstate = mysqli_sqlstate($this->linkId);
-			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . ' (' . $this->Error . ')', $line, $file, 'error');
+			$this->log("MySQLi SQLState: {$sqlstate}. Error: ".$this->Errno.' ('.$this->Error.')', $line, $file, 'error');
 		}
 		$this->logBackTrace($msg, $line, $file);
 	}

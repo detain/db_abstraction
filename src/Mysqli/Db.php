@@ -71,7 +71,7 @@ class Db extends Generic implements Db_Interface
 			if ($this->connectionAttempt > 1)
 				error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
 			if ($this->connectionAttempt >= $this->maxConnectErrors) {
-				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
+				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
 				return 0;
 			}
 			//$this->linkId = new mysqli($host, $user, $password, $database);
@@ -87,7 +87,7 @@ class Db extends Generic implements Db_Interface
 			* }
 			*/
 			if ($this->linkId->connect_errno) {
-				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
+				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
 				return 0;
 			}
 			/*if ($this->characterSet != '') {
@@ -255,7 +255,7 @@ class Db extends Generic implements Db_Interface
 			$this->Errno = @mysqli_errno($this->linkId);
 			$this->Error = @mysqli_error($this->linkId);
 			if ($try == 1 && (null === $this->queryId || $this->queryId === FALSE)) {
-				$email = "MySQLi Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
+				$email = "MySQLi Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.$this->Errno.': '.$this->Error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 				$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
 				$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
 				$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
@@ -322,7 +322,7 @@ class Db extends Generic implements Db_Interface
 		if ($status) {
 			$this->Row = $pos;
 		} else {
-			$this->halt("seek($pos) failed: result has " . $this->num_rows().' rows');
+			$this->halt("seek($pos) failed: result has ".$this->num_rows().' rows');
 			/* half assed attempt to save the day,
 			* but do not consider this documented or even
 			* desirable behaviour.
@@ -380,7 +380,7 @@ class Db extends Generic implements Db_Interface
 	 */
 	public function getLastInsertId($table, $field) {
 		if (!isset($table) || $table == '' || !isset($field) || $field == '')
-			return - 1;
+			return -1;
 
 		return @mysqli_insert_id($this->linkId);
 	}
@@ -514,22 +514,22 @@ class Db extends Generic implements Db_Interface
  * @param int|string $field
  * @return bool
  */
-function mysqli_result($result, $row, $field=0) {
-	if ($result===false) return FALSE;
-	if ($row>=mysqli_num_rows($result)) return FALSE;
+function mysqli_result($result, $row, $field = 0) {
+	if ($result === false) return FALSE;
+	if ($row >= mysqli_num_rows($result)) return FALSE;
 	if (is_string($field) && !(mb_strpos($field, '.') === FALSE)) {
-		$tField=explode('.', $field);
-		$field=-1;
-		$tFields=mysqli_fetch_fields($result);
-		for ($id=0, $idMax = mysqli_num_fields($result);$id<$idMax;$id++) {
-			if ($tFields[$id]->table==$tField[0] && $tFields[$id]->name==$tField[1]) {
-				$field=$id;
+		$tField = explode('.', $field);
+		$field = -1;
+		$tFields = mysqli_fetch_fields($result);
+		for ($id = 0, $idMax = mysqli_num_fields($result); $id < $idMax; $id++) {
+			if ($tFields[$id]->table == $tField[0] && $tFields[$id]->name == $tField[1]) {
+				$field = $id;
 				break;
 			}
 		}
-		if ($field==-1) return FALSE;
+		if ($field == -1) return FALSE;
 	}
 	mysqli_data_seek($result, $row);
-	$line=mysqli_fetch_array($result);
-	return isset($line[$field])?$line[$field]:false;
+	$line = mysqli_fetch_array($result);
+	return isset($line[$field]) ? $line[$field] : false;
 }

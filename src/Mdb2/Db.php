@@ -36,10 +36,10 @@ class Db extends Generic implements Db_Interface
 	public function quote($text = '', $type = 'text') {
 		switch ($type) {
 			case 'text':
-				return "'" . mysqli_real_escape_string($this->linkId, $text) . "'";
+				return "'".mysqli_real_escape_string($this->linkId, $text)."'";
 				break;
 			case 'integer':
-				return (int)$text;
+				return (int) $text;
 				break;
 			default:
 				return $text;
@@ -138,7 +138,7 @@ class Db extends Generic implements Db_Interface
 			if ($this->connectionAttempt > 1)
 				error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
 			if ($this->connectionAttempt >= $this->maxConnectErrors) {
-				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
+				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
 				return 0;
 			}
 			$this->linkId = mysqli_init();
@@ -146,7 +146,7 @@ class Db extends Generic implements Db_Interface
 			$this->linkId->real_connect($host, $user, $password, $database);
 			$this->linkId->set_charset($this->characterSet);
 			if ($this->linkId->connect_errno) {
-				$this->halt("connect($host, $user, \$password) failed. " . $mysqli->connect_error);
+				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
 				return 0;
 			}
 		}
@@ -292,8 +292,8 @@ class Db extends Generic implements Db_Interface
 		}
 		$this->haltOnError = $haltPrev;
 		if ($this->queryId === FALSE) {
-			$email = "MySQLi Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
-					'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
+			$email = "MySQLi Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.$this->Errno.': '.$this->Error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ?
+					'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
 			$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
@@ -348,7 +348,7 @@ class Db extends Generic implements Db_Interface
 		if ($status) {
 			$this->Row = $pos;
 		} else {
-			$this->halt("seek($pos) failed: result has " . $this->num_rows().' rows');
+			$this->halt("seek($pos) failed: result has ".$this->num_rows().' rows');
 			/* half assed attempt to save the day,
 			* but do not consider this documented or even
 			* desirable behaviour.
@@ -398,7 +398,7 @@ class Db extends Generic implements Db_Interface
 		*/
 
 		if (!isset($table) || $table == '' || !isset($field) || $field == '')
-			return - 1;
+			return -1;
 
 		return @mysqli_insert_id($this->linkId);
 	}

@@ -198,18 +198,18 @@ class Db extends Generic implements Db_Interface
 		$this->queryId = $this->linkId->prepare($queryString);
 		$success = $this->queryId->execute();
 		$this->Rows = $this->queryId->fetchAll();
-		$this->log("PDO Query $queryString (S:$success) - " . count($this->Rows).' Rows', __LINE__, __FILE__);
+		$this->log("PDO Query $queryString (S:$success) - ".count($this->Rows).' Rows', __LINE__, __FILE__);
 		$this->Row = 0;
 		if ($success === FALSE) {
-			$email = "MySQL Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.print_r($this->queryId->errorInfo(), TRUE) . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
+			$email = "MySQL Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.print_r($this->queryId->errorInfo(), TRUE)."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>';
 			foreach ($_REQUEST as $key => $value)
-				$email .= $key.': '.$value . "<br>\n";
+				$email .= $key.': '.$value."<br>\n";
 
 			$email .= '<br><br>Server Variables:<br>';
 			foreach ($_SERVER as $key => $value)
-				$email .= $key.': '.$value . "<br>\n";
+				$email .= $key.': '.$value."<br>\n";
 			$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
 			$headers = '';
 			$headers .= 'MIME-Version: 1.0'.PHP_EOL;
@@ -259,7 +259,7 @@ class Db extends Generic implements Db_Interface
 		if (isset($this->Rows[$pos])) {
 			$this->Row = $pos;
 		} else {
-			$this->halt("seek($pos) failed: result has " . count($this->Rows).' rows');
+			$this->halt("seek($pos) failed: result has ".count($this->Rows).' rows');
 			/* half assed attempt to save the day,
 			* but do not consider this documented or even
 			* desirable behaviour.
@@ -301,7 +301,7 @@ class Db extends Generic implements Db_Interface
 	 */
 	public function getLastInsertId($table, $field) {
 		if (!isset($table) || $table == '' || !isset($field) || $field == '')
-			return - 1;
+			return -1;
 		return $this->linkId->lastInsertId();
 	}
 

@@ -32,7 +32,7 @@ class Db extends Generic implements Db_Interface
 	 */
 	public function ifadd($add, $me) {
 		if ('' != $add)
-			return ' '.$me . $add;
+			return ' '.$me.$add;
 		return '';
 	}
 
@@ -82,7 +82,7 @@ class Db extends Generic implements Db_Interface
 	 */
 	public function connect() {
 		if (0 == $this->linkId) {
-			$connectString = 'dbname='.$this->database . $this->ifadd($this->host, 'host=') . $this->ifadd($this->port, 'port=') . $this->ifadd($this->user, 'user=') . $this->ifadd("'" . $this->password . "'", 'password=');
+			$connectString = 'dbname='.$this->database.$this->ifadd($this->host, 'host=').$this->ifadd($this->port, 'port=').$this->ifadd($this->user, 'user=').$this->ifadd("'".$this->password."'", 'password=');
 			$this->linkId = pg_pconnect($connectString);
 
 			if (!$this->linkId) {
@@ -262,21 +262,21 @@ class Db extends Generic implements Db_Interface
 		* conditional code to the apps.
 		*/
 		if (!isset($table) || $table == '' || !isset($field) || $field == '')
-			return - 1;
+			return -1;
 
 		$oid = pg_getlastoid($this->queryId);
 		if ($oid == -1)
-			return - 1;
+			return -1;
 
 		$result = @pg_exec($this->linkId, "select $field from $table where oid=$oid");
 		if (!$result)
-			return - 1;
+			return -1;
 
 		$Record = @pg_fetch_array($result, 0);
 		@pg_freeresult($result);
 		if (!is_array($Record)) /* OID not found? */
 		{
-			return - 1;
+			return -1;
 		}
 
 		return $Record[0];
