@@ -57,5 +57,5 @@ script:
 after_script:
   - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
   - travis_retry bash <(curl -s https://codecov.io/bash);
-  - travis_retry php vendor/bin/*coveralls -v --coverage_clover=coverage.xml;
+  - travis_retry php vendor/bin/coveralls -v --coverage_clover=coverage.xml || travis_retry php vendor/bin/php-coveralls -v --coverage_clover=coverage.xml;
   - travis_retry php vendor/bin/codacycoverage clover coverage.xml;
