@@ -169,7 +169,7 @@ class Db extends Generic implements Db_Interface {
 	public function queryReturn($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
-			return FALSE;
+			return false;
 		} elseif ($this->num_rows() == 1) {
 			$this->next_record(MYSQLI_ASSOC);
 			return $this->Record;
@@ -238,12 +238,12 @@ class Db extends Generic implements Db_Interface {
 			$this->free();
 		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE)
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
 			$this->log($queryString, $line, $file);
 		$tries = 3;
 		$try = 0;
-		$this->queryId = FALSE;
-		while ((null === $this->queryId || $this->queryId === FALSE) && $try <= $tries) {
+		$this->queryId = false;
+		while ((null === $this->queryId || $this->queryId === false) && $try <= $tries) {
 			$try++;
 			if ($try > 1) {
 				@mysqli_close($this->linkId);
@@ -253,10 +253,10 @@ class Db extends Generic implements Db_Interface {
 			$this->Row = 0;
 			$this->Errno = @mysqli_errno($this->linkId);
 			$this->Error = @mysqli_error($this->linkId);
-			if ($try == 1 && (null === $this->queryId || $this->queryId === FALSE)) {
+			if ($try == 1 && (null === $this->queryId || $this->queryId === false)) {
 				$email = "MySQLi Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.$this->Errno.': '.$this->Error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
-				$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
-				$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
+				$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
+				$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
 				$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
 				$headers = '';
 				$headers .= 'MIME-Version: 1.0'.PHP_EOL;
@@ -269,7 +269,7 @@ class Db extends Generic implements Db_Interface {
 			}
 		}
 		$this->haltOnError = $haltPrev;
-		if (null === $this->queryId || $this->queryId === FALSE)
+		if (null === $this->queryId || $this->queryId === false)
 			$this->halt('', $line, $file);
 
 		// Will return nada if it fails. That's fine.
@@ -293,7 +293,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function next_record($resultType = MYSQLI_BOTH) {
-		if ($this->queryId === FALSE) {
+		if ($this->queryId === false) {
 			$this->halt('next_record called with no query pending.');
 			return 0;
 		}
@@ -421,11 +421,11 @@ class Db extends Generic implements Db_Interface {
 	 * @param bool $haltOnError optional, defaults to TRUE, whether or not to halt on error
 	 * @return bool|int|\mysqli_result
 	 */
-	public function unlock($haltOnError = TRUE) {
+	public function unlock($haltOnError = true) {
 		$this->connect();
 
 		$res = @mysqli_query($this->linkId, 'unlock tables');
-		if ($haltOnError === TRUE && !$res) {
+		if ($haltOnError === true && !$res) {
 			$this->halt('unlock() failed.');
 			return 0;
 		}
@@ -514,9 +514,9 @@ class Db extends Generic implements Db_Interface {
  * @return bool
  */
 function mysqli_result($result, $row, $field = 0) {
-	if ($result === false) return FALSE;
-	if ($row >= mysqli_num_rows($result)) return FALSE;
-	if (is_string($field) && !(mb_strpos($field, '.') === FALSE)) {
+	if ($result === false) return false;
+	if ($row >= mysqli_num_rows($result)) return false;
+	if (is_string($field) && !(mb_strpos($field, '.') === false)) {
 		$tField = explode('.', $field);
 		$field = -1;
 		$tFields = mysqli_fetch_fields($result);
@@ -526,7 +526,7 @@ function mysqli_result($result, $row, $field = 0) {
 				break;
 			}
 		}
-		if ($field == -1) return FALSE;
+		if ($field == -1) return false;
 	}
 	mysqli_data_seek($result, $row);
 	$line = mysqli_fetch_array($result);

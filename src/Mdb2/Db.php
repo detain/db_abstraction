@@ -23,7 +23,7 @@ class Db extends Generic implements Db_Interface {
 	public $password = '';
 	public $database = 'pdns';
 	public $type = 'mdb2';
-	public $error = FALSE;
+	public $error = false;
 	public $message = '';
 
 	/**
@@ -219,7 +219,7 @@ class Db extends Generic implements Db_Interface {
 	public function queryReturn($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
-			return FALSE;
+			return false;
 		} elseif ($this->num_rows() == 1) {
 			$this->next_record(MYSQL_ASSOC);
 			return $this->Record;
@@ -274,7 +274,7 @@ class Db extends Generic implements Db_Interface {
 			$this->free();
 		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE)
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
 			$this->log($queryString, $line, $file);
 		$tries = 3;
 		$try = 1;
@@ -282,27 +282,27 @@ class Db extends Generic implements Db_Interface {
 		$this->Row = 0;
 		$this->Errno = @mysqli_errno($this->linkId);
 		$this->Error = @mysqli_error($this->linkId);
-		while ($this->queryId === FALSE && $try <= $tries) {
+		while ($this->queryId === false && $try <= $tries) {
 			$this->message = 'MySQL error '.@mysqli_errno($this->linkId).': '.@mysqli_error($this->linkId).' Query: '.$this->query;
-			$this->error = TRUE;
+			$this->error = true;
 			@mysqli_close($this->linkId);
 			$this->connect();
 			$try++;
 		}
 		$this->haltOnError = $haltPrev;
-		if ($this->queryId === FALSE) {
+		if ($this->queryId === false) {
 			$email = "MySQLi Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.$this->Errno.': '.$this->Error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ?
 					'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 
-			$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, TRUE);
-			$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, TRUE);
+			$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
+			$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
 			$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
 			$headers = '';
 			$headers .= 'MIME-Version: 1.0'.PHP_EOL;
 			$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
 			$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
 			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
-			admin_mail($subject, $email, $headers, FALSE, 'admin/sql_error.tpl');
+			admin_mail($subject, $email, $headers, false, 'admin/sql_error.tpl');
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
 
@@ -319,7 +319,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function next_record($resultType = MYSQLI_BOTH) {
-		if ($this->queryId === FALSE) {
+		if ($this->queryId === false) {
 			$this->halt('next_record called with no query pending.');
 			return 0;
 		}
@@ -364,7 +364,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionBegin() {
-		return TRUE;
+		return true;
 	}
 
 	/**
@@ -372,7 +372,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionCommit() {
-		return TRUE;
+		return true;
 	}
 
 	/**
@@ -380,7 +380,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionAbort() {
-		return TRUE;
+		return true;
 	}
 
 	/**

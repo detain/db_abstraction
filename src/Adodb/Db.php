@@ -44,7 +44,7 @@ class Db extends Generic implements Db_Interface {
 		if ('' == $driver)
 			$driver = $this->driver;
 		/* establish connection, select database */
-		if ($this->linkId === FALSE) {
+		if ($this->linkId === false) {
 			$this->linkId = NewADOConnection($driver);
 			$this->linkId->Connect($host, $user, $password, $database);
 		}
@@ -111,7 +111,7 @@ class Db extends Generic implements Db_Interface {
 	public function queryReturn($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
-			return FALSE;
+			return false;
 		} elseif ($this->num_rows() == 1) {
 			$this->next_record(MYSQL_ASSOC);
 			return $this->Record;
@@ -161,12 +161,12 @@ class Db extends Generic implements Db_Interface {
 		}
 
 		// New query, discard previous result.
-		if ($this->queryId !== FALSE)
+		if ($this->queryId !== false)
 			$this->free();
 
 		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
-		if ($GLOBALS['log_queries'] !== FALSE) {
+		if ($GLOBALS['log_queries'] !== false) {
 			$this->log($queryString, $line, $file);
 
 		}
@@ -174,7 +174,7 @@ class Db extends Generic implements Db_Interface {
 		try {
 			$this->queryId = $this->linkId->Execute($queryString);
 		} catch (exception $e) {
-			$email = "MySQL Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.print_r($e, TRUE)."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ?
+			$email = "MySQL Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.print_r($e, true)."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ?
 					'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>';
@@ -190,7 +190,7 @@ class Db extends Generic implements Db_Interface {
 			$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
 			$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
 			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
-			admin_mail($subject, $email, $headers, FALSE, 'admin/sql_error.tpl');
+			admin_mail($subject, $email, $headers, false, 'admin/sql_error.tpl');
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
 		$this->log("ADOdb Query $queryString (S:$success) - ".count($this->Rows).' Rows', __LINE__, __FILE__);
@@ -244,7 +244,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionBegin() {
-		return TRUE;
+		return true;
 	}
 
 	/**
@@ -252,7 +252,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionCommit() {
-		return TRUE;
+		return true;
 	}
 
 	/**
@@ -260,7 +260,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionAbort() {
-		return TRUE;
+		return true;
 	}
 
 	/**

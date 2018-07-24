@@ -22,7 +22,7 @@ class Loader {
 	public $password = '';
 
 	/* public: configuration parameters */
-	public $autoStripslashes = FALSE;
+	public $autoStripslashes = false;
 	public $Debug = 0; // Set to 1 for debugging messages.
 	public $haltOnError = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 

@@ -74,7 +74,7 @@ class Db extends Generic implements Db_Interface {
 		$dSN = "$driver:dbname=$database;host=$host";
 		if ($this->characterSet != '')
 			$dSN .= ';charset='.$this->characterSet;
-		if ($this->linkId === FALSE) {
+		if ($this->linkId === false) {
 			try {
 				$this->linkId = new \PDO($dSN, $user, $password);
 			} catch (\PDOException $e) {
@@ -135,7 +135,7 @@ class Db extends Generic implements Db_Interface {
 	public function queryReturn($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
-			return FALSE;
+			return false;
 		} elseif ($this->num_rows() == 1) {
 			$this->next_record(MYSQL_ASSOC);
 			return $this->Record;
@@ -184,12 +184,12 @@ class Db extends Generic implements Db_Interface {
 			/* we already complained in connect() about that. */
 		}
 		// New query, discard previous result.
-		if ($this->queryId !== FALSE)
+		if ($this->queryId !== false)
 			$this->free();
 
 		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== FALSE)
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
 			$this->log($queryString, $line, $file);
 
 		$this->queryId = $this->linkId->prepare($queryString);
@@ -197,8 +197,8 @@ class Db extends Generic implements Db_Interface {
 		$this->Rows = $this->queryId->fetchAll();
 		$this->log("PDO Query $queryString (S:$success) - ".count($this->Rows).' Rows', __LINE__, __FILE__);
 		$this->Row = 0;
-		if ($success === FALSE) {
-			$email = "MySQL Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.print_r($this->queryId->errorInfo(), TRUE)."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
+		if ($success === false) {
+			$email = "MySQL Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.print_r($this->queryId->errorInfo(), true)."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 
 			$email .= '<br><br>Request Variables:<br>';
 			foreach ($_REQUEST as $key => $value)
@@ -213,7 +213,7 @@ class Db extends Generic implements Db_Interface {
 			$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
 			$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
 			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
-			admin_mail($subject, $email, $headers, FALSE, 'admin/sql_error.tpl');
+			admin_mail($subject, $email, $headers, false, 'admin/sql_error.tpl');
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
 		}
 

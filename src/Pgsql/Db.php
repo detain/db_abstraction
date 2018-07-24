@@ -114,7 +114,7 @@ class Db extends Generic implements Db_Interface {
 	public function queryReturn($query, $line = '', $file = '') {
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
-			return FALSE;
+			return false;
 		} elseif ($this->num_rows() == 1) {
 			$this->next_record(MYSQL_ASSOC);
 			return $this->Record;
@@ -235,7 +235,7 @@ class Db extends Generic implements Db_Interface {
 		if (!$this->Errno) {
 			return pg_exec($this->linkId, 'commit');
 		} else {
-			return FALSE;
+			return false;
 		}
 	}
 
