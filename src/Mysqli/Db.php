@@ -120,10 +120,9 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $str
 	 * @return string
 	 */
-	public function dbAddslashes($str) {
-		if (!isset($str) || $str == '')
+	public function dbAddslashes($str = '') {
+		if ($str == '')
 			return '';
-
 		return addslashes($str);
 	}
 

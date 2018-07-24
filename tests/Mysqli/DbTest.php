@@ -13,6 +13,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	function __construct($name = null, array $data = array(), $dataName = '') {
 		parent::__construct($name, $data, $dataName);
 		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));;
+		$this->db->Debug = 1;
 	}    
 
 	/**
@@ -60,14 +61,23 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testEscaping() {
+		$oldId = $this->db->linkId;
+		$this->db->linkId = 0;
 		$string1 = 'hi there"dude';
 		$string3 = 'hi there\"dude';
+		$oldId = $this->db->linkId;
+		$this->db->linkId = 0;
+		$string2 = $this->db->real_escape($string1);
+		$this->assertEquals($string3, $string2);
+		$this->db->linkId = $oldId;
 		$string2 = $this->db->real_escape($string1);
 		$this->assertEquals($string3, $string2);
 		$string2 = $this->db->escape($string1);
 		$this->assertEquals($string3, $string2);
 		$string2 = $this->db->dbAddslashes($string1);
 		$this->assertEquals($string3, $string2);
+		$string2 = $this->db->dbAddslashes();
+		$this->assertEquals('', $string2);
 	}
 
 	public function testTo_timestamp() {
@@ -92,7 +102,10 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertNotEquals($old, $this->db->Record);
 		$this->assertTrue(array_key_exists('st_id', $this->db->Record));
 		$this->assertEquals($this->db->f('st_id'), $this->db->Record['st_id']);
-		
+		$this->db->query("select * from service_types");
+		$this->db->query("select * from service_types");
+		$this->assertEquals(0, $this->db->query(""));
+		//$this->db->query("select * from service_types where", __LINE__, __FILE__);
 	}
 
 	public function testTable_names() {
@@ -139,6 +152,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testPrepare() {
 		$return = $this->db->prepare("select * from service_types where st_name = ?");
+		$this->assertTrue(is_resource($return));
 	}
 
 	public function testLimit_query() {
@@ -150,6 +164,8 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertEquals(2, $this->db->num_rows());
 		$this->db->next_record(MYSQLI_ASSOC);
 		$this->assertNotEquals($id, $this->db->Record['st_id']);
+		$this->db->free();
+		$this->assertEquals(0, $this->db->queryId);
 	}
 
 	public function testFetch_object() {
