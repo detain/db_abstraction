@@ -47,12 +47,12 @@ before_script:
   - if [[ "$DB" == "mysql" ]]; then mysql --default-character-set=utf8mb4 tests < tests/mysql.sql; fi
 
 script:
-  - if [[ "$DB" == "postgres" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi;
-  - if [[ "$DB" == "postgres" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v --coverage-clover coverage.xml; fi
-  - if [[ "$DB" == "postgres" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi
-  - if [[ "$DB" == "mysql" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi;
-  - if [[ "$DB" == "mysql" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml; fi
-  - if [[ "$DB" == "mysql" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi
+  - if [[ "$DB" == "postgres" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi;
+  - if [[ "$DB" == "postgres" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage.xml; fi
+  - if [[ "$DB" == "postgres" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage.xml --whitelist src/; fi
+  - if [[ "$DB" == "mysql" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi;
+  - if [[ "$DB" == "mysql" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v --coverage-clover coverage.xml; fi
+  - if [[ "$DB" == "mysql" ]] && [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi
 
 after_script:
   - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
