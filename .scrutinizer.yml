@@ -19,7 +19,7 @@ build:
             #- shellcheck-run -s bash $(ls scripts/*/*.sh)
             #- csslint-run --exclude-list=public_html/css/domains.css,public_html/css/minified,public_html/css/reset.css,public_html/css/price_win.css public_html/css
             -
-                command: 'mysql -e "CREATE DATABASE IF NOT EXISTS tests; GRANT ALL PRIVILEGES ON tests.* to tests@\'%\' identified by \'tests\'; FLUSH PRIVILEGES; use tests; source tests/tests.sql;" ; vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/'
+                command: 'mysql -e "CREATE DATABASE IF NOT EXISTS tests; GRANT ALL PRIVILEGES ON tests.* to tests@\"%\" identified by \"tests\"; FLUSH PRIVILEGES; use tests; source tests/tests.sql;" ; vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/'
                 #command: 'phpdbg -qrr vendor/bin/phpunit --bootstrap tests/bootstrap.php tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/'
                 coverage:
                     file: 'coverage.xml'
