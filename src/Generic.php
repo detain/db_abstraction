@@ -1,11 +1,11 @@
 <?php
 /**
-	* Generic SQL Driver Related Functionality
-	* by detani@interserver.net
-	* @copyright 2018
-	* @package MyAdmin
-	* @category SQL
-	*/
+ * Generic SQL Driver Related Functionality
+ * @author Joe Huss <detain@interserver.net>
+ * @copyright 2018
+ * @package MyAdmin
+ * @category SQL
+ */
 
 namespace MyDb;
 

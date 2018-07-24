@@ -1,6 +1,6 @@
 <?php
 /**
- * MySQL Related Functionality
+ * PDO SQL Related Functionality
  * @author Joe Huss <detain@interserver.net>
  * @copyright 2018
  * @package MyAdmin
