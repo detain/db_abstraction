@@ -390,48 +390,6 @@ class Db extends Generic implements Db_Interface
 		return $this->queryId->NumCols();
 	}
 
-	/* public: shorthand notation */
-
-	/**
-	 * Db::nf()
-	 *
-	 * @return mixed
-	 */
-	public function nf() {
-		return $this->num_rows();
-	}
-
-	/**
-	 * Db::np()
-	 * @return void
-	 */
-	public function np() {
-		print $this->num_rows();
-	}
-
-	/**
-	 * Db::f()
-	 * @param mixed  $Name
-	 * @param string $stripSlashes
-	 * @return string
-	 */
-	public function f($Name, $stripSlashes = '') {
-		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
-			return stripslashes($this->Record[$Name]);
-		} else {
-			return $this->Record[$Name];
-		}
-	}
-
-	/**
-	 * Db::p()
-	 * @param mixed $Name
-	 * @return void
-	 */
-	public function p($Name) {
-		print $this->Record[$Name];
-	}
-
 	/* public: sequence numbers */
 
 	/**
@@ -465,6 +423,19 @@ class Db extends Generic implements Db_Interface
 			return 0;
 		}
 		return $nextid;
+	}
+
+	/**
+	 * @param mixed $msg
+	 * @param string $line
+	 * @param string $file
+	 * @return mixed|void
+	 */
+	public function haltmsg($msg, $line = '', $file = '') {
+		$this->log("Database error: $msg", $line, $file, 'error');
+		if ($this->linkId->ErrorNo() != '0' && $this->linkId->ErrorMsg() != '')
+			$this->log('ADOdb SQL Error: ' . $this->linkId->ErrorMsg(), $line, $file, 'error');
+		$this->logBackTrace($msg, $line, $file);
 	}
 
 	/**

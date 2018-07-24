@@ -483,21 +483,6 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * gets a field
-	 *
-	 * @param mixed  $Name
-	 * @param string $stripSlashes
-	 * @return string
-	 */
-	public function f($Name, $stripSlashes = '') {
-		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
-			return stripslashes($this->Record[$Name]);
-		} else {
-			return $this->Record[$Name];
-		}
-	}
-
-	/**
 	 * sequence numbers
 	 *
 	 * @param mixed $seqName

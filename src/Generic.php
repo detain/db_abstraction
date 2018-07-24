@@ -202,6 +202,21 @@ abstract class Generic
 	}
 
 	/**
+	 * gets a field
+	 *
+	 * @param mixed  $Name
+	 * @param string $stripSlashes
+	 * @return string
+	 */
+	public function f($Name, $stripSlashes = '') {
+		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
+			return stripslashes($this->Record[$Name]);
+		} else {
+			return $this->Record[$Name];
+		}
+	}
+
+	/**
 	 * error handling
 	 *
 	 * @param mixed $msg
@@ -228,14 +243,12 @@ abstract class Generic
 	}
 
 	/**
-	 * @param $msg
+	 * @param mixed $msg
+	 * @param string $line
+	 * @param string $file
+	 * @return mixed|void
 	 */
-	public function haltmsg($msg) {
-		$this->log("Database error: $msg", $line, $file, 'error');
-		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
-			$sqlstate = mysqli_sqlstate($this->linkId);
-			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno.' ('.$this->Error.')', $line, $file, 'error');
-		}
+	public function logBackTrace($msg, $line = '', $file = '') {
 		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
 		$this->log(
 			('' !== getenv('REQUEST_URI') ? ' '.getenv('REQUEST_URI') : '').
@@ -258,6 +271,21 @@ abstract class Generic
 			$message.=')';
 			$this->log($message, $line, $file, 'error');
 		}
+	}
+
+	/**
+	 * @param mixed $msg
+	 * @param string $line
+	 * @param string $file
+	 * @return mixed|void
+	 */
+	public function haltmsg($msg, $line = '', $file = '') {
+		$this->log("Database error: $msg", $line, $file, 'error');
+		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
+			$sqlstate = mysqli_sqlstate($this->linkId);
+			$this->log("MySQLi SQLState: {$sqlstate}. Error: " . $this->Errno . ' (' . $this->Error . ')', $line, $file, 'error');
+		}
+		$this->logBackTrace($msg, $line, $file);
 	}
 
 	/**

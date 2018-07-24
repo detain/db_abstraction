@@ -402,46 +402,6 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::nf()
-	 * @return int
-	 */
-	public function nf() {
-		return $this->num_rows();
-	}
-
-	/**
-	 * Db::np()
-	 * @return void
-	 */
-	public function np() {
-		print $this->num_rows();
-	}
-
-	/**
-	 * Db::f()
-	 * @param mixed  $Name
-	 * @param string $stripSlashes
-	 * @return string
-	 */
-	public function f($Name, $stripSlashes = '') {
-		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
-			return stripslashes($this->Record[$Name]);
-		} else {
-			return $this->Record[$Name];
-		}
-	}
-
-	/**
-	 * Db::p()
-	 *
-	 * @param mixed $Name
-	 * @return void
-	 */
-	public function p($Name) {
-		print $this->Record[$Name];
-	}
-
-	/**
 	 * Db::table_names()
 	 *
 	 * @return array
