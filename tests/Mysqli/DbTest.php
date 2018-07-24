@@ -96,13 +96,14 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testQuery() {
 		$this->db->query("select * from service_types");
-		$this->assertEquals(37, $this->db->num_rows(), 'num_rows Returns proper number of rows');
+		$this->assertEquals(4, $this->db->num_fields(), 'num_fields Returns proper number of rows');
 		$old = $this->db->Record;
 		$this->db->next_record(MYSQLI_ASSOC);
 		$this->assertNotEquals($old, $this->db->Record);
 		$this->assertTrue(array_key_exists('st_id', $this->db->Record));
 		$this->assertEquals($this->db->f('st_id'), $this->db->Record['st_id']);
 		$this->db->query("select * from service_types");
+		$this->assertTrue(is_object($this->db->fetchObject()));
 		$this->db->query("select * from service_types");
 		$this->assertEquals(0, $this->db->query(""));
 		//$this->db->query("select * from service_types where", __LINE__, __FILE__);
@@ -161,7 +162,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->db->next_record(MYSQLI_ASSOC);
 		$id = $this->db->Record['st_id'];
 		$this->db->limitQuery("select * from service_types", 2, 1);
-		$this->assertEquals(2, $this->db->num_rows());
 		$this->db->next_record(MYSQLI_ASSOC);
 		$this->assertNotEquals($id, $this->db->Record['st_id']);
 		$this->db->free();
@@ -203,15 +203,8 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testLock() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testUnlock() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testNum_fields() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$this->assertTrue($this->db->lock('service_types'));
+		$this->assertTrue($this->db->unlock());
 	}
 
 	public function testNextid() {

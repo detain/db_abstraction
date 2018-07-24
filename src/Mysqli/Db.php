@@ -496,6 +496,7 @@ class Db extends Generic implements Db_Interface {
  * @param int|string $field
  * @return bool
  */
+/*
 function mysqli_result($result, $row, $field = 0) {
 	if ($result === false) return false;
 	if ($row >= mysqli_num_rows($result)) return false;
@@ -515,3 +516,4 @@ function mysqli_result($result, $row, $field = 0) {
 	$line = mysqli_fetch_array($result);
 	return isset($line[$field]) ? $line[$field] : false;
 }
+*/
