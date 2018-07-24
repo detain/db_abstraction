@@ -234,7 +234,7 @@ class Db extends Generic implements Db_Interface
 	public function prepare($query) {
 		if (!$this->connect())
 			return 0;
-		$halt_prev = $this->haltOnError;
+		$haltPrev = $this->haltOnError;
 		$this->haltOnError = 'no';
 		return mysqli_prepare($this->linkId, $query);
 	}
@@ -261,7 +261,7 @@ class Db extends Generic implements Db_Interface
 			return 0;
 			/* we already complained in connect() about that. */
 		}
-		$halt_prev = $this->haltOnError;
+		$haltPrev = $this->haltOnError;
 		$this->haltOnError = 'no';
 		// New query, discard previous result.
 		if (is_resource($this->queryId))
@@ -298,7 +298,7 @@ class Db extends Generic implements Db_Interface
 				$this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
 			}
 		}
-		$this->haltOnError = $halt_prev;
+		$this->haltOnError = $haltPrev;
 		if (null === $this->queryId || $this->queryId === FALSE)
 			$this->halt('', $line, $file);
 
@@ -368,7 +368,7 @@ class Db extends Generic implements Db_Interface
 	 *
 	 * @return bool
 	 */
-	public function transaction_begin() {
+	public function transactionBegin() {
 		if (!$this->connect())
 			return 0;
 		return version_compare(PHP_VERSION, '5.5.0') >= 0 ? mysqli_begin_transaction($this->linkId) : true;
@@ -379,7 +379,7 @@ class Db extends Generic implements Db_Interface
 	 *
 	 * @return bool
 	 */
-	public function transaction_commit() {
+	public function transactionCommit() {
 		return version_compare(PHP_VERSION, '5.5.0') >= 0 ? mysqli_commit($this->linkId) : true;
 	}
 
@@ -388,7 +388,7 @@ class Db extends Generic implements Db_Interface
 	 *
 	 * @return bool
 	 */
-	public function transaction_abort() {
+	public function transactionAbort() {
 		return version_compare(PHP_VERSION, '5.5.0') >= 0 ? mysqli_rollback($this->linkId) : true;
 	}
 
@@ -521,7 +521,7 @@ class Db extends Generic implements Db_Interface
 	 *
 	 * @return array
 	 */
-	public function table_names() {
+	public function tableNames() {
 		$return = [];
 		$this->query('SHOW TABLES');
 		$i = 0;

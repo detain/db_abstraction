@@ -67,7 +67,7 @@ interface Db_Interface
 	 */
 	public function haltmsg($msg);
 
-	public function index_names();
+	public function indexNames();
 
 }
 

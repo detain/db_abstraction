@@ -19,14 +19,14 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	* Sets up the fixture, for example, opens a network connection. This method is called before a test is executed.
 	*/
 	protected function setUp() {
-		$this->db->transaction_begin();
+		$this->db->transactionBegin();
 	}
 
 	/**
 	* Tears down the fixture, for example, closes a network connection. This method is called after a test is executed.
 	*/
 	protected function tearDown() {
-		$this->db->transaction_abort();
+		$this->db->transactionAbort();
 	}
 
 	public function testConnect() {
@@ -104,10 +104,10 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testTable_names() {
-		$tables = $this->db->table_names();
-		$this->assertTrue(is_array($tables), 'table_names returns array');
-		$this->assertEquals(1, count($tables), 'table_names returns array');
-		$this->assertEquals('service_types', $tables[0]['table_name'], 'table_names returns proper entries');
+		$tables = $this->db->tableNames();
+		$this->assertTrue(is_array($tables), 'tableNames returns array');
+		$this->assertEquals(1, count($tables), 'tableNames returns array');
+		$this->assertEquals('service_types', $tables[0]['table_name'], 'tableNames returns proper entries');
 	}
 
 	public function testQuery_return() {

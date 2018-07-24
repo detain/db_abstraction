@@ -333,7 +333,7 @@ class Db extends Generic implements Db_Interface
 			return 0;
 			/* we already complained in connect() about that. */
 		}
-		$halt_prev = $this->haltOnError;
+		$haltPrev = $this->haltOnError;
 		$this->haltOnError = 'no';
 		// New query, discard previous result.
 		if (is_resource($this->queryId))
@@ -355,7 +355,7 @@ class Db extends Generic implements Db_Interface
 			$this->connect();
 			$try++;
 		}
-		$this->haltOnError = $halt_prev;
+		$this->haltOnError = $haltPrev;
 		if ($this->queryId === FALSE) {
 			$email = "MySQLi Error<br>\n".'Query: '.$queryString . "<br>\n".'Error #'.$this->Errno.': '.$this->Error . "<br>\n".'Line: '.$line . "<br>\n".'File: '.$file . "<br>\n" . (isset($GLOBALS['tf']) ?
 					'User: '.$GLOBALS['tf']->session->account_id . "<br>\n" : '');
@@ -426,26 +426,26 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::transaction_begin()
+	 * Db::transactionBegin()
 	 * @return bool
 	 */
-	public function transaction_begin() {
+	public function transactionBegin() {
 		return TRUE;
 	}
 
 	/**
-	 * Db::transaction_commit()
+	 * Db::transactionCommit()
 	 * @return bool
 	 */
-	public function transaction_commit() {
+	public function transactionCommit() {
 		return TRUE;
 	}
 
 	/**
-	 * Db::transaction_abort()
+	 * Db::transactionAbort()
 	 * @return bool
 	 */
-	public function transaction_abort() {
+	public function transactionAbort() {
 		return TRUE;
 	}
 
@@ -578,11 +578,11 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::table_names()
+	 * Db::tableNames()
 	 *
 	 * @return array
 	 */
-	public function table_names() {
+	public function tableNames() {
 		$return = [];
 		$this->query('SHOW TABLES');
 		$i = 0;

@@ -297,7 +297,7 @@ class Db extends Generic implements Db_Interface
 	 * Initiates a transaction
 	 * @return bool
 	 */
-	public function transaction_begin() {
+	public function transactionBegin() {
 		return $this->linkId->beginTransaction();
 	}
 
@@ -305,7 +305,7 @@ class Db extends Generic implements Db_Interface
 	 * Commits a transaction
 	 * @return bool
 	 */
-	public function transaction_commit() {
+	public function transactionCommit() {
 		return $this->linkId->commit();
 	}
 
@@ -313,7 +313,7 @@ class Db extends Generic implements Db_Interface
 	 * Rolls back a transaction
 	 * @return bool
 	 */
-	public function transaction_abort() {
+	public function transactionAbort() {
 		return $this->linkId->rollBack();
 	}
 
@@ -507,11 +507,11 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::table_names()
+	 * Db::tableNames()
 	 *
 	 * @return array
 	 */
-	public function table_names() {
+	public function tableNames() {
 		$return = [];
 		$this->query('SHOW TABLES');
 		foreach ($this->Rows as $i => $info) {

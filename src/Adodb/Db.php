@@ -268,26 +268,26 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::transaction_begin()
+	 * Db::transactionBegin()
 	 * @return bool
 	 */
-	public function transaction_begin() {
+	public function transactionBegin() {
 		return TRUE;
 	}
 
 	/**
-	 * Db::transaction_commit()
+	 * Db::transactionCommit()
 	 * @return bool
 	 */
-	public function transaction_commit() {
+	public function transactionCommit() {
 		return TRUE;
 	}
 
 	/**
-	 * Db::transaction_abort()
+	 * Db::transactionAbort()
 	 * @return bool
 	 */
-	public function transaction_abort() {
+	public function transactionAbort() {
 		return TRUE;
 	}
 
@@ -439,11 +439,11 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::table_names()
+	 * Db::tableNames()
 	 *
 	 * @return array
 	 */
-	public function table_names() {
+	public function tableNames() {
 		$return = [];
 		$this->query('SHOW TABLES');
 		$i = 0;

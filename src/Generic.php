@@ -153,7 +153,7 @@ abstract class Generic
 	 * @return string
 	 */
 	public function limit($start = 0) {
-		echo '<b>Warning: limit() is no longer used, use limit_query()</b>';
+		echo '<b>Warning: limit() is no longer used, use limitQuery()</b>';
 		if ($start == 0) {
 			$s = 'limit '.(int)$this->maxMatches;
 		} else {
@@ -172,7 +172,7 @@ abstract class Generic
 	 * @param string|int $numRows
 	 * @return mixed
 	 */
-	public function limit_query($queryString, $offset = 0, $line = '', $file = '', $numRows = '') {
+	public function limitQuery($queryString, $offset = 0, $line = '', $file = '', $numRows = '') {
 		if (!$numRows)
 			$numRows = $this->maxMatches;
 		if ($offset == 0) {
@@ -182,7 +182,7 @@ abstract class Generic
 		}
 
 		if ($this->Debug)
-			printf("Debug: limit_query = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
+			printf("Debug: limitQuery = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
 
 		return $this->query($queryString, $line, $file);
 	}
@@ -291,7 +291,7 @@ abstract class Generic
 	/**
 	 * @return array
 	 */
-	public function index_names() {
+	public function indexNames() {
 		return [];
 	}
 

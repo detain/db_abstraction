@@ -25,7 +25,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	*/
 	protected function setUp()
 	{
-		$this->db->transaction_begin();
+		$this->db->transactionBegin();
 	}
 
 	/**
@@ -34,7 +34,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	*/
 	protected function tearDown()
 	{
-		$this->db->transaction_abort();
+		$this->db->transactionAbort();
 	}
 
 

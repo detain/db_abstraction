@@ -249,19 +249,19 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::transaction_begin()
+	 * Db::transactionBegin()
 	 *
 	 * @return mixed
 	 */
-	public function transaction_begin() {
+	public function transactionBegin() {
 		return $this->query('begin');
 	}
 
 	/**
-	 * Db::transaction_commit()
+	 * Db::transactionCommit()
 	 * @return bool|mixed
 	 */
-	public function transaction_commit() {
+	public function transactionCommit() {
 		if (!$this->Errno) {
 			return pg_exec($this->linkId, 'commit');
 		} else {
@@ -270,10 +270,10 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::transaction_abort()
+	 * Db::transactionAbort()
 	 * @return mixed
 	 */
-	public function transaction_abort() {
+	public function transactionAbort() {
 		return pg_exec($this->linkId, 'rollback');
 	}
 
@@ -318,7 +318,7 @@ class Db extends Generic implements Db_Interface
 	 * @return int|mixed
 	 */
 	public function lock($table, $mode = 'write') {
-		$result = $this->transaction_begin();
+		$result = $this->transactionBegin();
 
 		if ($mode == 'write') {
 			if (is_array($table)) {
@@ -339,7 +339,7 @@ class Db extends Generic implements Db_Interface
 	 * @return bool|mixed
 	 */
 	public function unlock() {
-		return $this->transaction_commit();
+		return $this->transactionCommit();
 	}
 
 	/* public: sequence numbers */
@@ -402,11 +402,11 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::table_names()
+	 * Db::tableNames()
 	 *
 	 * @return array
 	 */
-	public function table_names() {
+	public function tableNames() {
 		$return = [];
 		$this->query("select relname from pg_class where relkind = 'r' and not relname like 'pg_%'");
 		$i = 0;
@@ -420,11 +420,11 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
-	 * Db::index_names()
+	 * Db::indexNames()
 	 *
 	 * @return array
 	 */
-	public function index_names() {
+	public function indexNames() {
 		$return = [];
 		$this->query("SELECT relname FROM pg_class WHERE NOT relname ~ 'pg_.*' AND relkind ='i' ORDER BY relname");
 		$i = 0;

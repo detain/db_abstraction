@@ -180,7 +180,7 @@ class Loader
 	/**
 	 * @return array
 	 */
-	public function index_names() {
+	public function indexNames() {
 		return [];
 	}
 
