@@ -3,11 +3,12 @@ filter:
         - tests/*
 build:
     environment:
-        php: 7.0
-        ini:
-            'date.timezone': 'America/New_York'
+        php:
+            version: '7.0'
+            ini:
+                'date.timezone': 'America/New_York'
     cache:
-        disabled:             false
+        disabled: false
         directories:
             - ~/.composer/cache
             - tmp/
