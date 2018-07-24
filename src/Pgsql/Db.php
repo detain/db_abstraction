@@ -292,7 +292,7 @@ class Db extends Generic implements Db_Interface {
 
 		if ($mode == 'write') {
 			if (is_array($table)) {
-				while ($t = each($table))
+				foreach ($table as $t)
 					$result = pg_exec($this->linkId, 'lock table '.$t[1].' in share mode');
 			} else {
 				$result = pg_exec($this->linkId, 'lock table '.$table.' in share mode');

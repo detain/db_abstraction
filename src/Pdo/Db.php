@@ -300,7 +300,7 @@ class Db extends Generic implements Db_Interface {
 		* $query = "lock tables ";
 		* if (is_array($table))
 		* {
-		* while (list($key,$value)=each($table))
+		* foreach ($table as $key => $value)
 		* {
 		* if ($key == "read" && $key!=0)
 		* {
