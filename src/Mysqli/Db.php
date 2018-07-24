@@ -118,7 +118,7 @@ class Db extends Generic implements Db_Interface {
 	 */
 	public function real_escape($string) {
 		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect())
-			return mysqli_escape_string($string);
+			return $this->escape($string);
 		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
@@ -127,7 +127,9 @@ class Db extends Generic implements Db_Interface {
 	 * @return string
 	 */
 	public function escape($string) {
-		return mysqli_escape_string($string);
+		if (function_exists('mysql_escape_string'))
+			return mysqli_escape_string($string);
+		return str_replace(array('\\', "\0", "\n", "\r", "'", '"', "\x1a"), array('\\\\', '\\0', '\\n', '\\r', "\\'", '\\"', '\\Z'), $string);
 	}
 
 	/**
