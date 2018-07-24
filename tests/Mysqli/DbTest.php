@@ -122,6 +122,8 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testDisconnect() {
+		$this->db->linkId = 0;
+		$this->db->connect();
 		$return = $this->db->disconnect();
 		$this->assertTrue($return);
 		$this->db->connect();

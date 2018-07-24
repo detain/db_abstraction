@@ -56,13 +56,13 @@ class Db extends Generic implements Db_Interface {
 	 */
 	public function connect($database = '', $host = '', $user = '', $password = '') {
 		/* Handle defaults */
-		if ('' == $database)
+		if ($database == '')
 			$database = $this->database;
-		if ('' == $host)
+		if ($host == '')
 			$host = $this->host;
-		if ('' == $user)
+		if ($user == '')
 			$user = $this->user;
-		if ('' == $password)
+		if ($password == '')
 			$password = $this->password;
 		/* establish connection, select database */
 		if (!is_object($this->linkId)) {
@@ -73,41 +73,24 @@ class Db extends Generic implements Db_Interface {
 				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
 				return 0;
 			}
-			//$this->linkId = new mysqli($host, $user, $password, $database);
 			$this->linkId = mysqli_init();
 			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
 			$this->linkId->real_connect($host, $user, $password, $database);
 			$this->linkId->set_charset($this->characterSet);
-			/*
-			* $this->linkId = $this->Link_Init->real_connect($host, $user, $password, $database);
-			* if ($this->linkId)
-			* {
-			* $this->linkId = $this->Link_Init;
-			* }
-			*/
 			if ($this->linkId->connect_errno) {
 				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
 				return 0;
 			}
-			/*if ($this->characterSet != '') {
-				if ($this->collation != '')
-					@mysqli_query($this->linkId, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}, {$this->collation} = {$this->collation};", MYSQLI_STORE_RESULT);
-				else
-					@mysqli_query($this->linkId, "SET NAMES {$this->characterSet};", MYSQLI_STORE_RESULT);
-				mysqli_set_charset($this->linkId, $this->characterSet);
-			}*/
 		}
 		return $this->linkId;
 	}
-
-	/* This only affects systems not using persistent connections */
 
 	/**
 	 * Db::disconnect()
 	 * @return bool
 	 */
 	public function disconnect() {
-		$return = is_object($this->linkId) ? $this->linkId->close() : false;
+		$return = is_resource($this->linkId) ? $this->linkId->close() : false;
 		$this->linkId = 0;
 		return $return;
 	}
