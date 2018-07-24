@@ -107,10 +107,9 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function disconnect() {
-		if (is_object($this->linkId))
-			return $this->linkId->close();
-		else
-			return false;
+		$return = is_object($this->linkId) ? $this->linkId->close() : false;
+		$this->linkId = 0;
+		return $return;
 	}
 
 	/**
@@ -128,7 +127,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return string
 	 */
 	public function escape($string) {
-		return mysql_escape_string($string);
+		return mysqli_escape_string($string);
 	}
 
 	/**
@@ -352,7 +351,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionCommit() {
-		if (version_compare(PHP_VERSION, '5.5.0') < 0)
+		if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0)
 			return true;
 		return mysqli_commit($this->linkId);
 	}
@@ -363,7 +362,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function transactionAbort() {
-		if (version_compare(PHP_VERSION, '5.5.0') < 0)
+		if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0)
 			return true;
 		return mysqli_rollback($this->linkId);
 	}
