@@ -174,8 +174,8 @@ abstract class Generic {
 	 * perform a query with limited result set
 	 *
 	 * @param string $queryString
-	 * @param int $offset
 	 * @param string|int $numRows
+	 * @param int $offset
 	 * @param string|int $line
 	 * @param string $file
 	 * @return mixed

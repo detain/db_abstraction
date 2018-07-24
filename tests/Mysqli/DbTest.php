@@ -32,13 +32,13 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testConnect() {
-		$this->db->linkId = null;
+		$this->db->linkId = 0;
 		$this->db->connect();
 		$this->assertTrue(is_object($this->db->linkId), 'connect sets the link id');
 	}
 
 	public function testLink_id() {
-		$this->db->linkId = null;
+		$this->db->linkId = 0;
 		$this->assertEquals($this->db->linkId, $this->db->linkId(), 'linkId() returns the linkId variable');
 		$this->db->connect();
 		$this->assertEquals($this->db->linkId, $this->db->linkId(), 'linkId() returns the linkId variable');
@@ -122,11 +122,11 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testDisconnect() {
-		$this->db->linkId = 0;
-		$this->db->connect();
-		$return = $this->db->disconnect();
-		$this->assertTrue($return);
-		$this->db->connect();
+		if (is_resource($this->db->linkId)) {
+			$return = $this->db->disconnect();
+			$this->assertTrue($return);
+			$this->db->connect();
+		}
 	}
 
 	public function testLimit() {
