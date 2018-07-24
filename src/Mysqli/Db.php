@@ -17,8 +17,7 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface
-{
+class Db extends Generic implements Db_Interface {
 	/**
 	 * @var string
 	 */

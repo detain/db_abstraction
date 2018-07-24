@@ -17,8 +17,7 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface
-{
+class Db extends Generic implements Db_Interface {
 	/* public: connection parameters */
 	public $driver = 'mysql';
 	public $Rows = [];
@@ -76,11 +75,9 @@ class Db extends Generic implements Db_Interface
 		if ($this->characterSet != '')
 			$dSN .= ';charset='.$this->characterSet;
 		if ($this->linkId === FALSE) {
-			try
-			{
+			try {
 				$this->linkId = new \PDO($dSN, $user, $password);
-			}
-			catch (\PDOException $e) {
+			} catch (\PDOException $e) {
 				$this->halt('Connection Failed '.$e->getMessage());
 				return 0;
 			}

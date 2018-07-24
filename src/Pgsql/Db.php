@@ -17,8 +17,7 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface
-{
+class Db extends Generic implements Db_Interface {
 	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'pgsql';
 	public $port = '5432';

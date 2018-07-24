@@ -17,8 +17,7 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface
-{
+class Db extends Generic implements Db_Interface {
 	public $driver = 'mysql';
 	public $Rows = [];
 	public $type = 'adodb';
@@ -172,11 +171,9 @@ class Db extends Generic implements Db_Interface
 
 		}
 
-		try
-		{
+		try {
 			$this->queryId = $this->linkId->Execute($queryString);
-		}
-		catch (exception $e) {
+		} catch (exception $e) {
 			$email = "MySQL Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.print_r($e, TRUE)."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ?
 					'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 

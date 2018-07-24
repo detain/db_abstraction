@@ -12,8 +12,7 @@ namespace MyDb;
 /**
  * Class Generic
  */
-abstract class Generic
-{
+abstract class Generic {
 	/* public: connection parameters */
 	public $host = 'localhost';
 	public $database = '';

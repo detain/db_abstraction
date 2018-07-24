@@ -13,8 +13,7 @@ namespace MyDb;
  *
  * @package MyDb
  */
-class Loader
-{
+class Loader {
 	/* public: connection parameters */
 	public $Type = 'mysqli';
 	public $host = 'localhost';

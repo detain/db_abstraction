@@ -1,11 +1,11 @@
 <?php
 /**
-	* Generic SQL Driver Related Functionality
-	* by detani@interserver.net
-	* @copyright 2018
-	* @package MyAdmin
-	* @category SQL
-	*/
+ * Generic SQL Driver Related Functionality
+ * by detani@interserver.net
+ * @copyright 2018
+ * @package MyAdmin
+ * @category SQL
+ */
 
 namespace MyDb;
 /**
@@ -13,8 +13,7 @@ namespace MyDb;
  *
  * @package MyDb
  */
-interface Db_Interface
-{
+interface Db_Interface {
 
 	/**
 	 * Db_Interface constructor.
