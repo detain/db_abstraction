@@ -152,7 +152,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testPrepare() {
 		$return = $this->db->prepare("select * from service_types where st_name = ?");
-		$this->assertTrue(is_resource($return));
+		$this->assertTrue(is_object($return));
 	}
 
 	public function testLimit_query() {
