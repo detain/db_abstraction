@@ -251,12 +251,12 @@ abstract class Generic
 		$backtrace=(function_exists('debug_backtrace') ? debug_backtrace() : []);
 		$this->log(
 			('' !== getenv('REQUEST_URI') ? ' '.getenv('REQUEST_URI') : '').
-			((isset($_POST) && count($_POST)) ? ' POST='.myadmin_stringify($_POST) : '').
-			((isset($_GET) && count($_GET)) ? ' GET='.myadmin_stringify($_GET) : '').
-			((isset($_FILES) && count($_FILES)) ? ' FILES='.myadmin_stringify($_FILES) : '').
+			((isset($_POST) && count($_POST)) ? ' POST='.json_encode($_POST) : '').
+			((isset($_GET) && count($_GET)) ? ' GET='.json_encode($_GET) : '').
+			((isset($_FILES) && count($_FILES)) ? ' FILES='.json_encode($_FILES) : '').
 			('' !== getenv('HTTP_USER_AGENT') ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 			(isset($_SERVER[ 'REQUEST_METHOD' ]) ?' METHOD="'. $_SERVER['REQUEST_METHOD']. '"'.
-				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. myadmin_stringify($_POST). '"' : '') : ''), $line, $file, 'error');
+				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'. json_encode($_POST). '"' : '') : ''), $line, $file, 'error');
 		for($level=1, $levelMax = count($backtrace);$level < $levelMax;$level++) {
 			$message=(isset($backtrace[$level]['file']) ? 'File: '. $backtrace[$level]['file'] : '').
 				(isset($backtrace[$level]['line']) ? ' Line: '. $backtrace[$level]['line'] : '').
@@ -266,7 +266,7 @@ abstract class Generic
 			if(isset($backtrace[$level] ['args']))
 				for($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
 					$message .= ($argument > 0 ? ', ' : '').
-						(is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : myadmin_stringify($backtrace[$level]['args'][$argument]));
+						(is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : json_encode($backtrace[$level]['args'][$argument]));
 			$message.=')';
 			$this->log($message, $line, $file, 'error');
 		}

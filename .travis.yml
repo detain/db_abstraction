@@ -40,7 +40,7 @@ before_install:
 
 install:
   - travis_retry composer selfupdate
-  - travis_retry composer install --no-interaction --prefer-source --dev --ansi -o
+  - travis_retry composer install --no-interaction --prefer-source --ansi -o
 
 before_script:
   - if [[ "$DB" == "postgres" ]]; then psql tests < tests/psql.sql; fi
