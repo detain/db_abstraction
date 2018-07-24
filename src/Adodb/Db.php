@@ -174,24 +174,7 @@ class Db extends Generic implements Db_Interface {
 		try {
 			$this->queryId = $this->linkId->Execute($queryString);
 		} catch (exception $e) {
-			$email = "MySQL Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.print_r($e, true)."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ?
-					'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
-
-			$email .= '<br><br>Request Variables:<br>';
-			foreach ($_REQUEST as $key => $value)
-				$email .= $key.': '.$value."<br>\n";
-
-			$email .= '<br><br>Server Variables:<br>';
-			foreach ($_SERVER as $key => $value)
-				$email .= $key.': '.$value."<br>\n";
-			$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
-			$headers = '';
-			$headers .= 'MIME-Version: 1.0'.PHP_EOL;
-			$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
-			$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
-			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
-			admin_mail($subject, $email, $headers, false, 'admin/sql_error.tpl');
-			$this->halt('Invalid SQL: '.$queryString, $line, $file);
+			$this->emailError($queryString, $e, $line, $file);            
 		}
 		$this->log("ADOdb Query $queryString (S:$success) - ".count($this->Rows).' Rows', __LINE__, __FILE__);
 		$this->Row = 0;
@@ -392,34 +375,4 @@ class Db extends Generic implements Db_Interface {
 		}
 		return $return;
 	}
-
-	/**
-	 * Db::createDatabase()
-	 *
-	 * @param string $adminname
-	 * @param string $adminpasswd
-	 * @return void
-	 */
-	public function createDatabase($adminname = '', $adminpasswd = '') {
-		$currentUser = $this->user;
-		$currentPassword = $this->password;
-		$currentDatabase = $this->database;
-
-		if ($adminname != '') {
-			$this->user = $adminname;
-			$this->password = $adminpasswd;
-			$this->database = 'mysql';
-		}
-		$this->disconnect();
-		$this->query("CREATE DATABASE $currentDatabase");
-		$this->query("grant all on $currentDatabase.* to $currentUser@localhost identified by '{$currentPassword}'");
-		$this->disconnect();
-
-		$this->user = $currentUser;
-		$this->password = $currentPassword;
-		$this->database = $currentDatabase;
-		$this->connect();
-		/*return $return; */
-	}
-
 }

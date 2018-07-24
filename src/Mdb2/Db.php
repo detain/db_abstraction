@@ -291,19 +291,7 @@ class Db extends Generic implements Db_Interface {
 		}
 		$this->haltOnError = $haltPrev;
 		if ($this->queryId === false) {
-			$email = "MySQLi Error<br>\n".'Query: '.$queryString."<br>\n".'Error #'.$this->Errno.': '.$this->Error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ?
-					'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
-
-			$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
-			$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
-			$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
-			$headers = '';
-			$headers .= 'MIME-Version: 1.0'.PHP_EOL;
-			$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
-			$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
-			$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
-			admin_mail($subject, $email, $headers, false, 'admin/sql_error.tpl');
-			$this->halt('Invalid SQL: '.$queryString, $line, $file);
+			$this->emailError($queryString, 'Error #'.$this->Errno.': '.$this->Error, $line, $file);
 		}
 
 		// Will return nada if it fails. That's fine.
@@ -492,34 +480,4 @@ class Db extends Generic implements Db_Interface {
 		}
 		return $return;
 	}
-
-	/**
-	 * Db::createDatabase()
-	 *
-	 * @param string $adminname
-	 * @param string $adminpasswd
-	 * @return void
-	 */
-	public function createDatabase($adminname = '', $adminpasswd = '') {
-		$currentUser = $this->user;
-		$currentPassword = $this->password;
-		$currentDatabase = $this->database;
-
-		if ($adminname != '') {
-			$this->user = $adminname;
-			$this->password = $adminpasswd;
-			$this->database = 'mysql';
-		}
-		$this->disconnect();
-		$this->query("CREATE DATABASE $currentDatabase");
-		$this->query("grant all on $currentDatabase.* to $currentUser@localhost identified by '{$currentPassword}'");
-		$this->disconnect();
-
-		$this->user = $currentUser;
-		$this->password = $currentPassword;
-		$this->database = $currentDatabase;
-		$this->connect();
-		/*return $return; */
-	}
-
 }

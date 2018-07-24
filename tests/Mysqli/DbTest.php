@@ -205,6 +205,8 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testLock() {
 		$this->assertTrue($this->db->lock('service_types'));
 		$this->assertTrue($this->db->unlock());
+		$this->assertTrue($this->db->lock([['read', 'service_types']]));
+		$this->assertTrue($this->db->unlock());
 	}
 
 	public function testNextid() {
@@ -223,9 +225,5 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$names = $this->db->indexNames();
 		$this->assertTrue(is_array($names), 'indexNames() returns an array of indexes');
 		$this->assertEquals(0, count($names), 'MySQLi indexNames() returns empty array');
-	}
-
-	public function testCreateDatabase() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 }

@@ -384,40 +384,4 @@ class Db extends Generic implements Db_Interface {
 		}
 		return $return;
 	}
-
-	/**
-	 * Db::createDatabase()
-	 *
-	 * @param string $adminname
-	 * @param string $adminpasswd
-	 * @return void
-	 */
-	public function createDatabase($adminname = '', $adminpasswd = '') {
-		$currentUser = $this->user;
-		$currentPassword = $this->password;
-		$currentDatabase = $this->database;
-
-		if ($adminname != '') {
-			$this->user = $adminname;
-			$this->password = $adminpasswd;
-		}
-
-		if (!$this->host) {
-			system('createdb '.$currentDatabase, $outval);
-		} else {
-			system('createdb -h '.$this->host.' '.$currentDatabase, $outval);
-		}
-
-		if ($outval != 0) {
-			/* either the rights r not available or the postmaster is not running .... */
-			echo 'database creation failure <BR>';
-			echo 'please setup the postreSQL database manually<BR>';
-		}
-
-		$this->user = $currentUser;
-		$this->password = $currentPassword;
-		$this->database = $currentDatabase;
-		$this->connect();
-	}
-
 }

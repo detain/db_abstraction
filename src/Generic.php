@@ -281,6 +281,22 @@ abstract class Generic {
 		}
 	}
 
+	public function emailError($queryString, $error, $line, $file) {
+		$email = $this->type." Error<br>\n".'Query: '.$queryString."<br>\n".$error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
+		$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
+		$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
+		$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
+		$headers = '';
+		$headers .= 'MIME-Version: 1.0'.PHP_EOL;
+		$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
+		$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
+		$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
+		mail('john@interserver.net', $subject, $email, $headers);
+		mail('detain@interserver.net', $subject, $email, $headers);
+		$this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
+		
+	}
+	
 	/**
 	 * @param mixed $msg
 	 * @param string $line
