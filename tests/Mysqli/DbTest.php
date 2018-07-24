@@ -44,40 +44,30 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertEquals($this->db->linkId, $this->db->linkId(), 'linkId() returns the linkId variable');
 	}
 
-	public function testUse_db() {
+	public function testUseDb() {
 		foreach (['tests', 'tests2', 'tests'] as $db) {
 			$this->db->useDb($db);
 			$this->db->query("select database()");
 			$this->db->next_record(MYSQLI_NUM);
 			$this->assertEquals($db, $this->db->Record[0], 'useDb properly changes database');
 		}
-	}
-
-	public function testSelect_db() {
 		foreach (['tests', 'tests2', 'tests'] as $db) {
-			$this->db->useDb($db);
+			$this->db->selectDb($db);
 			$this->db->query("select database()");
 			$this->db->next_record(MYSQLI_NUM);
 			$this->assertEquals($db, $this->db->Record[0], 'useDb properly changes database');
 		}
 	}
 
-	public function testReal_escape() {
+	public function testEscaping() {
 		$string1 = 'hi there"dude';
+		$string3 = 'hi there\"dude';
 		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
-	}
-
-	public function testEscape() {
-		$string1 = 'hi there"dude';
-		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
-	}
-
-	public function testDb_addslashes() {
-		$string1 = 'hi there"dude';
-		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
+		$this->assertEquals($string3, $string2);
+		$string2 = $this->db->escape($string1);
+		$this->assertEquals($string3, $string2);
+		$string2 = $this->db->dbAddslashes($string1);
+		$this->assertEquals($string3, $string2);
 	}
 
 	public function testTo_timestamp() {
@@ -114,8 +104,16 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testQuery_return() {
 		$return = $this->db->queryReturn("select * from service_types limit 1");
+		$this->assertTrue(is_array($return));
 		$this->assertTrue(array_key_exists('st_id', $return));
+		$return = $this->db->queryReturn("select * from service_types where st_id=-1 limit 1");
+		$this->assertFalse($return);
+		$return = $this->db->queryReturn("select * from service_types limit 5");
+		$this->assertTrue(is_array($return));
+		$this->assertTrue(is_array($return[0]));
+		$this->assertTrue(array_key_exists('st_id', $return[0]));
 		$return = $this->db->qr("select * from service_types limit 1");
+		$this->assertTrue(is_array($return));
 		$this->assertTrue(array_key_exists('st_id', $return));
 	}
 
@@ -124,7 +122,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testDisconnect() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$return = $this->db->disconnect();
+		$this->assertTrue($return);
+		$this->db->connect();
 	}
 
 	public function testLimit() {
@@ -136,11 +136,18 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testPrepare() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$return = $this->db->prepare("select * from service_types where st_name = ?");
 	}
 
 	public function testLimit_query() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$this->db->limitQuery("select * from service_types", 1);
+		$this->assertEquals(1, $this->db->num_rows());
+		$this->db->next_record(MYSQL_ASSOC);
+		$id = $this->db->Record['st_id'];
+		$this->db->limitQuery("select * from service_types", 2, 1);
+		$this->assertEquals(2, $this->db->num_rows());
+		$this->db->next_record(MYSQL_ASSOC);
+		$this->assertNotEquals($id, $this->db->Record['st_id']);
 	}
 
 	public function testFetch_object() {

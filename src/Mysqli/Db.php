@@ -104,13 +104,13 @@ class Db extends Generic implements Db_Interface {
 
 	/**
 	 * Db::disconnect()
-	 * @return int
+	 * @return bool
 	 */
 	public function disconnect() {
 		if (is_object($this->linkId))
 			return $this->linkId->close();
 		else
-			return 0;
+			return false;
 	}
 
 	/**

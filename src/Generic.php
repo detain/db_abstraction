@@ -175,12 +175,12 @@ abstract class Generic {
 	 *
 	 * @param string $queryString
 	 * @param int $offset
+	 * @param string|int $numRows
 	 * @param string|int $line
 	 * @param string $file
-	 * @param string|int $numRows
 	 * @return mixed
 	 */
-	public function limitQuery($queryString, $offset = 0, $line = '', $file = '', $numRows = '') {
+	public function limitQuery($queryString, $numRows = '', $offset = 0, $line = '', $file = '') {
 		if (!$numRows)
 			$numRows = $this->maxMatches;
 		if ($offset == 0) {
