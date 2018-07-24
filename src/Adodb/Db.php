@@ -390,41 +390,6 @@ class Db extends Generic implements Db_Interface
 		return $this->queryId->NumCols();
 	}
 
-	/* public: sequence numbers */
-
-	/**
-	 * Db::nextid()
-	 * @param mixed $seqName
-	 * @return int
-	 */
-	public function nextid($seqName) {
-		$this->connect();
-
-		if ($this->lock($this->seqTable)) {
-			/* get sequence number (locked) and increment */
-			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->seqTable, $seqName);
-			$id = @mysql_query($q, $this->linkId);
-			$res = @mysql_fetch_array($id);
-
-			/* No current value, make one */
-			if (!is_array($res)) {
-				$currentid = 0;
-				$q = sprintf("insert into %s values('%s', %s)", $this->seqTable, $seqName, $currentid);
-				$id = @mysql_query($q, $this->linkId);
-			} else {
-				$currentid = $res['nextid'];
-			}
-			$nextid = $currentid + 1;
-			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->seqTable, $nextid, $seqName);
-			$id = @mysql_query($q, $this->linkId);
-			$this->unlock();
-		} else {
-			$this->halt('cannot lock '.$this->seqTable.' - has it been created?');
-			return 0;
-		}
-		return $nextid;
-	}
-
 	/**
 	 * @param mixed $msg
 	 * @param string $line

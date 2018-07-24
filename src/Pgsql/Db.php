@@ -342,41 +342,6 @@ class Db extends Generic implements Db_Interface
 		return $this->transactionCommit();
 	}
 
-	/* public: sequence numbers */
-
-	/**
-	 * Db::nextid()
-	 * @param mixed $seqName
-	 * @return int
-	 */
-	public function nextid($seqName) {
-		$this->connect();
-
-		if ($this->lock($this->seqTable)) {
-			/* get sequence number (locked) and increment */
-			$q = sprintf("select nextid from %s where seq_name = '%s'", $this->seqTable, $seqName);
-			$id = @pg_exec($this->linkId, $q);
-			$res = @pg_fetch_array($id, 0);
-
-			/* No current value, make one */
-			if (!is_array($res)) {
-				$currentid = 0;
-				$q = sprintf("insert into %s values('%s', %s)", $this->seqTable, $seqName, $currentid);
-				$id = @pg_exec($this->linkId, $q);
-			} else {
-				$currentid = $res['nextid'];
-			}
-			$nextid = $currentid + 1;
-			$q = sprintf("update %s set nextid = '%s' where seq_name = '%s'", $this->seqTable, $nextid, $seqName);
-			$id = @pg_exec($this->linkId, $q);
-			$this->unlock();
-		} else {
-			$this->halt('cannot lock '.$this->seqTable.' - has it been created?');
-			return 0;
-		}
-		return $nextid;
-	}
-
 	/**
 	 * Db::affected_rows()
 	 * @return void

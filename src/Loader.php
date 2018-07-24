@@ -26,7 +26,6 @@ class Loader
 	public $autoStripslashes = FALSE;
 	public $Debug = 0; // Set to 1 for debugging messages.
 	public $haltOnError = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
-	public $seqTable = 'db_sequence';
 
 	/* public: result array and current row number */
 	public $Record = [];
