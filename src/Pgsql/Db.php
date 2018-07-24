@@ -367,6 +367,19 @@ class Db extends Generic implements Db_Interface
 	}
 
 	/**
+	 * @param mixed $msg
+	 * @param string $line
+	 * @param string $file
+	 * @return mixed|void
+	 */
+	public function haltmsg($msg, $line = '', $file = '') {
+		$this->log("Database error: $msg", $line, $file, 'error');
+		if ($this->Errno != '0' || $this->Error != '()')
+			$this->log('PostgreSQL Error: '.pg_last_error($this->linkId), $line, $file, 'error');
+		$this->logBackTrace($msg, $line, $file);
+	}
+
+	/**
 	 * Db::tableNames()
 	 *
 	 * @return array
