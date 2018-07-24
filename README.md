@@ -2,6 +2,41 @@
 
 Provides a simple unified interface for connecting to a bunch of different database types.  Supports php native mysqli and pgsql extensions, as well as PDO, AdoDB, and MDB2 connections as well as everything supported by PDO and AdoDB.
 
+## Supported Databases
+
+You can use this library to connect to any of the following database types.   Most of the database types have multiple ways of connecting to them (ie MySQL can use Mysqli, PDO, ADOdb, and MDB2)
+
+- 4D
+- ADO
+- CUBRID
+- Firebird & Interbase
+- Frontbase
+- IBM DB2
+- IBM Informix
+- Interbase
+- LDAP
+- Microsoft Access
+- Microsoft SQL Server
+- MySQL
+  - MySQL
+  - MariaDB
+  - Percona
+- Netezza
+- ODBC
+- ODBTP
+- Oracle
+- PDO
+- PostgreSQL
+- Proxy
+- SAP ADS
+- SAP ASE
+- SAP MaxDB
+- SAP SQLAnywhere
+- SQLite Database
+- Sybase
+- Plain Text
+- Visual Foxpro
+
 ## Build Status and Code Analysis
 
 Site          | Status
