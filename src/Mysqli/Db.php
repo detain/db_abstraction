@@ -547,11 +547,11 @@ function mysqli_result($result, $row, $field=0) {
 	if ($result===false) return FALSE;
 	if ($row>=mysqli_num_rows($result)) return FALSE;
 	if (is_string($field) && !(mb_strpos($field, '.') === FALSE)) {
-		$t_field=explode('.', $field);
+		$tField=explode('.', $field);
 		$field=-1;
-		$t_fields=mysqli_fetch_fields($result);
+		$tFields=mysqli_fetch_fields($result);
 		for ($id=0, $idMax = mysqli_num_fields($result);$id<$idMax;$id++) {
-			if ($t_fields[$id]->table==$t_field[0] && $t_fields[$id]->name==$t_field[1]) {
+			if ($tFields[$id]->table==$tField[0] && $tFields[$id]->name==$tField[1]) {
 				$field=$id;
 				break;
 			}

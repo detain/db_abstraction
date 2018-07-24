@@ -66,10 +66,10 @@ class Db extends Generic implements Db_Interface
 	 * @return void
 	 */
 	public function selectDb($database) {
-		$DSN = "{$this->driver}:dbname={$database};host={$this->host}";
+		$dSN = "{$this->driver}:dbname={$database};host={$this->host}";
 		if ($this->characterSet != '')
-			$DSN .= ';charset='.$this->characterSet;
-		$this->linkId = new \PDO($DSN, $this->user, $this->password);
+			$dSN .= ';charset='.$this->characterSet;
+		$this->linkId = new \PDO($dSN, $this->user, $this->password);
 	}
 
 	/* public: connection management */
@@ -96,13 +96,13 @@ class Db extends Generic implements Db_Interface
 		if ('' == $driver)
 			$driver = $this->driver;
 		/* establish connection, select database */
-		$DSN = "$driver:dbname=$database;host=$host";
+		$dSN = "$driver:dbname=$database;host=$host";
 		if ($this->characterSet != '')
-			$DSN .= ';charset='.$this->characterSet;
+			$dSN .= ';charset='.$this->characterSet;
 		if ($this->linkId === FALSE) {
 			try
 			{
-				$this->linkId = new \PDO($DSN, $user, $password);
+				$this->linkId = new \PDO($dSN, $user, $password);
 			}
 			catch (\PDOException $e) {
 				$this->halt('Connection Failed '.$e->getMessage());

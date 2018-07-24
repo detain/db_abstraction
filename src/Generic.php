@@ -203,15 +203,15 @@ abstract class Generic
 	/**
 	 * gets a field
 	 *
-	 * @param mixed  $Name
+	 * @param mixed  $name
 	 * @param string $stripSlashes
 	 * @return string
 	 */
-	public function f($Name, $stripSlashes = '') {
+	public function f($name, $stripSlashes = '') {
 		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
-			return stripslashes($this->Record[$Name]);
+			return stripslashes($this->Record[$name]);
 		} else {
-			return $this->Record[$Name];
+			return $this->Record[$name];
 		}
 	}
 
