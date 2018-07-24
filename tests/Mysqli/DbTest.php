@@ -150,7 +150,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testTransactions() {
-		$this->db->linkId = null;
 		if (version_compare(PHP_VERSION, '5.5.0') >= 0) {
 			$this->assertTrue($this->db->transactionBegin(), 'transactionBegin returns proper response');;
 			$this->assertTrue($this->db->transactionCommit(), 'transactionBegin returns proper response');;
