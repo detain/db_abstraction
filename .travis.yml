@@ -16,13 +16,13 @@ php:
 
 cache:
   directories:
-	- $HOME/.composer/cache/files
-	- tmp/pear/download/
-	- vendor/
+    - $HOME/.composer/cache/files
+    - tmp/pear/download/
+    - vendor/
 
 addons:
   code_climate:
-	repo_token: $CODECLIMATE_REPO_TOKEN
+    repo_token: $CODECLIMATE_REPO_TOKEN
 
 services:
   - mysql
