@@ -25,16 +25,6 @@ class Db extends Generic implements Db_Interface {
 	public $type = 'pdo';
 
 	/**
-	 * alias function of select_db, changes the database we are working with.
-	 *
-	 * @param string $database the name of the database to use
-	 * @return void
-	 */
-	public function useDb($database) {
-		$this->selectDb($database);
-	}
-
-	/**
 	 * changes the database we are working with.
 	 *
 	 * @param string $database the name of the database to use
@@ -94,22 +84,6 @@ class Db extends Generic implements Db_Interface {
 	public function disconnect() {
 	}
 
-	/**
-	 * @param $string
-	 * @return string
-	 */
-	public function real_escape($string) {
-		return escapeshellarg($string);
-	}
-
-	/**
-	 * @param $string
-	 * @return string
-	 */
-	public function escape($string) {
-		return escapeshellarg($string);
-	}
-
 	/* public: discard the query result */
 
 	/**
@@ -119,46 +93,6 @@ class Db extends Generic implements Db_Interface {
 	public function free() {
 		//			@mysql_free_result($this->queryId);
 		//			$this->queryId = 0;
-	}
-
-	/**
-	 * Db::queryReturn()
-	 *
-	 * Sends an SQL query to the server like the normal query() command but iterates through
-	 * any rows and returns the row or rows immediately or FALSE on error
-	 *
-	 * @param mixed $query SQL Query to be used
-	 * @param string $line optionally pass __LINE__ calling the query for logging
-	 * @param string $file optionally pass __FILE__ calling the query for logging
-	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
-	 */
-	public function queryReturn($query, $line = '', $file = '') {
-		$this->query($query, $line, $file);
-		if ($this->num_rows() == 0) {
-			return false;
-		} elseif ($this->num_rows() == 1) {
-			$this->next_record(MYSQL_ASSOC);
-			return $this->Record;
-		} else {
-			$out = [];
-			while ($this->next_record(MYSQL_ASSOC))
-				$out[] = $this->Record;
-			return $out;
-		}
-	}
-
-	/**
-	 * db:qr()
-	 *
-	 *  alias of queryReturn()
-	 *
-	 * @param mixed $query SQL Query to be used
-	 * @param string $line optionally pass __LINE__ calling the query for logging
-	 * @param string $file optionally pass __FILE__ calling the query for logging
-	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
-	 */
-	public function qr($query, $line = '', $file = '') {
-		return $this->queryReturn($query, $line, $file);
 	}
 
 	/**
