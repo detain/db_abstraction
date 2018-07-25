@@ -287,7 +287,7 @@ abstract class Generic {
 		$email = $this->type." Error<br>\n".'Query: '.$queryString."<br>\n".$error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 		$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
 		$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
-		$subject = $_SERVER['HOSTNAME'].' MySQLi Error';
+		$subject = php_uname('n').' MySQLi Error';
 		$headers = '';
 		$headers .= 'MIME-Version: 1.0'.PHP_EOL;
 		$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
