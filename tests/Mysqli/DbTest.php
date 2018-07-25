@@ -177,10 +177,12 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testTransactions() {
-/*		if (version_compare(PHP_VERSION, '5.5.0') < 0) {
+		if (version_compare(PHP_VERSION, '5.5.0') < 0) {
+			/*
 			$this->assertTrue($this->db->transactionBegin(), 'transactionBegin returns proper response');;
 			$this->assertTrue($this->db->transactionCommit(), 'transactionBegin returns proper response');;
 			$this->assertTrue($this->db->transactionAbort(), 'transactionBegin returns proper response');;
+			*/
 		} else {
 			$this->db->query("update services_types set st_name='KVM Windows 2' where st_name='KVM Windows'", __LINE__, __FILE__);
 			$this->assertTrue($this->db->transactionCommit(), 'transactionBegin returns proper response');
@@ -195,7 +197,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 			$this->assertEquals(0, $this->db->num_rows());
 			$this->assertTrue($this->db->transactionBegin(), 'transactionBegin returns proper response');;
 		}
-*/
 	}
 
 	public function testGet_last_insert_id() {
