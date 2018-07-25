@@ -184,14 +184,14 @@ class DbTest extends \PHPUnit\Framework\TestCase
 			$this->assertTrue($this->db->transactionAbort(), 'transactionBegin returns proper response');;
 			*/
 		} else {
-			$this->db->query("update services_types set st_name='KVM Windows 2' where st_name='KVM Windows'", __LINE__, __FILE__);
+			$this->db->query("update service_types set st_name='KVM Windows 2' where st_name='KVM Windows'", __LINE__, __FILE__);
 			$this->assertTrue($this->db->transactionCommit(), 'transactionBegin returns proper response');
 			$this->db->query("select * from service_types where st_name='KVM Windows 2'", __LINE__, __FILE__);
 			$this->assertEquals(1, $this->db->num_rows());
-			$this->db->query("update services_types set st_name='KVM Windows' where st_name='KVM Windows 2'", __LINE__, __FILE__);
+			$this->db->query("update service_types set st_name='KVM Windows' where st_name='KVM Windows 2'", __LINE__, __FILE__);
 			$this->assertEquals(1, $this->db->affectedRows(), 'affected_rows() returns the proper effected row count after an update');
 			$this->assertTrue($this->db->transactionBegin(), 'transactionBegin returns proper response');;
-			$this->db->query("update services_types set st_name='KVM Windows 2' where st_name='KVM Windows'", __LINE__, __FILE__);
+			$this->db->query("update service_types set st_name='KVM Windows 2' where st_name='KVM Windows'", __LINE__, __FILE__);
 			$this->assertTrue($this->db->transactionAbort(), 'transactionBegin returns proper response');;
 			$this->db->query("select * from service_types where st_name='KVM Windows 2'", __LINE__, __FILE__);
 			$this->assertEquals(0, $this->db->num_rows());
