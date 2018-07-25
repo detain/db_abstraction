@@ -45,8 +45,8 @@ abstract class Generic {
 	public $type = 'generic';
 
 	/**
-	* @var int|object
-	*/
+	 * @var int|object
+	 */
 	public $linkId = 0;
 	public $queryId = 0;
 
