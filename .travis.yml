@@ -42,6 +42,7 @@ install:
 before_script:
   - psql tests < tests/psql.sql
   - mysql --default-character-set=utf8mb4 < tests/mysql.sql
+  - sqlite3 tests.db < tests/psql.sql
 
 script:
   - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage_pgsql.xml --whitelist src/; fi;
