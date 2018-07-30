@@ -42,7 +42,6 @@ install:
 before_script:
   - psql tests < tests/psql.sql
   - mysql --default-character-set=utf8mb4 < tests/mysql.sql
-  - sqlite3 -help
   - sqlite3 tests.db ".read tests/sqlite.sql"
 
 script:
