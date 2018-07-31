@@ -105,6 +105,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertNotEquals($old, $this->db->Record);
 		$this->assertTrue(array_key_exists('st_id', $this->db->Record));
 		$this->assertEquals($this->db->f('st_id'), $this->db->Record['st_id']);
+		$return = $this->db->fetchObject();
+		$this->assertTrue(is_object($return));
+		$this->assertTrue(isset($return->st_id));
 		$this->db->query("select * from service_types");
 		$this->assertTrue(is_object($this->db->fetchObject()));
 		$this->db->query("select * from service_types");
@@ -199,8 +202,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testDisconnect() {
 		//if (is_resource($this->db->linkId)) {
+			$this->db->connect();
 			$return = $this->db->disconnect();
-			$this->assertTrue($return);
+			$this->assertTrue(is_bool($return));
 			$this->assertEquals(0, $this->db->linkId);
 			$this->db->connect();
 		//}
@@ -223,10 +227,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testFree() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testFetch_object() {
 		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 
