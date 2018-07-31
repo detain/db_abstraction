@@ -51,6 +51,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testLastInsertId()
 	{
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$this->db->query("insert into service_types values (NULL, 'Test', 2, 'vps')", __LINE__, __FILE__);
+		$id = $this->db->lastInsertId('service_types', 'st_id');
+		$this->assertTrue(is_int($id));
+		$this->assertFalse($id === false);
 	}
 }
