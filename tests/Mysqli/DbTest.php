@@ -34,6 +34,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testConnect() {
 		$this->db->linkId = 0;
+		$this->maxConnectErrors = 0;
+		$this->db->connect();
+		$this->maxConnectErrors = 30;
 		$this->db->connect();
 		$this->assertTrue(is_object($this->db->linkId), 'connect sets the link id');
 	}
