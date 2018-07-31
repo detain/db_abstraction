@@ -90,7 +90,7 @@ class Db extends Generic implements Db_Interface {
 	 * @return bool
 	 */
 	public function disconnect() {
-		$return = is_resource($this->linkId) ? $this->linkId->close() : false;
+		$return = method_exists($this->linkId, 'close') ? $this->linkId->close() : false;
 		$this->linkId = 0;
 		return $return;
 	}
