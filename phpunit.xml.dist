@@ -1,13 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="tests/bootstrap.php" cacheTokens="false" colors="true">
-  <filter>
-    <whitelist processUncoveredFilesFromWhitelist="true" addUncoveredFilesFromWhitelist="true">
-      <directory suffix=".php">/src</directory>
-    </whitelist>
-  </filter>
-  <testsuites>
-    <testsuite>
-      <file>tests/Mysqli/DbTest.php</file>
-    </testsuite>
-  </testsuites>
+<phpunit bootstrap="vendor/autoload.php" cacheTokens="false" colors="true">
+	<php>
+		<ini name="date.timezone" value="America/New_York" />
+	</php>
+	<logging>
+		<log type="coverage-clover" target="coverage.xml"/>
+	</logging>    
+	<filter>
+		<whitelist processUncoveredFilesFromWhitelist="true" addUncoveredFilesFromWhitelist="true">
+			<directory suffix=".php">src</directory>
+		</whitelist>
+	</filter>
+	<testsuites>
+		<testsuite>
+			<file>tests/Mysqli/DbTest.php</file>
+		</testsuite>
+		<testsuite>
+			<file>tests/Mdb2/DbTest.php</file>
+		</testsuite>
+	</testsuites>
 </phpunit>

@@ -25,6 +25,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	*/
 	protected function setUp()
 	{
+		$this->db->connect();
 		$this->db->transactionBegin();
 	}
 
