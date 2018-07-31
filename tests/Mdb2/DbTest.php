@@ -35,12 +35,18 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
 	public function testQueryOne()
 	{
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$this->db->connect();
+		$this->assertEquals(1, $this->db->queryOne("select * from service_types limit 1", __LINE__, __FILE__));
+		$this->assertEquals(0, $this->db->queryOne("select * from service_types where st_id=-1", __LINE__, __FILE__));
 	}
 
 	public function testQueryRow()
 	{
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$this->db->connect();
+		$row = $this->db->queryRow("select * from service_types limit 1", __LINE__, __FILE__);
+		$this->assertTrue(is_array($row));
+		$this->assertTrue(array_key_exists('st_id', $row));
+		$this->assertEquals(0, $this->db->queryRow("select * from service_types where st_id=-1", __LINE__, __FILE__));
 	}
 
 	public function testLastInsertId()

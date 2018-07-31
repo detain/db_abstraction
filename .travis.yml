@@ -14,13 +14,13 @@ php:
 
 cache:
   directories:
-    - $HOME/.composer/cache/files
-    - tmp/pear/download/
-    - vendor/
+	- $HOME/.composer/cache/files
+	- tmp/pear/download/
+	- vendor/
 
 addons:
   code_climate:
-    repo_token: $CODECLIMATE_REPO_TOKEN
+	repo_token: $CODECLIMATE_REPO_TOKEN
 
 services:
   - mysql
@@ -48,9 +48,9 @@ script:
   - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage_pgsql.xml --whitelist src/; fi;
   - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage_pgsql.xml; fi
   - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage_pgsql.xml --whitelist src/; fi
-  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi;
-  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -vvvv --debug --coverage-clover coverage.xml; fi
-  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v --coverage-clover coverage.xml --whitelist src/; fi
+  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v; fi;
+  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -vvvv --debug; fi
+  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v ; fi
 
 after_script:
   - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage_pgsql.xml --coverage-report=coverage.xml; fi
