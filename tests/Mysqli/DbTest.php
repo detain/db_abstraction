@@ -134,26 +134,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertTrue(array_key_exists('st_id', $return));
 	}
 
-	public function testLog() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testDisconnect() {
-		if (is_resource($this->db->linkId)) {
-			$return = $this->db->disconnect();
-			$this->assertTrue($return);
-			$this->db->connect();
-		}
-	}
-
-	public function testLimit() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testFree() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
 	public function testPrepare() {
 		$return = $this->db->prepare("select * from service_types where st_name = ?");
 		$this->assertTrue(is_object($return));
@@ -169,14 +149,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertNotEquals($id, $this->db->Record['st_id']);
 		$this->db->free();
 		$this->assertEquals(0, $this->db->queryId);
-	}
-
-	public function testFetch_object() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testSeek() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 
 	public function testTransactions() {
@@ -202,12 +174,15 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		}
 	}
 
-	public function testGet_last_insert_id() {
+	public function testInsertUpdate() {
 		$this->db->query("insert into service_types values (NULL, 'Test', 2, 'vps')", __LINE__, __FILE__);
 		$id = $this->db->getLastInsertId('service_types', 'st_id');
 		$this->assertTrue(is_int($id));
 		$this->assertFalse($id === false);
+		$this->db->query("update service_types set st_name='Testing' where st_id={$id}", __LINE__, __FILE__);
+		$this->assertEquals(1, $this->db->affectedRows());
 	}
+
 
 	public function testLock() {
 		$this->assertTrue($this->db->lock('service_types'));
@@ -216,7 +191,26 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertTrue($this->db->unlock());
 	}
 
-	public function testNextid() {
+	public function testIndexNames() {
+		$names = $this->db->indexNames();
+		$this->assertTrue(is_array($names), 'indexNames() returns an array of indexes');
+		$this->assertEquals(0, count($names), 'MySQLi indexNames() returns empty array');
+	}
+
+	public function testDisconnect() {
+		//if (is_resource($this->db->linkId)) {
+			$return = $this->db->disconnect();
+			$this->assertTrue($return);
+			$this->assertEquals(0, $this->db->linkId);
+			$this->db->connect();
+		//}
+	}
+
+	public function testLog() {
+		$this->markTestIncomplete('This test has not been implemented yet.');
+	}
+
+	public function testLimit() {
 		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 
@@ -228,9 +222,15 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 
-	public function testIndexNames() {
-		$names = $this->db->indexNames();
-		$this->assertTrue(is_array($names), 'indexNames() returns an array of indexes');
-		$this->assertEquals(0, count($names), 'MySQLi indexNames() returns empty array');
+	public function testFree() {
+		$this->markTestIncomplete('This test has not been implemented yet.');
+	}
+
+	public function testFetch_object() {
+		$this->markTestIncomplete('This test has not been implemented yet.');
+	}
+
+	public function testSeek() {
+		$this->markTestIncomplete('This test has not been implemented yet.');
 	}
 }
