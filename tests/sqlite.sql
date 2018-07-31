@@ -6,7 +6,6 @@ CREATE TABLE `service_types` (
 ,  `st_name` varchar(50) NOT NULL
 ,  `st_category` integer  NOT NULL
 ,  `st_module` varchar(30) NOT NULL
-,  CONSTRAINT `st_category_FK` FOREIGN KEY (`st_category`) REFERENCES `service_categories` (`category_id`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO `service_types` VALUES (1,'KVM Windows',2,'vps');
 INSERT INTO `service_types` VALUES (2,'KVM Linux',2,'vps');

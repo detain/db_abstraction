@@ -34,8 +34,7 @@ CREATE TABLE `service_types` (
   `st_category` int(10) unsigned NOT NULL,
   `st_module` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'The Module this service type is for',
   PRIMARY KEY (`st_id`),
-  KEY `st_category_FK_idx` (`st_category`),
-  CONSTRAINT `st_category_FK` FOREIGN KEY (`st_category`) REFERENCES `service_categories` (`category_id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `st_category_FK_idx` (`st_category`)
 ) ENGINE=InnoDB AUTO_INCREMENT=601 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
