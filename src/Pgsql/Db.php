@@ -20,18 +20,21 @@ use \MyDb\Db_Interface;
 class Db extends Generic implements Db_Interface {
 	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'pgsql';
-	public $port = '5432';
+	public $port = '';
+	public $defaultPort = '5432';
+	
 
 	/**
-	 * Db::ifadd()
+	 * adds if not blank
 	 *
-	 * @param mixed $add
-	 * @param mixed $me
+	 * @param string $add the value to set
+	 * @param string $me the key/field to set the value for
+	 * @param false|string $quote optional indicate the value needs quoted
 	 * @return string
 	 */
-	public function ifadd($add, $me) {
+	public function ifadd($add, $me, $quote = false) {
 		if ('' != $add)
-			return ';'.$me.$add;
+			return ';'.$me.($quote === false ? '' : $quote).$add.($quote === false ? '' : $quote);
 		return '';
 	}
 
@@ -73,7 +76,7 @@ class Db extends Generic implements Db_Interface {
 	 */
 	public function connect() {
 		if (0 == $this->linkId) {
-			$connectString = 'dbname='.$this->database.$this->ifadd($this->host, 'host=').$this->ifadd($this->port, 'port=').$this->ifadd($this->user, 'user=').$this->ifadd("'".$this->password."'", 'password=');
+			$connectString = 'dbname='.$this->database.$this->ifadd($this->host, 'host=').$this->ifadd($this->port, 'port=').$this->ifadd($this->user, 'user=').$this->ifadd($this->password, 'password=', "'");
 			$this->linkId = pg_pconnect($connectString);
 			if (!$this->linkId) {
 				$this->halt('Link-ID == FALSE, '.($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '').'connect failed');
