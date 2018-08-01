@@ -36,7 +36,7 @@ class Db extends MysqliDb implements Db_Interface {
 	public function quote($text = '', $type = 'text') {
 		switch ($type) {
 			case 'text':
-				return "'".$this->escape($this->linkId, $text)."'";
+				return "'".$this->escape($text)."'";
 				break;
 			case 'integer':
 				return (int) $text;
