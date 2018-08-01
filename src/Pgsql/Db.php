@@ -31,7 +31,7 @@ class Db extends Generic implements Db_Interface {
 	 */
 	public function ifadd($add, $me) {
 		if ('' != $add)
-			return ' '.$me.$add;
+			return ';'.$me.$add;
 		return '';
 	}
 
@@ -75,7 +75,6 @@ class Db extends Generic implements Db_Interface {
 		if (0 == $this->linkId) {
 			$connectString = 'dbname='.$this->database.$this->ifadd($this->host, 'host=').$this->ifadd($this->port, 'port=').$this->ifadd($this->user, 'user=').$this->ifadd("'".$this->password."'", 'password=');
 			$this->linkId = pg_pconnect($connectString);
-
 			if (!$this->linkId) {
 				$this->halt('Link-ID == FALSE, '.($GLOBALS['phpgw_info']['server']['db_persistent'] ? 'p' : '').'connect failed');
 			}
