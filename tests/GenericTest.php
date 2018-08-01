@@ -1,9 +1,10 @@
 <?php
 namespace MyDb\Tests\Mysqli;
 
+use MyDb\Generic;
 use MyDb\Mysqli\Db;
 
-class DbTest extends \PHPUnit\Framework\TestCase
+class GenericTest extends \PHPUnit\Framework\TestCase
 {
 	/**
 	* @var \MyDB\Mysqli\Db

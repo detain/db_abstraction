@@ -26,7 +26,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	protected function setUp()
 	{
 		$this->db->connect();
-		$this->db->transactionBegin();
+		//$this->db->transactionBegin();
 	}
 
 	/**
@@ -35,7 +35,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	*/
 	protected function tearDown()
 	{
-		$this->db->transactionAbort();
+		//$this->db->transactionAbort();
 	}
 
 
@@ -60,6 +60,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	public function testSelect_db()
 	{
 		$db = 'tests';
+		$this->db = new Db($db, getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
 		$this->db->useDb($db);
 		$this->db->query("select database()");
 		$this->db->next_record(MYSQLI_NUM);

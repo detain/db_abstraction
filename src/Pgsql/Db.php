@@ -39,16 +39,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param $string
 	 * @return string
 	 */
-	public function real_escape($string) {
-		return escapeshellarg($string);
-	}
-
-	/**
-	 * @param $string
-	 * @return string
-	 */
-	public function escape($string) {
-		return escapeshellarg($string);
+	public function real_escape($string = '') {
+		return $this->escape($string);
 	}
 
 	/**

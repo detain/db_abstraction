@@ -36,8 +36,20 @@ class Db extends Generic implements Db_Interface {
 		if ($this->characterSet != '')
 			$dSN .= ';charset='.$this->characterSet;
 		$this->linkId = new PDO($dSN, $this->user, $this->password);
+		$this->database = $database;
 	}
 
+
+	/**
+	 * alias function of select_db, changes the database we are working with.
+	 *
+	 * @param string $database the name of the database to use
+	 * @return void
+	 */
+	public function useDb($database) {
+		$this->selectDb($database);
+	}
+	
 	/* public: connection management */
 
 	/**
@@ -130,8 +142,8 @@ class Db extends Generic implements Db_Interface {
 		$this->queryId = $this->linkId->prepare($queryString);
 		$success = $this->queryId->execute();
 		$this->Rows = $this->queryId->fetchAll();
-		$this->log("PDO Query $queryString (S:$success) - ".count($this->Rows).' Rows', __LINE__, __FILE__);
-		$this->Row = 0;
+		//$this->log("PDO Query $queryString (S:$success) - ".count($this->Rows).' Rows', __LINE__, __FILE__);
+		$this->Row = -1;
 		if ($success === false) {
 			$this->emailError($queryString, json_encode($this->queryId->errorInfo(), JSON_PRETTY_PRINT), $line, $file);
 		}
@@ -147,7 +159,7 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($resultType = MYSQL_ASSOC) {
+	public function next_record($resultType = MYSQLI_ASSOC) {
 		// PDO result types so far seem to be +1
 		++$resultType;
 		if (!$this->queryId) {

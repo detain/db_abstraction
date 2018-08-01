@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="vendor/autoload.php" cacheTokens="false" colors="true">
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/7.1/phpunit.xsd"
+		 bootstrap="vendor/autoload.php" 
+		 cacheTokens="true"
+		 colors="true"
+		 verbose="true">
 	<php>
 		<ini name="date.timezone" value="America/New_York" />
 	</php>
@@ -12,14 +17,23 @@
 		</whitelist>
 	</filter>
 	<testsuites>
-		<testsuite>
+		<testsuite name="generic tests">
+			<file>tests/GenericTest.php</file>
+		</testsuite>
+		<testsuite name="mysql tests">
 			<file>tests/Mysqli/DbTest.php</file>
-		</testsuite>
-		<testsuite>
 			<file>tests/Mdb2/DbTest.php</file>
-		</testsuite>
-		<testsuite>
 			<file>tests/Pdo/DbTest.php</file>
+		</testsuite>
+		<testsuite name="postgresql tests">
+			<file>tests/Pgsql/DbTest.php</file>
+		</testsuite>
+		<testsuite name="all tests">
+			<file>tests/GenericTest.php</file>
+			<file>tests/Mysqli/DbTest.php</file>
+			<file>tests/Mdb2/DbTest.php</file>
+			<file>tests/Pdo/DbTest.php</file>
+			<file>tests/Pgsql/DbTest.php</file>
 		</testsuite>
 	</testsuites>
 </phpunit>

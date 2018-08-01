@@ -45,15 +45,11 @@ before_script:
   - sqlite3 tests.db ".read tests/sqlite.sql"
 
 script:
-  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage_pgsql.xml; fi;
-  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage_pgsql.xml; fi
-  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=postgres DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Pgsql -v --coverage-clover coverage_pgsql.xml; fi
-  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v; fi;
-  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" != "" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v; fi
-  - if [[ "$(echo "${TRAVIS_PHP_VERSION:0:3}"|grep "5\.[4-5]")" == "" ]] && [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist tests/Mysqli -v; fi
+  - if [[ "${TRAVIS_PHP_VERSION:0:1}" == "7" ]]; then PGDBUSER=postgres PGDBHOST=localhost PGDBNAME=tests DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests phpdbg -qrr vendor/bin/phpunit -c phpunit.xml.dist --testsuite "all tests"; fi;
+  - if [[ "${TRAVIS_PHP_VERSION:0:1}" != "7" ]]; then PGDBUSER=postgres PGDBHOST=localhost PGDBNAME=tests DBUSER=tests DBPASS=tests DBHOST=localhost DBNAME=tests vendor/bin/phpunit -c phpunit.xml.dist --testsuite "all tests"; fi
 
 after_script:
-  - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage_pgsql.xml --coverage-report=coverage.xml; fi
+  - if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then travis_retry vendor/bin/test-reporter --coverage-report=coverage.xml; fi
   - travis_retry bash <(curl -s https://codecov.io/bash);
-  - travis_retry php $(ls vendor/bin/*coveralls|head -n 1) -v -x coverage_pgsql.xml -x coverage.xml
-  - travis_retry php vendor/bin/codacycoverage clover coverage_pgsql.xml coverage.xml;
+  - travis_retry php $(ls vendor/bin/*coveralls|head -n 1) -v -x coverage.xml
+  - travis_retry php vendor/bin/codacycoverage clover coverage.xml;

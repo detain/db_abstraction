@@ -99,37 +99,14 @@ class Db extends Generic implements Db_Interface {
 	 * @param $string
 	 * @return string
 	 */
-	public function real_escape($string) {
+	public function real_escape($string = '') {
 		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect())
 			return $this->escape($string);
 		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
 	/**
-	 * @param $string
-	 * @return string
-	 */
-	public function escape($string) {
-		//if (function_exists('mysql_escape_string'))
-			//return mysql_escape_string($string);
-		return str_replace(array('\\', "\0", "\n", "\r", "'", '"', "\x1a"), array('\\\\', '\\0', '\\n', '\\r', "\\'", '\\"', '\\Z'), $string);
-	}
-
-	/**
-	 * Db::dbAddslashes()
-	 * @param mixed $str
-	 * @return string
-	 */
-	public function dbAddslashes($str = '') {
-		if ($str == '')
-			return '';
-		return addslashes($str);
-	}
-
-	/* public: discard the query result */
-
-	/**
-	 * Db::free()
+	 * discard the query result
 	 * @return void
 	 */
 	public function free() {
