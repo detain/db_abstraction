@@ -18,5 +18,8 @@
 		<testsuite>
 			<file>tests/Mdb2/DbTest.php</file>
 		</testsuite>
+		<testsuite>
+			<file>tests/Pdo/DbTest.php</file>
+		</testsuite>
 	</testsuites>
 </phpunit>

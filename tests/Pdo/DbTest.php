@@ -39,15 +39,9 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 
-	/**
-	* @todo   Implement testLog().
-	*/
 	public function testLog()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
 	/**
@@ -72,387 +66,148 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertEquals($db, $this->db->Record[0]);
 	}
 
-	/**
-	* @todo   Implement testLink_id().
-	*/
 	public function testLink_id()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testQuery_id().
-	*/
 	public function testQuery_id()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testConnect().
-	*/
 	public function testConnect()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testDisconnect().
-	*/
 	public function testDisconnect()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	*/
-	public function testReal_escape()
-	{
+	public function testEscaping() {
+		$oldId = $this->db->linkId;
+		$this->db->linkId = 0;
 		$string1 = 'hi there"dude';
+		$string3 = 'hi there\"dude';
+		$oldId = $this->db->linkId;
+		$this->db->linkId = 0;
 		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
-	}
-
-	/**
-	*/
-	public function testEscape()
-	{
-		$string1 = 'hi there"dude';
+		$this->assertEquals($string3, $string2);
+		$this->db->linkId = $oldId;
 		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
+		$this->assertEquals($string3, $string2);
+		$string2 = $this->db->escape($string1);
+		$this->assertEquals($string3, $string2);
+		$string2 = $this->db->dbAddslashes($string1);
+		$this->assertEquals($string3, $string2);
+		$string2 = $this->db->dbAddslashes();
+		$this->assertEquals('', $string2);
 	}
 
-	/**
-	*/
-	public function testDb_addslashes()
-	{
-		$string1 = 'hi there"dude';
-		$string2 = $this->db->real_escape($string1);
-		$this->assertNotEquals($string1, $string2);
-	}
-
-	/**
-	*/
-	public function testTo_timestamp()
-	{
-		$t = 1502439626;
-		$this->assertEquals($this->db->toTimestamp($t), '2017-08-11 04:20:26');
-	}
-
-	/**
-	*/
-	public function testFrom_timestamp()
-	{
-		$t = 1502439626;
-		$this->assertEquals($this->db->fromTimestamp('2017-08-11 04:20:26'), $t);
-	}
-
-	/**
-	* @todo   Implement testLimit().
-	*/
 	public function testLimit()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testFree().
-	*/
 	public function testFree()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testQuery_return().
-	*/
-	public function testQuery_return()
-	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
-	* @todo   Implement testQr().
-	*/
-	public function testQr()
-	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
-	* @todo   Implement testQuery().
-	*/
 	public function testQuery()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testLimit_query().
-	*/
 	public function testLimit_query()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testNext_record().
-	*/
 	public function testNext_record()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testSeek().
-	*/
 	public function testSeek()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testTransaction_begin().
-	*/
 	public function testTransaction_begin()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testTransaction_commit().
-	*/
 	public function testTransaction_commit()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testTransaction_abort().
-	*/
 	public function testTransaction_abort()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testGet_last_insert_id().
-	*/
 	public function testGet_last_insert_id()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testLock().
-	*/
 	public function testLock()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testUnlock().
-	*/
 	public function testUnlock()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testAffected_rows().
-	*/
 	public function testAffected_rows()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testNum_rows().
-	*/
 	public function testNum_rows()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testNum_fields().
-	*/
 	public function testNum_fields()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testNf().
-	*/
-	public function testNf()
-	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
-	* @todo   Implement testNp().
-	*/
-	public function testNp()
-	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
-	* @todo   Implement testF().
-	*/
-	public function testF()
-	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
-	* @todo   Implement testP().
-	*/
-	public function testP()
-	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
-	* @todo   Implement testNextid().
-	*/
 	public function testNextid()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testHalt().
-	*/
 	public function testHalt()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testHaltmsg().
-	*/
 	public function testHaltmsg()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testTable_names().
-	*/
 	public function testTable_names()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testIndex_names().
-	*/
 	public function testIndex_names()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	/**
-	* @todo   Implement testCreateDatabase().
-	*/
 	public function testCreateDatabase()
 	{
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 }

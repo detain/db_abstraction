@@ -11,6 +11,7 @@ namespace MyDb\Pdo;
 
 use \MyDb\Generic;
 use \MyDb\Db_Interface;
+use \PDO;
 
 /**
  * Db
@@ -34,7 +35,7 @@ class Db extends Generic implements Db_Interface {
 		$dSN = "{$this->driver}:dbname={$database};host={$this->host}";
 		if ($this->characterSet != '')
 			$dSN .= ';charset='.$this->characterSet;
-		$this->linkId = new \PDO($dSN, $this->user, $this->password);
+		$this->linkId = new PDO($dSN, $this->user, $this->password);
 	}
 
 	/* public: connection management */
@@ -46,7 +47,7 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $user
 	 * @param string $password
 	 * @param string $driver
-	 * @return bool|int|\PDO
+	 * @return bool|int|PDO
 	 */
 	public function connect($database = '', $host = '', $user = '', $password = '', $driver = 'mysql') {
 		/* Handle defaults */
@@ -61,12 +62,12 @@ class Db extends Generic implements Db_Interface {
 		if ('' == $driver)
 			$driver = $this->driver;
 		/* establish connection, select database */
-		$dSN = "$driver:dbname=$database;host=$host";
+		$dSN = "{$driver}:dbname={$database};host={$host}";
 		if ($this->characterSet != '')
 			$dSN .= ';charset='.$this->characterSet;
 		if ($this->linkId === false) {
 			try {
-				$this->linkId = new \PDO($dSN, $user, $password);
+				$this->linkId = new PDO($dSN, $user, $password);
 			} catch (\PDOException $e) {
 				$this->halt('Connection Failed '.$e->getMessage());
 				return 0;
