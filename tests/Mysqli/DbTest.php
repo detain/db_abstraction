@@ -222,27 +222,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		//}
 	}
 
-	public function testLog() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testLimit() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
 	public function testHalt() {
 		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testHaltmsg() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testFree() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
-	}
-
-	public function testSeek() {
-		$this->markTestIncomplete('This testhas not been implemented yet.');
 	}
 }

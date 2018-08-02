@@ -160,45 +160,6 @@ abstract class Generic {
 	}
 
 	/**
-	 * @param int $start
-	 * @return string
-	 */
-	public function limit($start = 0) {
-		echo '<b>Warning: limit() is no longer used, use limitQuery()</b>';
-		if ($start == 0) {
-			$s = 'limit '.(int) $this->maxMatches;
-		} else {
-			$s = 'limit '.(int) $start.','.(int) $this->maxMatches;
-		}
-		return $s;
-	}
-
-	/**
-	 * perform a query with limited result set
-	 *
-	 * @param string $queryString
-	 * @param string|int $numRows
-	 * @param int $offset
-	 * @param string|int $line
-	 * @param string $file
-	 * @return mixed
-	 */
-	public function limitQuery($queryString, $numRows = '', $offset = 0, $line = '', $file = '') {
-		if (!$numRows)
-			$numRows = $this->maxMatches;
-		if ($offset == 0) {
-			$queryString .= ' LIMIT '.(int) $numRows;
-		} else {
-			$queryString .= ' LIMIT '.(int) $offset.','.(int) $numRows;
-		}
-
-		if ($this->Debug)
-			printf("Debug: limitQuery = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
-
-		return $this->query($queryString, $line, $file);
-	}
-
-	/**
 	 * db:qr()
 	 *
 	 *  alias of queryReturn()
