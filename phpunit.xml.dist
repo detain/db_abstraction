@@ -21,6 +21,7 @@
 			<file>tests/GenericTest.php</file>
 		</testsuite>
 		<testsuite name="mysql tests">
+			<file>tests/GenericTest.php</file>
 			<file>tests/Mysqli/DbTest.php</file>
 			<file>tests/Mdb2/DbTest.php</file>
 			<file>tests/Pdo/DbTest.php</file>
