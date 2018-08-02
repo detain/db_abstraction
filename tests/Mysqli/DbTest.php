@@ -223,6 +223,12 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testHalt() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		if (isset($GLOBALS['tf'])) {
+			$old_tf = $GLOBALS['tf'];
+			unset($GLOBALS['tf']);
+		}
+		$this->assertTrue($this->db->halt('Test halt message', __LINE__, __FILE__));
+		if (isset($old_tf))
+			$GLOBALS['tf'] = $old_tf;
 	}
 }

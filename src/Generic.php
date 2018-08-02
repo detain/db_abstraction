@@ -228,7 +228,7 @@ abstract class Generic {
 		//$this->Error = @$this->linkId->error;
 		//$this->Errno = @$this->linkId->errno;
 		if ($this->haltOnError == 'no')
-			return;
+			return true;
 		if ($msg != '')
 			$this->haltmsg($msg, $line, $file);
 		if ($this->haltOnError != 'report') {
@@ -237,6 +237,7 @@ abstract class Generic {
 			if (isset($GLOBALS['tf']))
 				$GLOBALS['tf']->terminate();
 		}
+		return true;
 	}
 
 	/**
