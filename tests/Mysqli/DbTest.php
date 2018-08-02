@@ -113,7 +113,11 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->db->query("select * from service_types");
 		$this->assertTrue(is_object($this->db->fetchObject()));
 		$this->db->query("select * from service_types");
-		$this->db->seek(1);
+		$this->assertTrue($this->db->seek(1));
+		$this->db->next_record(MYSQLI_ASSOC);
+		$second_id = $this->db->Record['st_id'];
+		$this->assertNotEquals($first_id, $second_id);
+		$this->assertTrue($this->db->seek(100000));
 		$this->db->next_record(MYSQLI_ASSOC);
 		$second_id = $this->db->Record['st_id'];
 		$this->assertNotEquals($first_id, $second_id);
