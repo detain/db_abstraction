@@ -4,7 +4,7 @@
 		 bootstrap="vendor/autoload.php" 
 		 cacheTokens="true"
 		 colors="true"
-		 verbose="true">
+		 verbose="false">
 	<php>
 		<ini name="date.timezone" value="America/New_York" />
 	</php>
