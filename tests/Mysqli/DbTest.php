@@ -13,7 +13,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	function __construct($name = null, array $data = array(), $dataName = '') {
 		parent::__construct($name, $data, $dataName);
 		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));;
-		$this->db->Debug = 1;
 	}    
 
 	/**
@@ -98,11 +97,13 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testQuery() {
+		$this->db->Debug = 1;
 		$this->db->query("select * from service_types");
 		$this->assertEquals(4, $this->db->num_fields(), 'num_fields Returns proper number of rows');
 		$old = $this->db->Record;
 		$this->db->next_record(MYSQLI_ASSOC);
 		$first_id = $this->db->Record['st_id'];
+		$this->db->Debug = 0;
 		$this->assertNotEquals($old, $this->db->Record);
 		$this->assertTrue(array_key_exists('st_id', $this->db->Record));
 		$this->assertEquals($this->db->f('st_id'), $this->db->Record['st_id']);
