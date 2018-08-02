@@ -197,6 +197,8 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertTrue($this->db->unlock());
 		$this->assertTrue($this->db->lock(['service_types']));
 		$this->assertTrue($this->db->unlock());
+		$this->assertTrue($this->db->lock(['read' => 'service_types']));
+		$this->assertTrue($this->db->unlock());
 	}
 
 	public function testIndexNames() {
