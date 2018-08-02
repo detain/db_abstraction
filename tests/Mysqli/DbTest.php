@@ -115,7 +115,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->db->seek(1);
 		$this->db->next_record(MYSQLI_ASSOC);
 		$second_id = $this->db->Record['st_id'];
-		$this->assertNotEqual($first_id, $second_id);
+		$this->assertNotEquals($first_id, $second_id);
 		$this->assertEquals(0, $this->db->query(""));
 		//$this->db->query("select * from service_types where", __LINE__, __FILE__);
 	}
