@@ -102,6 +102,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->assertEquals(4, $this->db->num_fields(), 'num_fields Returns proper number of rows');
 		$old = $this->db->Record;
 		$this->db->next_record(MYSQLI_ASSOC);
+		$first_id = $this->db->Record['st_id'];
 		$this->assertNotEquals($old, $this->db->Record);
 		$this->assertTrue(array_key_exists('st_id', $this->db->Record));
 		$this->assertEquals($this->db->f('st_id'), $this->db->Record['st_id']);
@@ -111,6 +112,10 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->db->query("select * from service_types");
 		$this->assertTrue(is_object($this->db->fetchObject()));
 		$this->db->query("select * from service_types");
+		$this->db->seek(1);
+		$this->db->next_record(MYSQLI_ASSOC);
+		$second_id = $this->db->Record['st_id'];
+		$this->assertNotEqual($first_id, $second_id);
 		$this->assertEquals(0, $this->db->query(""));
 		//$this->db->query("select * from service_types where", __LINE__, __FILE__);
 	}
@@ -231,6 +236,6 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	}
 
 	public function testSeek() {
-		$this->markTestIncomplete('This test has not been implemented yet.');
+		$this->markTestIncomplete('This testhas not been implemented yet.');
 	}
 }

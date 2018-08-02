@@ -258,28 +258,24 @@ class Db extends Generic implements Db_Interface {
 		return $stat;
 	}
 
-	/* public: position in result set */
-
 	/**
-	 * Db::seek()
-	 * @param integer $pos
-	 * @return int
+	 * switch to position in result set
+	 * 
+	 * @param integer $pos the row numbe starting at 0 to switch to
+	 * @return bool whetherit was successfu or not.
 	 */
 	public function seek($pos = 0) {
 		$status = @mysqli_data_seek($this->queryId, $pos);
 		if ($status) {
 			$this->Row = $pos;
 		} else {
-			$this->halt("seek($pos) failed: result has ".$this->num_rows().' rows');
-			/* half assed attempt to save the day,
-			* but do not consider this documented or even
-			* desirable behaviour.
-			*/
+			$this->halt("seek({$pos}) failed: result has ".$this->num_rows().' rows');
+			/* half assed attempt to save the day, but do not consider this documented or even desirable behaviour. */
 			@mysqli_data_seek($this->queryId, $this->num_rows());
 			$this->Row = $this->num_rows;
-			return 0;
+			return false;
 		}
-		return 1;
+		return true;
 	}
 
 	/**
