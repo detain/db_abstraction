@@ -269,7 +269,7 @@ class Db extends Generic implements Db_Interface {
 		if ($status) {
 			$this->Row = $pos;
 		} else {
-			$this->halt("seek({$pos}) failed: result has ".$this->num_rows().' rows');
+			$this->halt("seek({$pos}) failed: result has ".$this->num_rows().' rows', __LINE__, __FILE__);
 			/* half assed attempt to save the day, but do not consider this documented or even desirable behaviour. */
 			@mysqli_data_seek($this->queryId, $this->num_rows());
 			$this->Row = $this->num_rows;

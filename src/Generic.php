@@ -308,7 +308,7 @@ abstract class Generic {
 	 */
 	public function haltmsg($msg, $line = '', $file = '') {
 		$this->log("Database error: $msg", $line, $file, 'error');
-		if ($this->Errno != '0' || !in_array($this->Error, '', '()')) {
+		if ($this->Errno != '0' || !in_array($this->Error, ['', '()'])) {
 			$sqlstate = mysqli_sqlstate($this->linkId);
 			$this->log("MySQLi SQLState: {$sqlstate}. Error: ".$this->Errno.' ('.$this->Error.')', $line, $file, 'error');
 		}
