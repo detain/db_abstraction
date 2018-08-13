@@ -198,6 +198,9 @@ class Db extends Generic implements Db_Interface {
 			$this->free();
 		if ($this->Debug)
 			printf("Debug: query = %s<br>\n", $queryString);
+		if (!isset($GLOBALS['db_queries']))
+			$GLOBALS['db_queries'] = array();
+		$GLOBALS['db_queries'][] = $queryString;
 		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
 			$this->log($queryString, $line, $file);
 		$tries = 3;
