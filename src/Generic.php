@@ -12,7 +12,8 @@ namespace MyDb;
 /**
  * Class Generic
  */
-abstract class Generic {
+abstract class Generic
+{
 	/* public: connection parameters */
 	public $host = 'localhost';
 	public $database = '';
@@ -62,13 +63,15 @@ abstract class Generic {
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
+	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '')
+	{
 		$this->database = $database;
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-		if ($query != '')
+		if ($query != '') {
 			$this->query($query);
+		}
 		$this->connection_atttempt = 0;
 	}
 
@@ -78,24 +81,27 @@ abstract class Generic {
 	 * @param string $file
 	 * @return void
 	 */
-	public function log($message, $line = '', $file = '', $level = 'info') {
+	public function log($message, $line = '', $file = '', $level = 'info')
+	{
 		//if (function_exists('myadmin_log'))
-			//myadmin_log('db', $level, $message, $line, $file, isset($GLOBALS['tf']));
+		//myadmin_log('db', $level, $message, $line, $file, isset($GLOBALS['tf']));
 		//else
-			error_log($message);
+		error_log($message);
 	}
 
 	/**
 	 * @return int|object
 	 */
-	public function linkId() {
+	public function linkId()
+	{
 		return $this->linkId;
 	}
 
 	/**
 	 * @return int|object
 	 */
-	public function queryId() {
+	public function queryId()
+	{
 		return $this->queryId;
 	}
 
@@ -103,9 +109,11 @@ abstract class Generic {
 	 * @param $string
 	 * @return string
 	 */
-	public function real_escape($string = '') {
-		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect())
+	public function real_escape($string = '')
+	{
+		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
 			return $this->escape($string);
+		}
 		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
@@ -113,9 +121,10 @@ abstract class Generic {
 	 * @param $string
 	 * @return string
 	 */
-	public function escape($string = '') {
+	public function escape($string = '')
+	{
 		//if (function_exists('mysql_escape_string'))
-			//return mysql_escape_string($string);
+		//return mysql_escape_string($string);
 		return str_replace(array('\\', "\0", "\n", "\r", "'", '"', "\x1a"), array('\\\\', '\\0', '\\n', '\\r', "\\'", '\\"', '\\Z'), $string);
 	}
 
@@ -123,9 +132,11 @@ abstract class Generic {
 	 * @param mixed $str
 	 * @return string
 	 */
-	public function dbAddslashes($str = '') {
-		if (!isset($str) || $str == '')
+	public function dbAddslashes($str = '')
+	{
+		if (!isset($str) || $str == '') {
 			return '';
+		}
 		return addslashes($str);
 	}
 
@@ -134,7 +145,8 @@ abstract class Generic {
 	 * @param mixed $epoch
 	 * @return bool|string
 	 */
-	public function toTimestamp($epoch) {
+	public function toTimestamp($epoch)
+	{
 		return date('Y-m-d H:i:s', $epoch);
 	}
 
@@ -143,16 +155,17 @@ abstract class Generic {
 	 * @param mixed $timestamp
 	 * @return bool|int|mixed
 	 */
-	public function fromTimestamp($timestamp) {
-		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts))
+	public function fromTimestamp($timestamp)
+	{
+		if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts)) {
 			$time = mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
+		} elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts)) {
 			$time = mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-		elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts))
+		} elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts)) {
 			$time = mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
-		elseif (is_numeric($timestamp) && $timestamp >= 943938000)
+		} elseif (is_numeric($timestamp) && $timestamp >= 943938000) {
 			$time = $timestamp;
-		else {
+		} else {
 			$this->log('Cannot Match Timestamp from '.$timestamp, __LINE__, __FILE__);
 			$time = false;
 		}
@@ -169,17 +182,20 @@ abstract class Generic {
 	 * @param string $file
 	 * @return mixed
 	 */
-	public function limitQuery($queryString, $numRows = '', $offset = 0, $line = '', $file = '') {
-		if (!$numRows)
+	public function limitQuery($queryString, $numRows = '', $offset = 0, $line = '', $file = '')
+	{
+		if (!$numRows) {
 			$numRows = $this->maxMatches;
+		}
 		if ($offset == 0) {
 			$queryString .= ' LIMIT '.(int) $numRows;
 		} else {
 			$queryString .= ' LIMIT '.(int) $offset.','.(int) $numRows;
 		}
 
-		if ($this->Debug)
+		if ($this->Debug) {
 			printf("Debug: limitQuery = %s<br>offset=%d, num_rows=%d<br>\n", $queryString, $offset, $numRows);
+		}
 
 		return $this->query($queryString, $line, $file);
 	}
@@ -194,7 +210,8 @@ abstract class Generic {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function qr($query, $line = '', $file = '') {
+	public function qr($query, $line = '', $file = '')
+	{
 		return $this->queryReturn($query, $line, $file);
 	}
 
@@ -205,7 +222,8 @@ abstract class Generic {
 	 * @param string $stripSlashes
 	 * @return string
 	 */
-	public function f($name, $stripSlashes = '') {
+	public function f($name, $stripSlashes = '')
+	{
 		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
 			return stripslashes($this->Record[$name]);
 		} else {
@@ -221,21 +239,25 @@ abstract class Generic {
 	 * @param string $file
 	 * @return void
 	 */
-	public function halt($msg, $line = '', $file = '') {
+	public function halt($msg, $line = '', $file = '')
+	{
 		$this->unlock(false);
 		/* Just in case there is a table currently locked */
 
 		//$this->Error = @$this->linkId->error;
 		//$this->Errno = @$this->linkId->errno;
-		if ($this->haltOnError == 'no')
+		if ($this->haltOnError == 'no') {
 			return true;
-		if ($msg != '')
+		}
+		if ($msg != '') {
 			$this->haltmsg($msg, $line, $file);
+		}
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
-			if (isset($GLOBALS['tf']))
+			if (isset($GLOBALS['tf'])) {
 				$GLOBALS['tf']->terminate();
+			}
 		}
 		return true;
 	}
@@ -246,7 +268,8 @@ abstract class Generic {
 	 * @param string $file
 	 * @return mixed|void
 	 */
-	public function logBackTrace($msg, $line = '', $file = '') {
+	public function logBackTrace($msg, $line = '', $file = '')
+	{
 		$backtrace = (function_exists('debug_backtrace') ? debug_backtrace() : []);
 		$this->log(
 			('' !== getenv('REQUEST_URI') ? ' '.getenv('REQUEST_URI') : '').
@@ -262,16 +285,19 @@ abstract class Generic {
 				' Function: '.(isset($backtrace[$level] ['class']) ? '(class '.$backtrace[$level] ['class'].') ' : '').
 				(isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
 				$backtrace[$level] ['function'].'(';
-			if (isset($backtrace[$level] ['args']))
-				for ($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++)
+			if (isset($backtrace[$level] ['args'])) {
+				for ($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++) {
 					$message .= ($argument > 0 ? ', ' : '').
 						(is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : json_encode($backtrace[$level]['args'][$argument]));
+				}
+			}
 			$message .= ')';
 			$this->log($message, $line, $file, 'error');
 		}
 	}
 
-	public function emailError($queryString, $error, $line, $file) {
+	public function emailError($queryString, $error, $line, $file)
+	{
 		$email = $this->type." Error<br>\n".'Query: '.$queryString."<br>\n".$error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
 		$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
 		$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
@@ -284,7 +310,6 @@ abstract class Generic {
 		mail('john@interserver.net', $subject, $email, $headers);
 		mail('detain@interserver.net', $subject, $email, $headers);
 		$this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
-		
 	}
 	
 	/**
@@ -293,7 +318,8 @@ abstract class Generic {
 	 * @param string $file
 	 * @return mixed|void
 	 */
-	public function haltmsg($msg, $line = '', $file = '') {
+	public function haltmsg($msg, $line = '', $file = '')
+	{
 		$this->log("Database error: $msg", $line, $file, 'error');
 		if ($this->Errno != '0' || !in_array($this->Error, ['', '()'])) {
 			$sqlstate = mysqli_sqlstate($this->linkId);
@@ -305,8 +331,8 @@ abstract class Generic {
 	/**
 	 * @return array
 	 */
-	public function indexNames() {
+	public function indexNames()
+	{
 		return [];
 	}
-
 }

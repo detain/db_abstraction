@@ -18,7 +18,8 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends MysqliDb implements Db_Interface {
+class Db extends MysqliDb implements Db_Interface
+{
 	public $host = 'localhost';
 	public $user = 'pdns';
 	public $password = '';
@@ -33,7 +34,8 @@ class Db extends MysqliDb implements Db_Interface {
 	 * @param string $type
 	 * @return string
 	 */
-	public function quote($text = '', $type = 'text') {
+	public function quote($text = '', $type = 'text')
+	{
 		switch ($type) {
 			case 'text':
 				return "'".$this->escape($text)."'";
@@ -55,13 +57,15 @@ class Db extends MysqliDb implements Db_Interface {
 	 * @param string $file
 	 * @return bool
 	 */
-	public function queryOne($query, $line = '', $file = '') {
+	public function queryOne($query, $line = '', $file = '')
+	{
 		$this->query($query, $line, $file);
 		if ($this->num_rows() > 0) {
 			$this->next_record();
 			return $this->f(0);
-		} else
+		} else {
 			return 0;
+		}
 	}
 
 	/**
@@ -72,13 +76,15 @@ class Db extends MysqliDb implements Db_Interface {
 	 * @param string $file
 	 * @return array|bool
 	 */
-	public function queryRow($query, $line = '', $file = '') {
+	public function queryRow($query, $line = '', $file = '')
+	{
 		$this->query($query, $line, $file);
 		if ($this->num_rows() > 0) {
 			$this->next_record();
 			return $this->Record;
-		} else
+		} else {
 			return 0;
+		}
 	}
 
 	/**
@@ -87,7 +93,8 @@ class Db extends MysqliDb implements Db_Interface {
 	 * @param mixed $field
 	 * @return int
 	 */
-	public function lastInsertId($table, $field) {
+	public function lastInsertId($table, $field)
+	{
 		return $this->getLastInsertId($table, $field);
 	}
 }

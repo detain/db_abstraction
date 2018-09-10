@@ -17,7 +17,8 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface {
+class Db extends Generic implements Db_Interface
+{
 	/**
 	 * @var string
 	 */
@@ -29,7 +30,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function useDb($database) {
+	public function useDb($database)
+	{
 		$this->selectDb($database);
 	}
 
@@ -39,7 +41,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function selectDb($database) {
+	public function selectDb($database)
+	{
 		$this->connect();
 		mysqli_select_db($this->linkId, $database);
 	}
@@ -54,21 +57,27 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $password
 	 * @return int|\mysqli
 	 */
-	public function connect($database = '', $host = '', $user = '', $password = '') {
+	public function connect($database = '', $host = '', $user = '', $password = '')
+	{
 		/* Handle defaults */
-		if ($database == '')
+		if ($database == '') {
 			$database = $this->database;
-		if ($host == '')
+		}
+		if ($host == '') {
 			$host = $this->host;
-		if ($user == '')
+		}
+		if ($user == '') {
 			$user = $this->user;
-		if ($password == '')
+		}
+		if ($password == '') {
 			$password = $this->password;
+		}
 		/* establish connection, select database */
 		if (!is_object($this->linkId)) {
 			$this->connectionAttempt++;
-			if ($this->connectionAttempt > 1)
+			if ($this->connectionAttempt > 1) {
 				error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
+			}
 			if ($this->connectionAttempt >= $this->maxConnectErrors) {
 				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
 				return 0;
@@ -89,7 +98,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::disconnect()
 	 * @return bool
 	 */
-	public function disconnect() {
+	public function disconnect()
+	{
 		$return = method_exists($this->linkId, 'close') ? $this->linkId->close() : false;
 		$this->linkId = 0;
 		return $return;
@@ -99,9 +109,11 @@ class Db extends Generic implements Db_Interface {
 	 * @param $string
 	 * @return string
 	 */
-	public function real_escape($string = '') {
-		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect())
+	public function real_escape($string = '')
+	{
+		if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
 			return $this->escape($string);
+		}
 		return mysqli_real_escape_string($this->linkId, $string);
 	}
 
@@ -109,9 +121,11 @@ class Db extends Generic implements Db_Interface {
 	 * discard the query result
 	 * @return void
 	 */
-	public function free() {
-		if (is_resource($this->queryId))
+	public function free()
+	{
+		if (is_resource($this->queryId)) {
 			@mysqli_free_result($this->queryId);
+		}
 		$this->queryId = 0;
 	}
 
@@ -126,7 +140,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function queryReturn($query, $line = '', $file = '') {
+	public function queryReturn($query, $line = '', $file = '')
+	{
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
 			return false;
@@ -135,8 +150,9 @@ class Db extends Generic implements Db_Interface {
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQLI_ASSOC))
+			while ($this->next_record(MYSQLI_ASSOC)) {
 				$out[] = $this->Record;
+			}
 			return $out;
 		}
 	}
@@ -151,7 +167,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function qr($query, $line = '', $file = '') {
+	public function qr($query, $line = '', $file = '')
+	{
 		return $this->queryReturn($query, $line, $file);
 	}
 
@@ -161,9 +178,11 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $query sql wuery like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
 	 * @return int|\MyDb\Mysqli\mysqli_stmt
 	 */
-	public function prepare($query) {
-		if (!$this->connect())
+	public function prepare($query)
+	{
+		if (!$this->connect()) {
 			return 0;
+		}
 		$haltPrev = $this->haltOnError;
 		$this->haltOnError = 'no';
 		return mysqli_prepare($this->linkId, $query);
@@ -179,14 +198,16 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file
 	 * @return mixed 0 if no query or query id handler, safe to ignore this return
 	 */
-	public function query($queryString, $line = '', $file = '') {
+	public function query($queryString, $line = '', $file = '')
+	{
 		/* No empty queries, please, since PHP4 chokes on them. */
 		/* The empty query string is passed on from the constructor,
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '')
+		if ($queryString == '') {
 			return 0;
+		}
 		if (!$this->connect()) {
 			return 0;
 			/* we already complained in connect() about that. */
@@ -194,15 +215,19 @@ class Db extends Generic implements Db_Interface {
 		$haltPrev = $this->haltOnError;
 		$this->haltOnError = 'no';
 		// New query, discard previous result.
-		if (is_resource($this->queryId))
+		if (is_resource($this->queryId)) {
 			$this->free();
-		if ($this->Debug)
+		}
+		if ($this->Debug) {
 			printf("Debug: query = %s<br>\n", $queryString);
-		if (!isset($GLOBALS['db_queries']))
+		}
+		if (!isset($GLOBALS['db_queries'])) {
 			$GLOBALS['db_queries'] = array();
+		}
 		$GLOBALS['db_queries'][] = $queryString;
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
 			$this->log($queryString, $line, $file);
+		}
 		$tries = 3;
 		$try = 0;
 		$this->queryId = false;
@@ -221,8 +246,9 @@ class Db extends Generic implements Db_Interface {
 			}
 		}
 		$this->haltOnError = $haltPrev;
-		if (null === $this->queryId || $this->queryId === false)
+		if (null === $this->queryId || $this->queryId === false) {
 			$this->halt('', $line, $file);
+		}
 
 		// Will return nada if it fails. That's fine.
 		return $this->queryId;
@@ -231,7 +257,8 @@ class Db extends Generic implements Db_Interface {
 	/**
 	 * @return array|null|object
 	 */
-	public function fetchObject() {
+	public function fetchObject()
+	{
 		$this->Record = @mysqli_fetch_object($this->queryId);
 		return $this->Record;
 	}
@@ -244,7 +271,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($resultType = MYSQLI_BOTH) {
+	public function next_record($resultType = MYSQLI_BOTH)
+	{
 		if ($this->queryId === false) {
 			$this->haltmsg('next_record called with no query pending.');
 			return 0;
@@ -256,18 +284,20 @@ class Db extends Generic implements Db_Interface {
 		$this->Error = mysqli_error($this->linkId);
 
 		$stat = is_array($this->Record);
-		if (!$stat && $this->autoFree && is_resource($this->queryId))
+		if (!$stat && $this->autoFree && is_resource($this->queryId)) {
 			$this->free();
+		}
 		return $stat;
 	}
 
 	/**
 	 * switch to position in result set
-	 * 
+	 *
 	 * @param integer $pos the row numbe starting at 0 to switch to
 	 * @return bool whetherit was successfu or not.
 	 */
-	public function seek($pos = 0) {
+	public function seek($pos = 0)
+	{
 		$status = @mysqli_data_seek($this->queryId, $pos);
 		if ($status) {
 			$this->Row = $pos;
@@ -287,11 +317,14 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return bool
 	 */
-	public function transactionBegin() {
-		if (version_compare(PHP_VERSION, '5.5.0') < 0)
+	public function transactionBegin()
+	{
+		if (version_compare(PHP_VERSION, '5.5.0') < 0) {
 			return true;
-		if (!$this->connect())
+		}
+		if (!$this->connect()) {
 			return 0;
+		}
 		return mysqli_begin_transaction($this->linkId);
 	}
 
@@ -300,9 +333,11 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return bool
 	 */
-	public function transactionCommit() {
-		if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0)
+	public function transactionCommit()
+	{
+		if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0) {
 			return true;
+		}
 		return mysqli_commit($this->linkId);
 	}
 
@@ -311,9 +346,11 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return bool
 	 */
-	public function transactionAbort() {
-		if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0)
+	public function transactionAbort()
+	{
+		if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0) {
 			return true;
+		}
 		return mysqli_rollback($this->linkId);
 	}
 
@@ -326,9 +363,11 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $field
 	 * @return int|string
 	 */
-	public function getLastInsertId($table, $field) {
-		if (!isset($table) || $table == '' || !isset($field) || $field == '')
+	public function getLastInsertId($table, $field)
+	{
+		if (!isset($table) || $table == '' || !isset($field) || $field == '') {
 			return -1;
+		}
 
 		return @mysqli_insert_id($this->linkId);
 	}
@@ -341,7 +380,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $mode
 	 * @return bool|int|\mysqli_result
 	 */
-	public function lock($table, $mode = 'write') {
+	public function lock($table, $mode = 'write')
+	{
 		$this->connect();
 		$query = 'lock tables ';
 		if (is_array($table)) {
@@ -369,7 +409,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param bool $haltOnError optional, defaults to TRUE, whether or not to halt on error
 	 * @return bool|int|\mysqli_result
 	 */
-	public function unlock($haltOnError = true) {
+	public function unlock($haltOnError = true)
+	{
 		$this->connect();
 
 		$res = @mysqli_query($this->linkId, 'unlock tables');
@@ -386,7 +427,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::affectedRows()
 	 * @return int
 	 */
-	public function affectedRows() {
+	public function affectedRows()
+	{
 		return @mysqli_affected_rows($this->linkId);
 	}
 
@@ -394,7 +436,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::num_rows()
 	 * @return int
 	 */
-	public function num_rows() {
+	public function num_rows()
+	{
 		return @mysqli_num_rows($this->queryId);
 	}
 
@@ -402,7 +445,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::num_fields()
 	 * @return int
 	 */
-	public function num_fields() {
+	public function num_fields()
+	{
 		return @mysqli_num_fields($this->queryId);
 	}
 
@@ -411,7 +455,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return array
 	 */
-	public function tableNames() {
+	public function tableNames()
+	{
 		$return = [];
 		$this->query('SHOW TABLES');
 		$i = 0;

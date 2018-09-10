@@ -13,11 +13,12 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	*/
 	protected $db;
 
-	function __construct($name = null, array $data = array(), $dataName = '')
+	public function __construct($name = null, array $data = array(), $dataName = '')
 	{
 		parent::__construct($name, $data, $dataName);
-		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));;
-	}    
+		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+		;
+	}
 
 	/**
 	* Sets up the fixture, for example, opens a network connection.
@@ -87,7 +88,8 @@ class DbTest extends \PHPUnit\Framework\TestCase
 		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
 	}
 
-	public function testEscaping() {
+	public function testEscaping()
+	{
 		$oldId = $this->db->linkId;
 		$this->db->linkId = 0;
 		$string1 = 'hi there"dude';

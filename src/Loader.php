@@ -8,12 +8,14 @@
 	 */
 
 namespace MyDb;
+
 /**
  * Class Loader
  *
  * @package MyDb
  */
-class Loader {
+class Loader
+{
 	/* public: connection parameters */
 	public $Type = 'mysqli';
 	public $host = 'localhost';
@@ -53,7 +55,8 @@ class Loader {
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
 	 */
-	public function __construct($Type = '', $database = '', $user = '', $password = '', $host = 'localhost', $query = '') {
+	public function __construct($Type = '', $database = '', $user = '', $password = '', $host = 'localhost', $query = '')
+	{
 		$this->Type = $Type;
 		if (!defined('db')) {
 			switch ($this->Type) {
@@ -84,8 +87,9 @@ class Loader {
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-		if ($query != '')
+		if ($query != '') {
 			$this->query($query);
+		}
 	}
 
 	/**
@@ -93,24 +97,27 @@ class Loader {
 	 * @param string $line
 	 * @param string $file
 	 */
-	public function log($message, $line = '', $file = '') {
+	public function log($message, $line = '', $file = '')
+	{
 		//if (function_exists('myadmin_log'))
-			//myadmin_log('db', 'info', $message, $line, $file, FALSE);
+		//myadmin_log('db', 'info', $message, $line, $file, FALSE);
 		//else
-			error_log($message);
+		error_log($message);
 	}
 
 	/**
 	 * @return int
 	 */
-	public function linkId() {
+	public function linkId()
+	{
 		return $this->linkId;
 	}
 
 	/**
 	 * @return int
 	 */
-	public function queryId() {
+	public function queryId()
+	{
 		return $this->queryId;
 	}
 
@@ -118,9 +125,11 @@ class Loader {
 	 * @param $str
 	 * @return string
 	 */
-	public function dbAddslashes($str) {
-		if (!isset($str) || $str == '')
+	public function dbAddslashes($str)
+	{
+		if (!isset($str) || $str == '') {
 			return '';
+		}
 
 		return addslashes($str);
 	}
@@ -135,7 +144,8 @@ class Loader {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function qr($query, $line = '', $file = '') {
+	public function qr($query, $line = '', $file = '')
+	{
 		return $this->queryReturn($query, $line, $file);
 	}
 
@@ -147,39 +157,46 @@ class Loader {
 	 * @param string $file
 	 * @return void
 	 */
-	public function halt($msg, $line = '', $file = '') {
+	public function halt($msg, $line = '', $file = '')
+	{
 		$this->unlock(false);
 
-		if ($this->haltOnError == 'no')
+		if ($this->haltOnError == 'no') {
 			return;
+		}
 		$this->haltmsg($msg);
 
-		if ($file)
+		if ($file) {
 			error_log("File: $file");
-		if ($line)
+		}
+		if ($line) {
 			error_log("Line: $line");
+		}
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
 			// FIXME! Add check for error levels
-			if (isset($GLOBALS['tf']))
+			if (isset($GLOBALS['tf'])) {
 				$GLOBALS['tf']->terminate();
+			}
 		}
 	}
 
 	/**
 	 * @param $msg
 	 */
-	public function haltmsg($msg) {
+	public function haltmsg($msg)
+	{
 		$this->log("Database error: $msg", __LINE__, __FILE__);
-		if ($this->Errno != '0' || $this->Error != '()')
+		if ($this->Errno != '0' || $this->Error != '()') {
 			$this->log('SQL Error: '.$this->Errno.' ('.$this->Error.')', __LINE__, __FILE__);
+		}
 	}
 
 	/**
 	 * @return array
 	 */
-	public function indexNames() {
+	public function indexNames()
+	{
 		return [];
 	}
-
 }

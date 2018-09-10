@@ -17,7 +17,8 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface {
+class Db extends Generic implements Db_Interface
+{
 	public $driver = 'mysql';
 	public $Rows = [];
 	public $type = 'adodb';
@@ -31,18 +32,24 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $driver
 	 * @return bool|\the
 	 */
-	public function connect($database = '', $host = '', $user = '', $password = '', $driver = 'mysql') {
+	public function connect($database = '', $host = '', $user = '', $password = '', $driver = 'mysql')
+	{
 		/* Handle defaults */
-		if ('' == $database)
+		if ('' == $database) {
 			$database = $this->database;
-		if ('' == $host)
+		}
+		if ('' == $host) {
 			$host = $this->host;
-		if ('' == $user)
+		}
+		if ('' == $user) {
 			$user = $this->user;
-		if ('' == $password)
+		}
+		if ('' == $password) {
 			$password = $this->password;
-		if ('' == $driver)
+		}
+		if ('' == $driver) {
 			$driver = $this->driver;
+		}
 		/* establish connection, select database */
 		if ($this->linkId === false) {
 			$this->linkId = NewADOConnection($driver);
@@ -57,14 +64,16 @@ class Db extends Generic implements Db_Interface {
 	 * Db::disconnect()
 	 * @return void
 	 */
-	public function disconnect() {
+	public function disconnect()
+	{
 	}
 
 	/**
 	 * @param $string
 	 * @return string
 	 */
-	public function real_escape($string = '') {
+	public function real_escape($string = '')
+	{
 		return escapeshellarg($string);
 	}
 
@@ -72,7 +81,8 @@ class Db extends Generic implements Db_Interface {
 	 * discard the query result
 	 * @return void
 	 */
-	public function free() {
+	public function free()
+	{
 		//			@mysql_free_result($this->queryId);
 		//			$this->queryId = 0;
 	}
@@ -88,7 +98,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function queryReturn($query, $line = '', $file = '') {
+	public function queryReturn($query, $line = '', $file = '')
+	{
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
 			return false;
@@ -97,8 +108,9 @@ class Db extends Generic implements Db_Interface {
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQL_ASSOC))
+			while ($this->next_record(MYSQL_ASSOC)) {
 				$out[] = $this->Record;
+			}
 			return $out;
 		}
 	}
@@ -113,7 +125,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function qr($query, $line = '', $file = '') {
+	public function qr($query, $line = '', $file = '')
+	{
 		return $this->queryReturn($query, $line, $file);
 	}
 
@@ -127,34 +140,37 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file
 	 * @return mixed 0 if no query or query id handler, safe to ignore this return
 	 */
-	public function query($queryString, $line = '', $file = '') {
+	public function query($queryString, $line = '', $file = '')
+	{
 		/* No empty queries, please, since PHP4 chokes on them. */
 		/* The empty query string is passed on from the constructor,
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '')
+		if ($queryString == '') {
 			return 0;
+		}
 		if (!$this->connect()) {
 			return 0;
 			/* we already complained in connect() about that. */
 		}
 
 		// New query, discard previous result.
-		if ($this->queryId !== false)
+		if ($this->queryId !== false) {
 			$this->free();
+		}
 
-		if ($this->Debug)
+		if ($this->Debug) {
 			printf("Debug: query = %s<br>\n", $queryString);
+		}
 		if ($GLOBALS['log_queries'] !== false) {
 			$this->log($queryString, $line, $file);
-
 		}
 
 		try {
 			$this->queryId = $this->linkId->Execute($queryString);
 		} catch (exception $e) {
-			$this->emailError($queryString, $e, $line, $file);            
+			$this->emailError($queryString, $e, $line, $file);
 		}
 		$this->log("ADOdb Query $queryString (S:$success) - ".count($this->Rows).' Rows', __LINE__, __FILE__);
 		$this->Row = 0;
@@ -168,7 +184,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($resultType = MYSQL_ASSOC) {
+	public function next_record($resultType = MYSQL_ASSOC)
+	{
 		if (!$this->queryId) {
 			$this->halt('next_record called with no query pending.');
 			return 0;
@@ -176,8 +193,9 @@ class Db extends Generic implements Db_Interface {
 		++$this->Row;
 		$this->Record = $this->queryId->FetchRow();
 		$stat = is_array($this->Record);
-		if (!$stat && $this->autoFree)
+		if (!$stat && $this->autoFree) {
 			$this->free();
+		}
 		return $stat;
 	}
 
@@ -188,7 +206,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param integer $pos
 	 * @return int
 	 */
-	public function seek($pos = 0) {
+	public function seek($pos = 0)
+	{
 		if (isset($this->Rows[$pos])) {
 			$this->Row = $pos;
 		} else {
@@ -206,7 +225,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::transactionBegin()
 	 * @return bool
 	 */
-	public function transactionBegin() {
+	public function transactionBegin()
+	{
 		return true;
 	}
 
@@ -214,7 +234,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::transactionCommit()
 	 * @return bool
 	 */
-	public function transactionCommit() {
+	public function transactionCommit()
+	{
 		return true;
 	}
 
@@ -222,7 +243,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::transactionAbort()
 	 * @return bool
 	 */
-	public function transactionAbort() {
+	public function transactionAbort()
+	{
 		return true;
 	}
 
@@ -233,7 +255,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $field
 	 * @return mixed
 	 */
-	public function getLastInsertId($table, $field) {
+	public function getLastInsertId($table, $field)
+	{
 		return $this->linkId->Insert_ID($table, $field);
 	}
 
@@ -245,7 +268,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $mode
 	 * @return void
 	 */
-	public function lock($table, $mode = 'write') {
+	public function lock($table, $mode = 'write')
+	{
 		/*			$this->connect();
 
 		* $query = "lock tables ";
@@ -282,7 +306,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::unlock()
 	 * @return void
 	 */
-	public function unlock() {
+	public function unlock()
+	{
 		/*			$this->connect();
 
 		* $res = @mysql_query("unlock tables");
@@ -302,7 +327,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return mixed
 	 */
-	public function affectedRows() {
+	public function affectedRows()
+	{
 		return @$this->linkId->Affected_Rows();
 		//			return @$this->queryId->rowCount();
 	}
@@ -312,7 +338,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return mixed
 	 */
-	public function num_rows() {
+	public function num_rows()
+	{
 		return $this->queryId->NumRows();
 	}
 
@@ -321,7 +348,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return mixed
 	 */
-	public function num_fields() {
+	public function num_fields()
+	{
 		return $this->queryId->NumCols();
 	}
 
@@ -331,10 +359,12 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file
 	 * @return mixed|void
 	 */
-	public function haltmsg($msg, $line = '', $file = '') {
+	public function haltmsg($msg, $line = '', $file = '')
+	{
 		$this->log("Database error: $msg", $line, $file, 'error');
-		if ($this->linkId->ErrorNo() != '0' && $this->linkId->ErrorMsg() != '')
+		if ($this->linkId->ErrorNo() != '0' && $this->linkId->ErrorMsg() != '') {
 			$this->log('ADOdb SQL Error: '.$this->linkId->ErrorMsg(), $line, $file, 'error');
+		}
 		$this->logBackTrace($msg, $line, $file);
 	}
 
@@ -343,7 +373,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return array
 	 */
-	public function tableNames() {
+	public function tableNames()
+	{
 		$return = [];
 		$this->query('SHOW TABLES');
 		$i = 0;

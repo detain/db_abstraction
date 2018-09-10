@@ -10,11 +10,12 @@ class DbTest extends \PHPUnit\Framework\TestCase
 	*/
 	protected $db;
 
-	function __construct($name = null, array $data = array(), $dataName = '')
+	public function __construct($name = null, array $data = array(), $dataName = '')
 	{
 		parent::__construct($name, $data, $dataName);
-		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));;
-	}    
+		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+		;
+	}
 
 	protected function setUp()
 	{

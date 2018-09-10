@@ -17,7 +17,8 @@ use \MyDb\Db_Interface;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface {
+class Db extends Generic implements Db_Interface
+{
 	/* public: this is an api revision, not a CVS revision. */
 	public $type = 'pgsql';
 	public $port = '';
@@ -32,9 +33,11 @@ class Db extends Generic implements Db_Interface {
 	 * @param false|string $quote optional indicate the value needs quoted
 	 * @return string
 	 */
-	public function ifadd($add, $me, $quote = false) {
-		if ('' != $add)
+	public function ifadd($add, $me, $quote = false)
+	{
+		if ('' != $add) {
 			return ' '.$me.($quote === false ? '' : $quote).$add.($quote === false ? '' : $quote);
+		}
 		return '';
 	}
 
@@ -42,7 +45,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param $string
 	 * @return string
 	 */
-	public function real_escape($string = '') {
+	public function real_escape($string = '')
+	{
 		return $this->escape($string);
 	}
 
@@ -52,7 +56,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function useDb($database) {
+	public function useDb($database)
+	{
 		$this->selectDb($database);
 	}
 
@@ -62,7 +67,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function selectDb($database) {
+	public function selectDb($database)
+	{
 		/*if ($database != $this->database) {
 			$this->database = $database;
 			$this->linkId = null;
@@ -74,7 +80,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::connect()
 	 * @return void
 	 */
-	public function connect() {
+	public function connect()
+	{
 		if (0 == $this->linkId) {
 			$connectString = trim($this->ifadd($this->host, 'host=').
 							 $this->ifadd($this->port, 'port=').
@@ -94,7 +101,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::disconnect()
 	 * @return bool
 	 */
-	public function disconnect() {
+	public function disconnect()
+	{
 		return @pg_close($this->linkId);
 	}
 
@@ -109,7 +117,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function queryReturn($query, $line = '', $file = '') {
+	public function queryReturn($query, $line = '', $file = '')
+	{
 		$this->query($query, $line, $file);
 		if ($this->num_rows() == 0) {
 			return false;
@@ -118,8 +127,9 @@ class Db extends Generic implements Db_Interface {
 			return $this->Record;
 		} else {
 			$out = [];
-			while ($this->next_record(MYSQL_ASSOC))
+			while ($this->next_record(MYSQL_ASSOC)) {
 				$out[] = $this->Record;
+			}
 			return $out;
 		}
 	}
@@ -134,7 +144,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file optionally pass __FILE__ calling the query for logging
 	 * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
 	 */
-	public function qr($query, $line = '', $file = '') {
+	public function qr($query, $line = '', $file = '')
+	{
 		return $this->queryReturn($query, $line, $file);
 	}
 
@@ -148,10 +159,12 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file
 	 * @return mixed 0 if no query or query id handler, safe to ignore this return
 	 */
-	public function query($queryString, $line = '', $file = '') {
+	public function query($queryString, $line = '', $file = '')
+	{
 		if (!$line && !$file) {
-			if (isset($GLOBALS['tf']))
+			if (isset($GLOBALS['tf'])) {
 				$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didn't pass __LINE__ and __FILE__ to db->query() - Actually query: $queryString");
+			}
 		}
 
 		/* No empty queries, please, since PHP4 chokes on them. */
@@ -159,8 +172,9 @@ class Db extends Generic implements Db_Interface {
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '')
+		if ($queryString == '') {
 			return 0;
+		}
 
 		$this->connect();
 
@@ -171,8 +185,9 @@ class Db extends Generic implements Db_Interface {
 
 		$this->Error = pg_errormessage($this->linkId);
 		$this->Errno = ($this->Error == '') ? 0 : 1;
-		if (!$this->queryId)
+		if (!$this->queryId) {
 			$this->halt('Invalid SQL: '.$queryString, $line, $file);
+		}
 
 		return $this->queryId;
 	}
@@ -182,7 +197,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return void
 	 */
-	public function free() {
+	public function free()
+	{
 		@pg_freeresult($this->queryId);
 		$this->queryId = 0;
 	}
@@ -192,7 +208,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($resultType = PGSQL_BOTH) {
+	public function next_record($resultType = PGSQL_BOTH)
+	{
 		$this->Record = @pg_fetch_array($this->queryId, $this->Row++, $resultType);
 
 		$this->Error = pg_errormessage($this->linkId);
@@ -212,7 +229,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $pos
 	 * @return void
 	 */
-	public function seek($pos) {
+	public function seek($pos)
+	{
 		$this->Row = $pos;
 	}
 
@@ -221,7 +239,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return mixed
 	 */
-	public function transactionBegin() {
+	public function transactionBegin()
+	{
 		return $this->query('begin');
 	}
 
@@ -229,7 +248,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::transactionCommit()
 	 * @return bool|mixed
 	 */
-	public function transactionCommit() {
+	public function transactionCommit()
+	{
 		if (!$this->Errno) {
 			return pg_exec($this->linkId, 'commit');
 		} else {
@@ -241,7 +261,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::transactionAbort()
 	 * @return mixed
 	 */
-	public function transactionAbort() {
+	public function transactionAbort()
+	{
 		return pg_exec($this->linkId, 'rollback');
 	}
 
@@ -251,23 +272,27 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $field
 	 * @return int
 	 */
-	public function getLastInsertId($table, $field) {
+	public function getLastInsertId($table, $field)
+	{
 		/* This will get the last insert ID created on the current connection.  Should only be called
 		* after an insert query is run on a table that has an auto incrementing field.  Of note, table
 		* and field are required because pgsql returns the last inserted OID, which is unique across
 		* an entire installation.  These params allow us to retrieve the sequenced field without adding
 		* conditional code to the apps.
 		*/
-		if (!isset($table) || $table == '' || !isset($field) || $field == '')
+		if (!isset($table) || $table == '' || !isset($field) || $field == '') {
 			return -1;
+		}
 
 		$oid = pg_getlastoid($this->queryId);
-		if ($oid == -1)
+		if ($oid == -1) {
 			return -1;
+		}
 
 		$result = @pg_exec($this->linkId, "select $field from $table where oid=$oid");
-		if (!$result)
+		if (!$result) {
 			return -1;
+		}
 
 		$Record = @pg_fetch_array($result, 0);
 		@pg_freeresult($result);
@@ -285,13 +310,15 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $mode
 	 * @return int|mixed
 	 */
-	public function lock($table, $mode = 'write') {
+	public function lock($table, $mode = 'write')
+	{
 		$result = $this->transactionBegin();
 
 		if ($mode == 'write') {
 			if (is_array($table)) {
-				foreach ($table as $t)
+				foreach ($table as $t) {
 					$result = pg_exec($this->linkId, 'lock table '.$t[1].' in share mode');
+				}
 			} else {
 				$result = pg_exec($this->linkId, 'lock table '.$table.' in share mode');
 			}
@@ -306,7 +333,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::unlock()
 	 * @return bool|mixed
 	 */
-	public function unlock() {
+	public function unlock()
+	{
 		return $this->transactionCommit();
 	}
 
@@ -314,7 +342,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::affectedRows()
 	 * @return void
 	 */
-	public function affectedRows() {
+	public function affectedRows()
+	{
 		return pg_cmdtuples($this->queryId);
 	}
 
@@ -322,7 +351,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::num_rows()
 	 * @return int
 	 */
-	public function num_rows() {
+	public function num_rows()
+	{
 		return pg_numrows($this->queryId);
 	}
 
@@ -330,7 +360,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::num_fields()
 	 * @return int
 	 */
-	public function num_fields() {
+	public function num_fields()
+	{
 		return pg_numfields($this->queryId);
 	}
 
@@ -340,10 +371,12 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file
 	 * @return mixed|void
 	 */
-	public function haltmsg($msg, $line = '', $file = '') {
+	public function haltmsg($msg, $line = '', $file = '')
+	{
 		$this->log("Database error: $msg", $line, $file, 'error');
-		if ($this->Errno != '0' || $this->Error != '()')
+		if ($this->Errno != '0' || $this->Error != '()') {
 			$this->log('PostgreSQL Error: '.pg_last_error($this->linkId), $line, $file, 'error');
+		}
 		$this->logBackTrace($msg, $line, $file);
 	}
 
@@ -352,7 +385,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return array
 	 */
-	public function tableNames() {
+	public function tableNames()
+	{
 		$return = [];
 		$this->query("select relname from pg_class where relkind = 'r' and not relname like 'pg_%'");
 		$i = 0;
@@ -370,7 +404,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return array
 	 */
-	public function indexNames() {
+	public function indexNames()
+	{
 		$return = [];
 		$this->query("SELECT relname FROM pg_class WHERE NOT relname ~ 'pg_.*' AND relkind ='i' ORDER BY relname");
 		$i = 0;

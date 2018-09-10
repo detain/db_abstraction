@@ -18,7 +18,8 @@ use \PDO;
  *
  * @access public
  */
-class Db extends Generic implements Db_Interface {
+class Db extends Generic implements Db_Interface
+{
 	/* public: connection parameters */
 	public $driver = 'mysql';
 	public $Rows = [];
@@ -31,10 +32,12 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function selectDb($database) {
+	public function selectDb($database)
+	{
 		$dSN = "{$this->driver}:dbname={$database};host={$this->host}";
-		if ($this->characterSet != '')
+		if ($this->characterSet != '') {
 			$dSN .= ';charset='.$this->characterSet;
+		}
 		$this->linkId = new PDO($dSN, $this->user, $this->password);
 		$this->database = $database;
 	}
@@ -46,7 +49,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $database the name of the database to use
 	 * @return void
 	 */
-	public function useDb($database) {
+	public function useDb($database)
+	{
 		$this->selectDb($database);
 	}
 	
@@ -61,22 +65,29 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $driver
 	 * @return bool|int|PDO
 	 */
-	public function connect($database = '', $host = '', $user = '', $password = '', $driver = 'mysql') {
+	public function connect($database = '', $host = '', $user = '', $password = '', $driver = 'mysql')
+	{
 		/* Handle defaults */
-		if ('' == $database)
+		if ('' == $database) {
 			$database = $this->database;
-		if ('' == $host)
+		}
+		if ('' == $host) {
 			$host = $this->host;
-		if ('' == $user)
+		}
+		if ('' == $user) {
 			$user = $this->user;
-		if ('' == $password)
+		}
+		if ('' == $password) {
 			$password = $this->password;
-		if ('' == $driver)
+		}
+		if ('' == $driver) {
 			$driver = $this->driver;
+		}
 		/* establish connection, select database */
 		$dSN = "{$driver}:dbname={$database};host={$host}";
-		if ($this->characterSet != '')
+		if ($this->characterSet != '') {
 			$dSN .= ';charset='.$this->characterSet;
+		}
 		if ($this->linkId === false) {
 			try {
 				$this->linkId = new PDO($dSN, $user, $password);
@@ -94,7 +105,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::disconnect()
 	 * @return void
 	 */
-	public function disconnect() {
+	public function disconnect()
+	{
 	}
 
 	/* public: discard the query result */
@@ -103,7 +115,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::free()
 	 * @return void
 	 */
-	public function free() {
+	public function free()
+	{
 		//			@mysql_free_result($this->queryId);
 		//			$this->queryId = 0;
 	}
@@ -118,26 +131,31 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file
 	 * @return mixed 0 if no query or query id handler, safe to ignore this return
 	 */
-	public function query($queryString, $line = '', $file = '') {
+	public function query($queryString, $line = '', $file = '')
+	{
 		/* No empty queries, please, since PHP4 chokes on them. */
 		/* The empty query string is passed on from the constructor,
 		* when calling the class without a query, e.g. in situations
 		* like these: '$db = new db_Subclass;'
 		*/
-		if ($queryString == '')
+		if ($queryString == '') {
 			return 0;
+		}
 		if (!$this->connect()) {
 			return 0;
 			/* we already complained in connect() about that. */
 		}
 		// New query, discard previous result.
-		if ($this->queryId !== false)
+		if ($this->queryId !== false) {
 			$this->free();
+		}
 
-		if ($this->Debug)
+		if ($this->Debug) {
 			printf("Debug: query = %s<br>\n", $queryString);
-		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)
+		}
+		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
 			$this->log($queryString, $line, $file);
+		}
 
 		$this->queryId = $this->linkId->prepare($queryString);
 		$success = $this->queryId->execute();
@@ -159,7 +177,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $resultType
 	 * @return bool
 	 */
-	public function next_record($resultType = MYSQLI_ASSOC) {
+	public function next_record($resultType = MYSQLI_ASSOC)
+	{
 		// PDO result types so far seem to be +1
 		++$resultType;
 		if (!$this->queryId) {
@@ -171,8 +190,9 @@ class Db extends Generic implements Db_Interface {
 		$this->Record = $this->Rows[$this->Row];
 
 		$stat = is_array($this->Record);
-		if (!$stat && $this->autoFree)
+		if (!$stat && $this->autoFree) {
 			$this->free();
+		}
 		return $stat;
 	}
 
@@ -183,7 +203,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param integer $pos
 	 * @return int
 	 */
-	public function seek($pos = 0) {
+	public function seek($pos = 0)
+	{
 		if (isset($this->Rows[$pos])) {
 			$this->Row = $pos;
 		} else {
@@ -201,7 +222,8 @@ class Db extends Generic implements Db_Interface {
 	 * Initiates a transaction
 	 * @return bool
 	 */
-	public function transactionBegin() {
+	public function transactionBegin()
+	{
 		return $this->linkId->beginTransaction();
 	}
 
@@ -209,7 +231,8 @@ class Db extends Generic implements Db_Interface {
 	 * Commits a transaction
 	 * @return bool
 	 */
-	public function transactionCommit() {
+	public function transactionCommit()
+	{
 		return $this->linkId->commit();
 	}
 
@@ -217,7 +240,8 @@ class Db extends Generic implements Db_Interface {
 	 * Rolls back a transaction
 	 * @return bool
 	 */
-	public function transactionAbort() {
+	public function transactionAbort()
+	{
 		return $this->linkId->rollBack();
 	}
 
@@ -227,9 +251,11 @@ class Db extends Generic implements Db_Interface {
 	 * @param mixed $field
 	 * @return int
 	 */
-	public function getLastInsertId($table, $field) {
-		if (!isset($table) || $table == '' || !isset($field) || $field == '')
+	public function getLastInsertId($table, $field)
+	{
+		if (!isset($table) || $table == '' || !isset($field) || $field == '') {
 			return -1;
+		}
 		return $this->linkId->lastInsertId();
 	}
 
@@ -241,7 +267,8 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $mode
 	 * @return void
 	 */
-	public function lock($table, $mode = 'write') {
+	public function lock($table, $mode = 'write')
+	{
 		/*			$this->connect();
 
 		* $query = "lock tables ";
@@ -278,7 +305,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::unlock()
 	 * @return void
 	 */
-	public function unlock() {
+	public function unlock()
+	{
 		/*			$this->connect();
 
 		* $res = @mysql_query("unlock tables");
@@ -298,7 +326,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return mixed
 	 */
-	public function affectedRows() {
+	public function affectedRows()
+	{
 		return @$this->queryId->rowCount();
 	}
 
@@ -306,7 +335,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::num_rows()
 	 * @return int
 	 */
-	public function num_rows() {
+	public function num_rows()
+	{
 		return count($this->Rows);
 	}
 
@@ -314,7 +344,8 @@ class Db extends Generic implements Db_Interface {
 	 * Db::num_fields()
 	 * @return int
 	 */
-	public function num_fields() {
+	public function num_fields()
+	{
 		$keys = array_keys($this->Rows);
 		return count($this->Rows[$keys[0]]);
 	}
@@ -325,10 +356,12 @@ class Db extends Generic implements Db_Interface {
 	 * @param string $file
 	 * @return mixed|void
 	 */
-	public function haltmsg($msg, $line = '', $file = '') {
+	public function haltmsg($msg, $line = '', $file = '')
+	{
 		$this->log("Database error: $msg", $line, $file, 'error');
-		if ($this->Errno != '0' || $this->Error != '()')
+		if ($this->Errno != '0' || $this->Error != '()') {
 			$this->log('PDO MySQL Error: '.json_encode($this->linkId->errorInfo()), $line, $file, 'error');
+		}
 		$this->logBackTrace($msg, $line, $file);
 	}
 
@@ -337,7 +370,8 @@ class Db extends Generic implements Db_Interface {
 	 *
 	 * @return array
 	 */
-	public function tableNames() {
+	public function tableNames()
+	{
 		$return = [];
 		$this->query('SHOW TABLES');
 		foreach ($this->Rows as $i => $info) {

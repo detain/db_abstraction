@@ -8,12 +8,14 @@
  */
 
 namespace MyDb;
+
 /**
  * Interface Db_Interface
  *
  * @package MyDb
  */
-interface Db_Interface {
+interface Db_Interface
+{
 
 	/**
 	 * Db_Interface constructor.
@@ -67,6 +69,4 @@ interface Db_Interface {
 	public function haltmsg($msg);
 
 	public function indexNames();
-
 }
-
