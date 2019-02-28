@@ -83,9 +83,6 @@ abstract class Generic
 	 */
 	public function log($message, $line = '', $file = '', $level = 'info')
 	{
-		//if (function_exists('myadmin_log'))
-		//myadmin_log('db', $level, $message, $line, $file, isset($GLOBALS['tf']));
-		//else
 		error_log($message);
 	}
 
