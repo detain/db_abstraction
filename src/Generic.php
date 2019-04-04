@@ -275,7 +275,11 @@ abstract class Generic
 			((isset($_FILES) && count($_FILES)) ? ' FILES='.json_encode($_FILES) : '').
 			('' !== getenv('HTTP_USER_AGENT') ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
 			(isset($_SERVER['REQUEST_METHOD']) ? ' METHOD="'.$_SERVER['REQUEST_METHOD'].'"'.
-				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'.json_encode($_POST).'"' : '') : ''), $line, $file, 'error');
+				($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'.json_encode($_POST).'"' : '') : ''),
+			$line,
+			$file,
+			'error'
+		);
 		for ($level = 1, $levelMax = count($backtrace); $level < $levelMax; $level++) {
 			$message = (isset($backtrace[$level]['file']) ? 'File: '.$backtrace[$level]['file'] : '').
 				(isset($backtrace[$level]['line']) ? ' Line: '.$backtrace[$level]['line'] : '').
