@@ -303,13 +303,8 @@ abstract class Generic
 		$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
 		$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
 		$subject = php_uname('n').' MySQLi Error';
-		$headers = '';
-		$headers .= 'MIME-Version: 1.0'.PHP_EOL;
-		$headers .= 'Content-type: text/html; charset=UTF-8'.PHP_EOL;
-		$headers .= 'From: No-Reply <no-reply@interserver.net>'.PHP_EOL;
-		$headers .= 'X-Mailer: Trouble-Free.Net Admin Center'.PHP_EOL;
-		mail('john@interserver.net', $subject, $email, $headers);
-		mail('detain@interserver.net', $subject, $email, $headers);
+		(new \MyAdmin\Mail())->adminMail($subject, $email, 'john@interserver.net', '');
+		(new \MyAdmin\Mail())->adminMail($subject, $email, 'detain@interserver.net', '');
 		$this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
 	}
 	
