@@ -299,12 +299,23 @@ abstract class Generic
 
 	public function emailError($queryString, $error, $line, $file)
 	{
-		$email = $this->type." Error<br>\n".'Query: '.$queryString."<br>\n".$error."<br>\n".'Line: '.$line."<br>\n".'File: '.$file."<br>\n".(isset($GLOBALS['tf']) ? 'User: '.$GLOBALS['tf']->session->account_id."<br>\n" : '');
-		$email .= '<br><br>Request Variables:<br>'.print_r($_REQUEST, true);
-		$email .= '<br><br>Server Variables:<br>'.print_r($_SERVER, true);
 		$subject = php_uname('n').' MySQLi Error';
-		(new \MyAdmin\Mail())->adminMail($subject, $email, 'john@interserver.net', '');
-		(new \MyAdmin\Mail())->adminMail($subject, $email, 'detain@interserver.net', '');
+		$smarty = new \TFSmarty();
+		$smarty->assign([
+			'type' => $this->type,
+			'queryString' => $queryString,
+			'error' => $error,
+			'line' => $line,
+			'file' => $file,
+			'request' => $_REQUEST,
+			'server' => $_SERVER,
+		]);
+		if (isset($GLOBALS['tf'])) {
+			$smarty->assign('account_id', $GLOBALS['tf']->session->account_id);
+		}
+		$email = $smarty->fetch('email/admin/sql_error.tpl');
+		(new \MyAdmin\Mail())->adminMail($subject, $email, 'john@interserver.net', 'admin/sql_error.tpl');
+		(new \MyAdmin\Mail())->adminMail($subject, $email, 'detain@interserver.net', 'admin/sql_error.tpl');
 		$this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
 	}
 	
