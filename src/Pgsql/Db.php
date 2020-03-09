@@ -161,12 +161,6 @@ class Db extends Generic implements Db_Interface
 	 */
 	public function query($queryString, $line = '', $file = '')
 	{
-		if (!$line && !$file) {
-			if (isset($GLOBALS['tf'])) {
-				$GLOBALS['tf']->warning(__LINE__, __FILE__, "Lazy developer didn't pass __LINE__ and __FILE__ to db->query() - Actually query: $queryString");
-			}
-		}
-
 		/* No empty queries, please, since PHP4 chokes on them. */
 		/* The empty query string is passed on from the constructor,
 		* when calling the class without a query, e.g. in situations
