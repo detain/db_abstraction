@@ -177,15 +177,20 @@ class Db extends Generic implements Db_Interface
 	 *
 	 * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
 	 * @return int|\MyDb\Mysqli\mysqli_stmt
+	 * @param string $line
+	 * @param string $file
 	 */
-	public function prepare($query)
+	public function prepare($query, $line = '', $file = '')
 	{
 		if (!$this->connect()) {
 			return 0;
 		}
 		$haltPrev = $this->haltOnError;
 		$this->haltOnError = 'no';
-		return mysqli_prepare($this->linkId, $query);
+		$start = microtime(true);
+		$prepare = mysqli_prepare($this->linkId, $query);
+		$this->addLog($query, microtime(true) - $start, $line, $file);
+		return $prepare;
 	}
 
 	/**
