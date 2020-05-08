@@ -53,6 +53,12 @@ abstract class Generic
 
 	public $characterSet = 'utf8mb4';
 	public $collation = 'utf8mb4_unicode_ci';
+	
+	/**
+	 * Logged queries.
+	 * @var array
+	 */
+	protected $log = [];    
 
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters
@@ -342,4 +348,40 @@ abstract class Generic
 	{
 		return [];
 	}
+	
+
+	/**
+	 * Add query to logged queries.
+	 * @param string $statement
+	 * @param float $time Elapsed seconds with microseconds
+	 * @param string|int $line Line Number
+	 * @param string $file File Name
+	 */
+	public function addLog($statement, $time, $line = '', $file = '')
+	{
+		$query = [
+			'statement' => $statement,
+			'time' => $time * 1000
+		];
+		if ($line != '') {
+			$query['line'] = $line;
+		}
+		if ($file != '') {
+			$query['file'] = $file;
+		}
+		if (!isset($GLOBALS['db_queries'])) {
+			$GLOBALS['db_queries'] = array();
+		}
+		$GLOBALS['db_queries'][] = $query;
+		array_push($this->log, $query);
+	}
+
+	/**
+	 * Return logged queries.
+	 * @return array Logged queries
+	 */
+	public function getLog()
+	{
+		return $this->log;
+	}    
 }

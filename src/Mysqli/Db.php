@@ -175,7 +175,7 @@ class Db extends Generic implements Db_Interface
 	/**
 	 * creates a prepaired statement from query
 	 *
-	 * @param string $query sql wuery like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
+	 * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
 	 * @return int|\MyDb\Mysqli\mysqli_stmt
 	 */
 	public function prepare($query)
@@ -221,10 +221,6 @@ class Db extends Generic implements Db_Interface
 		if ($this->Debug) {
 			printf("Debug: query = %s<br>\n", $queryString);
 		}
-		if (!isset($GLOBALS['db_queries'])) {
-			$GLOBALS['db_queries'] = array();
-		}
-		$GLOBALS['db_queries'][] = $queryString;
 		if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
 			$this->log($queryString, $line, $file);
 		}
@@ -237,7 +233,9 @@ class Db extends Generic implements Db_Interface
 				@mysqli_close($this->linkId);
 				$this->connect();
 			}
+			$start = microtime(true);
 			$this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
+			$this->addLog($queryString, microtime(true) - $start, $line, $file);
 			$this->Row = 0;
 			$this->Errno = @mysqli_errno($this->linkId);
 			$this->Error = @mysqli_error($this->linkId);
