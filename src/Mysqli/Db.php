@@ -57,7 +57,7 @@ class Db extends Generic implements Db_Interface
 	 * @param string $password
 	 * @return int|\mysqli
 	 */
-	public function connect($database = '', $host = '', $user = '', $password = '')
+	public function connect($database = '', $host = '', $user = '', $password = '', $port = '')
 	{
 		/* Handle defaults */
 		if ($database == '') {
@@ -69,9 +69,12 @@ class Db extends Generic implements Db_Interface
 		if ($user == '') {
 			$user = $this->user;
 		}
-		if ($password == '') {
-			$password = $this->password;
-		}
+        if ($password == '') {
+            $password = $this->password;
+        }
+        if ($port == '') {
+            $port = $this->port;
+        }
 		/* establish connection, select database */
 		if (!is_object($this->linkId)) {
 			$this->connectionAttempt++;
@@ -84,7 +87,11 @@ class Db extends Generic implements Db_Interface
 			}
 			$this->linkId = mysqli_init();
 			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
-			$this->linkId->real_connect($host, $user, $password, $database);
+            if ($port != '') {
+                $this->linkId->real_connect($host, $user, $password, $database, $port);
+            } else {
+                $this->linkId->real_connect($host, $user, $password, $database);
+            }			
 			$this->linkId->set_charset($this->characterSet);
 			if ($this->linkId->connect_errno) {
 				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);

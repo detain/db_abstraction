@@ -19,6 +19,7 @@ abstract class Generic
 	public $database = '';
 	public $user = '';
 	public $password = '';
+    public $port = '';
 
 	/* public: configuration parameters */
 	public $autoStripslashes = false;
@@ -68,13 +69,15 @@ abstract class Generic
 	 * @param string $password Optional The password to use
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
+     * @param string $port optional port for the connection
 	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '')
+	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '', $port = '')
 	{
 		$this->database = $database;
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
+        $this->port = $port;
 		if ($query != '') {
 			$this->query($query);
 		}
