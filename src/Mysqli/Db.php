@@ -246,20 +246,17 @@ class Db extends Generic implements Db_Interface
 				$this->connect();
 			}
 			$start = microtime(true);
-			if (false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
-                if (@mysqli_errno($this->linkId) == 3101) {
-                    //myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error, Trying Again in 1 second', __LINE__, __FILE__);
-                    sleep(1);
-                    if (false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
-                        if (@mysqli_errno($this->linkId) == 3101) {
-                            //myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error, Trying Again in 1 second', __LINE__, __FILE__);
-                            sleep(1);
-                            if (false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
-                                myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error x3, Giving Up', __LINE__, __FILE__);
-                            }
-                        }
-                    }
-                }
+            $onlyRollback = true;
+            $fails = 0;
+            while ($fails < 10 && false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
+                $fails++; 
+                if (@mysqli_errno($this->linkId) == 3101)
+                    usleep(500000); // half a second
+                else
+                    $onlyRollback = false;
+            } 
+            if ($onlyRollback === true && false === $this->queryId) {
+                myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up', __LINE__, __FILE__);
             }
  			$this->addLog($queryString, microtime(true) - $start, $line, $file);
 			$this->Row = 0;
