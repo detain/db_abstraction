@@ -248,14 +248,14 @@ class Db extends Generic implements Db_Interface
 			$start = microtime(true);
 			if (false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
                 if (@mysqli_errno($this->linkId) == 3101) {
-                    myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error, Trying Again in 1 second', __LINE__, __FILE__);
+                    //myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error, Trying Again in 1 second', __LINE__, __FILE__);
                     sleep(1);
                     if (false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
                         if (@mysqli_errno($this->linkId) == 3101) {
-                            myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error, Trying Again in 1 second', __LINE__, __FILE__);
+                            //myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error, Trying Again in 1 second', __LINE__, __FILE__);
                             sleep(1);
                             if (false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
-                                myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error, Giving Up', __LINE__, __FILE__);
+                                myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error x3, Giving Up', __LINE__, __FILE__);
                             }
                         }
                     }
