@@ -25,8 +25,9 @@ interface Db_Interface
 	 * @param string $password
 	 * @param string $host
 	 * @param string $query
+	 * @param string $port
 	 */
-	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '');
+	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '', $port = '');
 
 	/**
 	 * @param $message
