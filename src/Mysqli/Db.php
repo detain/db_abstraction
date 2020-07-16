@@ -69,12 +69,12 @@ class Db extends Generic implements Db_Interface
 		if ($user == '') {
 			$user = $this->user;
 		}
-        if ($password == '') {
-            $password = $this->password;
-        }
-        if ($port == '') {
-            $port = $this->port;
-        }
+		if ($password == '') {
+			$password = $this->password;
+		}
+		if ($port == '') {
+			$port = $this->port;
+		}
 		/* establish connection, select database */
 		if (!is_object($this->linkId)) {
 			$this->connectionAttempt++;
@@ -87,11 +87,11 @@ class Db extends Generic implements Db_Interface
 			}
 			$this->linkId = mysqli_init();
 			$this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
-            if ($port != '') {
-                $this->linkId->real_connect($host, $user, $password, $database, $port);
-            } else {
-                $this->linkId->real_connect($host, $user, $password, $database);
-            }			
+			if ($port != '') {
+				$this->linkId->real_connect($host, $user, $password, $database, $port);
+			} else {
+				$this->linkId->real_connect($host, $user, $password, $database);
+			}			
 			$this->linkId->set_charset($this->characterSet);
 			if ($this->linkId->connect_errno) {
 				$this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
@@ -246,19 +246,19 @@ class Db extends Generic implements Db_Interface
 				$this->connect();
 			}
 			$start = microtime(true);
-            $onlyRollback = true;
-            $fails = 0;
-            while ($fails < 10 && false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
-                $fails++; 
-                if (@mysqli_errno($this->linkId) == 3101)
-                    usleep(500000); // half a second
-                else
-                    $onlyRollback = false;
-            } 
-            if ($onlyRollback === true && false === $this->queryId) {
-                myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up', __LINE__, __FILE__);
-            }
- 			$this->addLog($queryString, microtime(true) - $start, $line, $file);
+			$onlyRollback = true;
+			$fails = 0;
+			while ($fails < 100 && false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
+				$fails++; 
+				if (@mysqli_errno($this->linkId) == 3101)
+					usleep(100000); // 1/10th second
+				else
+					$onlyRollback = false;
+			} 
+			if ($onlyRollback === true && false === $this->queryId) {
+				myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up', __LINE__, __FILE__);
+			}
+			$this->addLog($queryString, microtime(true) - $start, $line, $file);
 			$this->Row = 0;
 			$this->Errno = @mysqli_errno($this->linkId);
 			$this->Error = @mysqli_error($this->linkId);
