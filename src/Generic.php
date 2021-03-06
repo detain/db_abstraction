@@ -19,14 +19,14 @@ abstract class Generic
 	public $database = '';
 	public $user = '';
 	public $password = '';
-    public $port = '';
+	public $port = '';
 
 	/* public: configuration parameters */
 	public $autoStripslashes = false;
 	public $Debug = 0; // Set to 1 for debugging messages.
 	public $haltOnError = 'yes'; // "yes" (halt with message), "no" (ignore errors quietly), "report" (ignore error, but spit a warning)
 
-	public $maxConnectErrors = 30;
+	public $maxConnectErrors = 5;
 	public $connectionAttempt = 0;
 	public $maxMatches = 10000000;
 
@@ -69,7 +69,7 @@ abstract class Generic
 	 * @param string $password Optional The password to use
 	 * @param string $host Optional The hostname where the server is, or default to localhost
 	 * @param string $query Optional query to perform immediately
-     * @param string $port optional port for the connection
+	 * @param string $port optional port for the connection
 	 */
 	public function __construct($database = '', $user = '', $password = '', $host = 'localhost', $query = '', $port = '')
 	{
@@ -77,7 +77,7 @@ abstract class Generic
 		$this->user = $user;
 		$this->password = $password;
 		$this->host = $host;
-        $this->port = $port;
+		$this->port = $port;
 		if ($query != '') {
 			$this->query($query);
 		}
@@ -260,10 +260,9 @@ abstract class Generic
 		}
 		if ($this->haltOnError != 'report') {
 			echo '<p><b>Session halted.</b>';
-			// FIXME! Add check for error levels
-			if (isset($GLOBALS['tf'])) {
-				$GLOBALS['tf']->terminate();
-			}
+			//if (isset($GLOBALS['tf']))
+				//$GLOBALS['tf']->terminate();
+			die();
 		}
 		return true;
 	}
@@ -336,6 +335,8 @@ abstract class Generic
 	 */
 	public function haltmsg($msg, $line = '', $file = '')
 	{
+		error_log($msg);
+		return;
 		$this->log("Database error: $msg", $line, $file, 'error');
 		if ($this->Errno != '0' || !in_array($this->Error, ['', '()'])) {
 			$sqlstate = mysqli_sqlstate($this->linkId);
