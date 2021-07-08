@@ -1,5 +1,5 @@
 <?php
-namespace MyDb\Tests\Mysqli;
+namespace MyDb\Tests;
 
 use MyDb\Generic;
 use MyDb\Mysqli\Db;
