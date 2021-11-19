@@ -338,7 +338,8 @@ abstract class Generic
 	public function haltmsg($msg, $line = '', $file = '')
 	{
 		$email = "DB Error {$msg} {$file}:{$line}";
-		\MyAdmin\Mail::failsafeMail($email, $email, ['detain@interserver.net', 'john@interserver.net']);
+		if (class_exists('\\MyAdmin\Mail'))
+			\MyAdmin\Mail::failsafeMail($email, $email, ['detain@interserver.net', 'john@interserver.net']);
 		return;
 		$this->log("Database error: $msg", $line, $file, 'error');
 		if ($this->Errno != '0' || !in_array($this->Error, ['', '()'])) {
