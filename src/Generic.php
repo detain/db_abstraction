@@ -307,7 +307,7 @@ abstract class Generic
 
 	public function emailError($queryString, $error, $line, $file)
 	{
-		$subject = php_uname('n').' MySQLi Error';
+		$subject = php_uname('n').' MySQLi Error '.$queryString;
 		if (class_exists('\\TFSmarty')) {
 			$smarty = new \TFSmarty();
 			$smarty->assign([
