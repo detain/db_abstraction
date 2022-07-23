@@ -54,12 +54,12 @@ abstract class Generic
 
 	public $characterSet = 'utf8mb4';
 	public $collation = 'utf8mb4_unicode_ci';
-	
+
 	/**
 	 * Logged queries.
 	 * @var array
 	 */
-	protected $log = [];    
+	protected $log = [];
 
 	/**
 	 * Constructs the db handler, can optionally specify connection parameters
@@ -230,11 +230,12 @@ abstract class Generic
 	 */
 	public function f($name, $stripSlashes = '')
 	{
-		if ($stripSlashes || ($this->autoStripslashes && !$stripSlashes)) {
+        if (is_null($this->Record))
+            return null;
+		elseif ($stripSlashes || ($this->autoStripslashes && !$stripSlashes))
 			return stripslashes($this->Record[$name]);
-		} else {
+		else
 			return $this->Record[$name];
-		}
 	}
 
 	/**
@@ -328,7 +329,7 @@ abstract class Generic
 		}
 		$this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
 	}
-	
+
 	/**
 	 * @param mixed $msg
 	 * @param string $line
@@ -357,7 +358,7 @@ abstract class Generic
 	{
 		return [];
 	}
-	
+
 
 	/**
 	 * Add query to logged queries.
@@ -392,5 +393,5 @@ abstract class Generic
 	public function getLog()
 	{
 		return $this->log;
-	}    
+	}
 }
