@@ -1,4 +1,5 @@
 <?php
+
 namespace MyDb\Tests\Pdo;
 
 use MyDb\Pdo\Db;
@@ -8,209 +9,209 @@ use MyDb\Pdo\Db;
 */
 class DbTest extends \PHPUnit\Framework\TestCase
 {
-	/**
-	* @var Db
-	*/
-	protected $db;
+    /**
+    * @var Db
+    */
+    protected $db;
 
-	public function __construct($name = null, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		$this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
-		;
-	}
+    public function __construct($name = null, array $data = array(), $dataName = '')
+    {
+        parent::__construct($name, $data, $dataName);
+        $this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+        ;
+    }
 
-	/**
-	* Sets up the fixture, for example, opens a network connection.
-	* This method is called before a test is executed.
-	*/
-	protected function setUp()
-	{
-		$this->db->connect();
-		//$this->db->transactionBegin();
-	}
+    /**
+    * Sets up the fixture, for example, opens a network connection.
+    * This method is called before a test is executed.
+    */
+    protected function setUp()
+    {
+        $this->db->connect();
+        //$this->db->transactionBegin();
+    }
 
-	/**
-	* Tears down the fixture, for example, closes a network connection.
-	* This method is called after a test is executed.
-	*/
-	protected function tearDown()
-	{
-		//$this->db->transactionAbort();
-	}
+    /**
+    * Tears down the fixture, for example, closes a network connection.
+    * This method is called after a test is executed.
+    */
+    protected function tearDown()
+    {
+        //$this->db->transactionAbort();
+    }
 
 
-	public function testLog()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testLog()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	/**
-	*/
-	public function testUse_db()
-	{
-		$db = 'tests';
-		$this->db->useDb($db);
-		$this->db->query("select database()");
-		$this->db->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->db->Record[0]);
-	}
+    /**
+    */
+    public function testUse_db()
+    {
+        $db = 'tests';
+        $this->db->useDb($db);
+        $this->db->query("select database()");
+        $this->db->next_record(MYSQLI_NUM);
+        $this->assertEquals($db, $this->db->Record[0]);
+    }
 
-	/**
-	*/
-	public function testSelect_db()
-	{
-		$db = 'tests';
-		$this->db = new Db($db, getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
-		$this->db->useDb($db);
-		$this->db->query("select database()");
-		$this->db->next_record(MYSQLI_NUM);
-		$this->assertEquals($db, $this->db->Record[0]);
-	}
+    /**
+    */
+    public function testSelect_db()
+    {
+        $db = 'tests';
+        $this->db = new Db($db, getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+        $this->db->useDb($db);
+        $this->db->query("select database()");
+        $this->db->next_record(MYSQLI_NUM);
+        $this->assertEquals($db, $this->db->Record[0]);
+    }
 
-	public function testLink_id()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testLink_id()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testQuery_id()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testQuery_id()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testConnect()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testConnect()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testDisconnect()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testDisconnect()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testEscaping()
-	{
-		$oldId = $this->db->linkId;
-		$this->db->linkId = 0;
-		$string1 = 'hi there"dude';
-		$string3 = 'hi there\"dude';
-		$oldId = $this->db->linkId;
-		$this->db->linkId = 0;
-		$string2 = $this->db->real_escape($string1);
-		$this->assertEquals($string3, $string2);
-		$this->db->linkId = $oldId;
-		$string2 = $this->db->real_escape($string1);
-		$this->assertEquals($string3, $string2);
-		$string2 = $this->db->escape($string1);
-		$this->assertEquals($string3, $string2);
-		$string2 = $this->db->dbAddslashes($string1);
-		$this->assertEquals($string3, $string2);
-		$string2 = $this->db->dbAddslashes();
-		$this->assertEquals('', $string2);
-	}
+    public function testEscaping()
+    {
+        $oldId = $this->db->linkId;
+        $this->db->linkId = 0;
+        $string1 = 'hi there"dude';
+        $string3 = 'hi there\"dude';
+        $oldId = $this->db->linkId;
+        $this->db->linkId = 0;
+        $string2 = $this->db->real_escape($string1);
+        $this->assertEquals($string3, $string2);
+        $this->db->linkId = $oldId;
+        $string2 = $this->db->real_escape($string1);
+        $this->assertEquals($string3, $string2);
+        $string2 = $this->db->escape($string1);
+        $this->assertEquals($string3, $string2);
+        $string2 = $this->db->dbAddslashes($string1);
+        $this->assertEquals($string3, $string2);
+        $string2 = $this->db->dbAddslashes();
+        $this->assertEquals('', $string2);
+    }
 
-	public function testLimit()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testLimit()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testFree()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testFree()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testQuery()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testQuery()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testLimit_query()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testLimit_query()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testNext_record()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testNext_record()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testSeek()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testSeek()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testTransaction_begin()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testTransaction_begin()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testTransaction_commit()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testTransaction_commit()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testTransaction_abort()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testTransaction_abort()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testGet_last_insert_id()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testGet_last_insert_id()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testLock()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testLock()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testUnlock()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testUnlock()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testAffected_rows()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testAffected_rows()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testNum_rows()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testNum_rows()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testNum_fields()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testNum_fields()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testNextid()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testNextid()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testHalt()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testHalt()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testHaltmsg()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testHaltmsg()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testTable_names()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testTable_names()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testIndex_names()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testIndex_names()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 
-	public function testCreateDatabase()
-	{
-		$this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
-	}
+    public function testCreateDatabase()
+    {
+        $this->markTestIncomplete('This test has not been implemented yet.'); // Remove the following lines when you implement this test.
+    }
 }
