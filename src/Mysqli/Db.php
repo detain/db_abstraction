@@ -247,14 +247,23 @@ class Db extends Generic implements Db_Interface
             }
             $start = microtime(true);
             $onlyRollback = true;
-            $fails = 0;
-            while ($fails < 100 && false === $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT)) {
+            $fails = -1;
+            while ($fails < 100 && false === $this->queryId) {
                 $fails++;
-                if (@mysqli_errno($this->linkId) == 3101) {
-                    usleep(100000);
-                } // 1/10th second
-                else {
-                    $onlyRollback = false;
+                try {
+                    $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
+                    if (@mysqli_errno($this->linkId) == 3101) {
+                        usleep(100000); // 1/10th second
+                    } else {
+                        $onlyRollback = false;
+                    }
+                } catch (\mysqli_sql_exception $e) {
+                    error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage());
+                    if ($e->getCode() == 3101) {
+                        usleep(100000); // 1/10th second
+                    } else {
+                        $onlyRollback = false;
+                    }
                 }
             }
             if ($onlyRollback === true && false === $this->queryId) {
