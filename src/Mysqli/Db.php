@@ -258,10 +258,10 @@ class Db extends Generic implements Db_Interface
                         $onlyRollback = false;
                     }
                 } catch (\mysqli_sql_exception $e) {
-                    error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage());
                     if (in_array($e->getCode(), [3101, 1180])) {
                         usleep(100000); // 1/10th second
                     } else {
+                        error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage());
                         $onlyRollback = false;
                     }
                 }
