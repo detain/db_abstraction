@@ -14,7 +14,7 @@ class DbTest extends \PHPUnit\Framework\TestCase
     */
     protected $db;
 
-    public function __construct($name = null, array $data = array(), $dataName = '')
+    public function __construct($name = null, array $data = [], $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
         //$this->db = new Db(isset($_ENV['PGDBNAME']) ? $_ENV['PGDBNAME'] : $_ENV['DBNAME'], isset($_ENV['PGDBUSER']) ? $_ENV['PGDBUSER'] : $_ENV['DBUSER'], isset($_ENV['PGDBPASS']) && isset($_ENV['PGDBUSER']) ? $_ENV['PGDBPASS'] : $_ENV['DBPASS'], isset($_ENV['PGDBHOST']) ? $_ENV['PGDBHOST'] : $_ENV['DBHOST']);

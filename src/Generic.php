@@ -131,7 +131,7 @@ abstract class Generic
     {
         //if (function_exists('mysql_escape_string'))
         //return mysql_escape_string($string);
-        return str_replace(array('\\', "\0", "\n", "\r", "'", '"', "\x1a"), array('\\\\', '\\0', '\\n', '\\r', "\\'", '\\"', '\\Z'), $string);
+        return str_replace(['\\', "\0", "\n", "\r", "'", '"', "\x1a"], ['\\\\', '\\0', '\\n', '\\r', "\\'", '\\"', '\\Z'], $string);
     }
 
     /**
@@ -381,7 +381,7 @@ abstract class Generic
             $query['file'] = $file;
         }
         if (!isset($GLOBALS['db_queries'])) {
-            $GLOBALS['db_queries'] = array();
+            $GLOBALS['db_queries'] = [];
         }
         $GLOBALS['db_queries'][] = $query;
         array_push($this->log, $query);
