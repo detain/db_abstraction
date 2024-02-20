@@ -34,7 +34,6 @@ checks:
         return_doc_comment_if_not_inferrable: true
         return_doc_comments: true
         remove_extra_empty_lines: true
-        avoid_fixme_comments: true
         param_doc_comment_if_not_inferrable: true
         parameter_doc_comments: true
         simplify_boolean_return: true
@@ -47,7 +46,6 @@ checks:
         parse_doc_comments: true
         parameters_in_camelcaps: true
         parameter_doc_comments: true
-        param_doc_comment_if_not_inferrable: true
         one_class_per_file: true
         non_commented_empty_catch_block: true
         no_unnecessary_if: true
