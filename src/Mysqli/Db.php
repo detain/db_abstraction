@@ -267,7 +267,7 @@ class Db extends Generic implements Db_Interface
                 }
             }
             if ($onlyRollback === true && false === $this->queryId) {
-                myadmin_log('myadmin', 'error', 'Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up', __LINE__, __FILE__);
+                error_log('Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up @'.__LINE__.':'.__FILE__);
             }
             $this->addLog($queryString, microtime(true) - $start, $line, $file);
             $this->Row = 0;
