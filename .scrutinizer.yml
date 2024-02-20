@@ -45,7 +45,6 @@ checks:
         php5_style_constructor: true
         parse_doc_comments: true
         parameters_in_camelcaps: true
-        parameter_doc_comments: true
         one_class_per_file: true
         non_commented_empty_catch_block: true
         no_unnecessary_if: true
