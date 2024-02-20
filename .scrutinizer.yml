@@ -34,12 +34,10 @@ checks:
         return_doc_comment_if_not_inferrable: true
         return_doc_comments: true
         remove_extra_empty_lines: true
-        phpunit_assertions: true
         avoid_fixme_comments: true
         param_doc_comment_if_not_inferrable: true
         parameter_doc_comments: true
         simplify_boolean_return: true
-        remove_extra_empty_lines: true
         property_assignments: true
         properties_in_camelcaps: true
         precedence_mistakes: true
