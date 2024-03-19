@@ -254,14 +254,14 @@ class Db extends Generic implements Db_Interface
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
                     if (in_array(@mysqli_errno($this->linkId), [2006, 3101, 1180])) {
                         //error_log("got ".@mysqli_errno($this->linkId)." sql error fails {$fails} on query {$queryString} from {$line}:{$file}");
-                        sleep(1);
+                        usleep(500000); // 0.5 second
                     } else {
                         $onlyRollback = false;
                     }
                 } catch (\mysqli_sql_exception $e) {
                     if (in_array($e->getCode(), [2006, 3101, 1180])) {
                         //error_log("got ".$e->getCode()." sql error fails {$fails}");
-                        sleep(1);
+                        usleep(500000); // 0.5 second
                     } else {
                         error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage().' on query '.$queryString.' from '.$line.':'.$file);
                         $onlyRollback = false;
