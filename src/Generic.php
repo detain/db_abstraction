@@ -325,8 +325,8 @@ abstract class Generic
                 $smarty->assign('account_id', $GLOBALS['tf']->session->account_id);
             }
             $email = $smarty->fetch('email/admin/sql_error.tpl');
-            (new \MyAdmin\Mail())->adminMail($subject, $email, 'john@interserver.net', 'admin/sql_error.tpl');
-            (new \MyAdmin\Mail())->adminMail($subject, $email, 'detain@interserver.net', 'admin/sql_error.tpl');
+            (new \MyAdmin\Mail())->adminMail($subject, $email, 'john@interserver.net', '');
+            (new \MyAdmin\Mail())->adminMail($subject, $email, 'detain@interserver.net', '');
         }
         $this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
     }
