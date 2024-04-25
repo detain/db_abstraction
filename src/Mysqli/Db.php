@@ -196,7 +196,9 @@ class Db extends Generic implements Db_Interface
         $this->haltOnError = 'no';
         $start = microtime(true);
         $prepare = mysqli_prepare($this->linkId, $query);
-        $this->addLog($query, microtime(true) - $start, $line, $file);
+        if (!isset($GLOBALS['disable_db_queries'])) {
+            $this->addLog($query, microtime(true) - $start, $line, $file);
+        }
         return $prepare;
     }
 
@@ -271,7 +273,9 @@ class Db extends Generic implements Db_Interface
             if ($onlyRollback === true && false === $this->queryId) {
                 error_log('Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up on '.$queryString.' from '.$line.':'.$file.' on '.__LINE__.':'.__FILE__);
             }
-            $this->addLog($queryString, microtime(true) - $start, $line, $file);
+            if (!isset($GLOBALS['disable_db_queries'])) {
+                $this->addLog($queryString, microtime(true) - $start, $line, $file);
+            }
             $this->Row = 0;
             $this->Errno = @mysqli_errno($this->linkId);
             $this->Error = @mysqli_error($this->linkId);
