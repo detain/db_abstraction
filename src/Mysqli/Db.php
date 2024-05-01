@@ -245,6 +245,7 @@ class Db extends Generic implements Db_Interface
             $try++;
             if ($try > 1) {
                 @mysqli_close($this->linkId);
+                $this->linkId = 0;
                 $this->connect();
             }
             $start = microtime(true);
@@ -254,14 +255,14 @@ class Db extends Generic implements Db_Interface
                 $fails++;
                 try {
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
-                    if (in_array(@mysqli_errno($this->linkId), [2006, 3101, 1180])) {
+                    if (in_array((int)@mysqli_errno($this->linkId), [2006, 3101, 1180])) {
                         //error_log("got ".@mysqli_errno($this->linkId)." sql error fails {$fails} on query {$queryString} from {$line}:{$file}");
                         usleep(500000); // 0.5 second
                     } else {
                         $onlyRollback = false;
                     }
                 } catch (\mysqli_sql_exception $e) {
-                    if (in_array($e->getCode(), [2006, 3101, 1180])) {
+                    if (in_array((int)$e->getCode(), [2006, 3101, 1180])) {
                         //error_log("got ".$e->getCode()." sql error fails {$fails}");
                         usleep(500000); // 0.5 second
                     } else {
@@ -280,11 +281,12 @@ class Db extends Generic implements Db_Interface
             $this->Errno = @mysqli_errno($this->linkId);
             $this->Error = @mysqli_error($this->linkId);
             if ($try == 1 && (null === $this->queryId || $this->queryId === false)) {
-                $this->emailError($queryString, 'Error #'.$this->Errno.': '.$this->Error, $line, $file);
+                //$this->emailError($queryString, 'Error #'.$this->Errno.': '.$this->Error, $line, $file);
             }
         }
         $this->haltOnError = $haltPrev;
         if (null === $this->queryId || $this->queryId === false) {
+            $this->emailError($queryString, 'Error #'.$this->Errno.': '.$this->Error, $line, $file);
             $this->halt('', $line, $file);
         }
 
