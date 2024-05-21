@@ -87,14 +87,13 @@ class Db extends Generic implements Db_Interface
             }
             $this->linkId = mysqli_init();
             $this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
-            if ($port != '') {
-                $this->linkId->real_connect($host, $user, $password, $database, $port);
-            } else {
-                $this->linkId->real_connect($host, $user, $password, $database);
+            if (!$this->linkId->real_connect($host, $user, $password, $database, $port != '' ? $port : NULL)) {
+                $this->halt("connect($host, $user, \$password) failed. ".$this->linkId->connect_error);
+                return 0;
             }
             $this->linkId->set_charset($this->characterSet);
             if ($this->linkId->connect_errno) {
-                $this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
+                $this->halt("connect($host, $user, \$password) failed. ".$this->linkId->connect_error);
                 return 0;
             }
         }
