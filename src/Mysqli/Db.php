@@ -254,14 +254,14 @@ class Db extends Generic implements Db_Interface
                 $fails++;
                 try {
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
-                    if (in_array((int)@mysqli_errno($this->linkId), [2006, 3101, 1180])) {
+                    if (in_array((int)@mysqli_errno($this->linkId), [1213, 2006, 3101, 1180])) {
                         //error_log("got ".@mysqli_errno($this->linkId)." sql error fails {$fails} on query {$queryString} from {$line}:{$file}");
                         usleep(500000); // 0.5 second
                     } else {
                         $onlyRollback = false;
                     }
                 } catch (\mysqli_sql_exception $e) {
-                    if (in_array((int)$e->getCode(), [2006, 3101, 1180])) {
+                    if (in_array((int)$e->getCode(), [1213, 2006, 3101, 1180])) {
                         //error_log("got ".$e->getCode()." sql error fails {$fails}");
                         usleep(500000); // 0.5 second
                     } else {
