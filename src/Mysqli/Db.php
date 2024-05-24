@@ -250,20 +250,20 @@ class Db extends Generic implements Db_Interface
             $start = microtime(true);
             $onlyRollback = true;
             $fails = -1;
-            while ($fails < 10 && (null === $this->queryId || $this->queryId === false)) {
+            while ($fails < 30 && (null === $this->queryId || $this->queryId === false)) {
                 $fails++;
                 try {
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
                     if (in_array((int)@mysqli_errno($this->linkId), [1213, 2006, 3101, 1180])) {
                         //error_log("got ".@mysqli_errno($this->linkId)." sql error fails {$fails} on query {$queryString} from {$line}:{$file}");
-                        usleep(500000); // 0.5 second
+                        usleep(250000); // 0.25 second
                     } else {
                         $onlyRollback = false;
                     }
                 } catch (\mysqli_sql_exception $e) {
                     if (in_array((int)$e->getCode(), [1213, 2006, 3101, 1180])) {
                         //error_log("got ".$e->getCode()." sql error fails {$fails}");
-                        usleep(100000); // 0.1 second
+                        usleep(250000); // 0.25 second
                     } else {
                         error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage().' on query '.$queryString.' from '.$line.':'.$file);
                         $onlyRollback = false;
