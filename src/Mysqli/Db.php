@@ -284,7 +284,7 @@ class Db extends Generic implements Db_Interface
         if ($onlyRollback === true && false === $this->queryId) {
             error_log('Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up on '.$queryString.' from '.$line.':'.$file.' on '.__LINE__.':'.__FILE__);
         }
-        if (null === $this->queryId || $this->queryId === false) {
+        if (!isset($GLOBALS['disable_db_queries']) && (null === $this->queryId || $this->queryId === false)) {
             $this->emailError($queryString, 'Error #'.$this->Errno.': '.$this->Error, $line, $file);
             $this->halt('', $line, $file);
         }
