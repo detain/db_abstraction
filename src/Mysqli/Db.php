@@ -78,7 +78,7 @@ class Db extends Generic implements Db_Interface
         /* establish connection, select database */
         if (!is_object($this->linkId)) {
             $this->connectionAttempt++;
-            if ($this->connectionAttempt > 2) {
+            if ($this->connectionAttempt == $this->maxConnectErrors) {
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
             }
             if ($this->connectionAttempt >= $this->maxConnectErrors) {
