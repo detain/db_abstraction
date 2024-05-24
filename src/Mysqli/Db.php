@@ -82,7 +82,7 @@ class Db extends Generic implements Db_Interface
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
             }
             if ($this->connectionAttempt >= $this->maxConnectErrors) {
-                $this->halt("connect($host, $user, \$password) failed. ".$mysqli->connect_error);
+                $this->halt("connect($host, $user, \$password) failed. ".$this->linkId->connect_error);
                 return 0;
             }
             $this->linkId = mysqli_init();
