@@ -78,7 +78,7 @@ class Db extends Generic implements Db_Interface
         /* establish connection, select database */
         if (!is_object($this->linkId)) {
             $this->connectionAttempt++;
-            if ($this->connectionAttempt == $this->maxConnectErrors) {
+            if ($this->connectionAttempt > 1) {
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
             }
             if ($this->connectionAttempt >= $this->maxConnectErrors) {
@@ -237,7 +237,7 @@ class Db extends Generic implements Db_Interface
         if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
             $this->log($queryString, $line, $file);
         }
-        $tries = 3;
+        $tries = 2;
         $try = 0;
         $this->queryId = false;
         while ((null === $this->queryId || $this->queryId === false) && $try <= $tries) {
@@ -250,7 +250,7 @@ class Db extends Generic implements Db_Interface
             $start = microtime(true);
             $onlyRollback = true;
             $fails = -1;
-            while ($fails < 5 && (null === $this->queryId || $this->queryId === false)) {
+            while ($fails < 10 && (null === $this->queryId || $this->queryId === false)) {
                 $fails++;
                 try {
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
