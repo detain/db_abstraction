@@ -237,7 +237,7 @@ class Db extends Generic implements Db_Interface
         if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
             $this->log($queryString, $line, $file);
         }
-        $tries = 3;
+        $tries = 1;
         $try = 0;
         $this->queryId = false;
         while ((null === $this->queryId || $this->queryId === false) && $try <= $tries) {
@@ -250,20 +250,20 @@ class Db extends Generic implements Db_Interface
             $start = microtime(true);
             $onlyRollback = true;
             $fails = -1;
-            while ($fails < 100 && (null === $this->queryId || $this->queryId === false)) {
+            while ($fails < 50 && (null === $this->queryId || $this->queryId === false)) {
                 $fails++;
                 try {
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
                     if (in_array((int)@mysqli_errno($this->linkId), [1213, 2006, 3101, 1180])) {
                         //error_log("got ".@mysqli_errno($this->linkId)." sql error fails {$fails} on query {$queryString} from {$line}:{$file}");
-                        usleep(500000); // 0.5 second
+                        usleep(100000); // 0.1 second
                     } else {
                         $onlyRollback = false;
                     }
                 } catch (\mysqli_sql_exception $e) {
                     if (in_array((int)$e->getCode(), [1213, 2006, 3101, 1180])) {
                         //error_log("got ".$e->getCode()." sql error fails {$fails}");
-                        usleep(500000); // 0.5 second
+                        usleep(100000); // 0.1 second
                     } else {
                         error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage().' on query '.$queryString.' from '.$line.':'.$file);
                         $onlyRollback = false;
