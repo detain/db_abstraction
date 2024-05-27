@@ -85,6 +85,7 @@ class Db extends Generic implements Db_Interface
                 $this->halt("connect($host, $user, \$password) failed. ".$this->linkId->connect_error);
                 return 0;
             }
+            //error_log("real_connect($host, $user, $password, $database, $port)");
             $this->linkId = mysqli_init();
             $this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
             if (!$this->linkId->real_connect($host, $user, $password, $database, $port != '' ? $port : NULL)) {
