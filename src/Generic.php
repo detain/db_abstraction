@@ -153,7 +153,7 @@ abstract class Generic
      */
     public function toTimestamp($epoch)
     {
-        return date('Y-m-d H:i:s', $epoch);
+        return date('Y-m-d H:i:s', is_float($epoch) ? intval($epoch) : $epoch);
     }
 
     /**
