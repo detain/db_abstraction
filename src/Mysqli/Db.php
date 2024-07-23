@@ -246,12 +246,12 @@ class Db extends Generic implements Db_Interface
             if ($try > 1) {
                 @mysqli_close($this->linkId);
                 $this->linkId = 0;
-                $this->connect();
             }
             $start = microtime(true);
             $onlyRollback = true;
             $fails = -1;
             while ($fails < 30 && (null === $this->queryId || $this->queryId === false)) {
+                $this->connect();
                 $fails++;
                 try {
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
@@ -260,6 +260,10 @@ class Db extends Generic implements Db_Interface
                         usleep(250000); // 0.25 second
                     } else {
                         $onlyRollback = false;
+                        if (in_array((int)@mysqli_errno($this->linkId), [1064])) {
+                            $tries = 0;
+                        }
+                        break;
                     }
                 } catch (\mysqli_sql_exception $e) {
                     if (in_array((int)$e->getCode(), [1213, 2006, 3101, 1180])) {
@@ -268,6 +272,10 @@ class Db extends Generic implements Db_Interface
                     } else {
                         error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage().' on query '.$queryString.' from '.$line.':'.$file);
                         $onlyRollback = false;
+                        if (in_array((int)@mysqli_errno($this->linkId), [1064])) {
+                            $tries = 0;
+                        }
+                        break;
                     }
                 }
             }
