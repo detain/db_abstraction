@@ -33,7 +33,7 @@ class GenericTest extends \PHPUnit\Framework\TestCase
     /**
     * Tears down the fixture, for example, closes a network connection. This method is called after a test is executed.
     */
-    protected function tearDown()
+    protected function tearDown(): void
     {
         if (version_compare(PHP_VERSION, '5.5.0') >= 0) {
             $this->db->transactionAbort();
