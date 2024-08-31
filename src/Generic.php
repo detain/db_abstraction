@@ -30,7 +30,6 @@ abstract class Generic
     public $connectionAttempt = 0;
     public $maxMatches = 10000000;
 
-    public $connection_attempt = 0;
     public $Type = 'mysql';
 
     /**
@@ -84,7 +83,7 @@ abstract class Generic
         if ($query != '') {
             $this->query($query);
         }
-        $this->connection_atttempt = 0;
+        $this->connectionAttempt = 0;
     }
 
     /**
