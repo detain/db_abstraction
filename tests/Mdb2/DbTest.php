@@ -18,12 +18,12 @@ class DbTest extends \PHPUnit\Framework\TestCase
         ;
     }
 
-    protected function setUp()
+    protected function setUp: void
     {
         $this->db->transactionBegin();
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         $this->db->transactionAbort();
     }
