@@ -2,6 +2,8 @@ filter:
     excluded_paths:
         - tests/*
 build:
+    services:
+        mysql: 5.7
     environment:
         php:
             version: '7.4'
