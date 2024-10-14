@@ -208,11 +208,12 @@ class Db extends Generic implements Db_Interface
      *  Sends an SQL query to the database
      *
      * @param mixed $queryString
-     * @param string $line
+     * @param int $line
      * @param string $file
+     * @param bool $log
      * @return mixed 0 if no query or query id handler, safe to ignore this return
      */
-    public function query($queryString, $line = '', $file = '')
+    public function query($queryString, $line = '', $file = '', $log = false)
     {
         /* No empty queries, please, since PHP4 chokes on them. */
         /* The empty query string is passed on from the constructor,
@@ -235,7 +236,7 @@ class Db extends Generic implements Db_Interface
         if ($this->Debug) {
             printf("Debug: query = %s<br>\n", $queryString);
         }
-        if (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false) {
+        if ($log === true || (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)) {
             $this->log($queryString, $line, $file);
         }
         $tries = 2;

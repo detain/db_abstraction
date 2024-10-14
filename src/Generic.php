@@ -94,7 +94,7 @@ abstract class Generic
      */
     public function log($message, $line = '', $file = '', $level = 'info')
     {
-        error_log($message);
+        error_log('SQL Query '.$line.' '.$file.' '.$message);
     }
 
     /**
