@@ -82,19 +82,19 @@ class Db extends Generic implements Db_Interface
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
             }
             if ($this->connectionAttempt >= $this->maxConnectErrors) {
-                $this->halt("connect($host, $user, \$password) failed. ".$this->linkId->connect_error);
+                $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
                 return 0;
             }
             //error_log("real_connect($host, $user, $password, $database, $port)");
             $this->linkId = mysqli_init();
             $this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
             if (!$this->linkId->real_connect($host, $user, $password, $database, $port != '' ? $port : NULL)) {
-                $this->halt("connect($host, $user, \$password) failed. ".$this->linkId->connect_error);
+                $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
                 return 0;
             }
             $this->linkId->set_charset($this->characterSet);
             if ($this->linkId->connect_errno) {
-                $this->halt("connect($host, $user, \$password) failed. ".$this->linkId->connect_error);
+                $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
                 return 0;
             }
         }
