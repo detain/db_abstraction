@@ -29,9 +29,11 @@
 	"require-dev": {
 		"php-coveralls/php-coveralls": "*",
 		"codacy/coverage": "*",
-		"codeclimate/php-test-reporter": "*",
 		"phpunit/phpunit": "*",
 		"phpunit/phpunit-mock-objects": "*"
+	},
+	"suggests": {
+		"codeclimate/php-test-reporter": "*"
 	},
 	"extra": {
 		"branch-alias": {

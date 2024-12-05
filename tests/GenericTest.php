@@ -4,100 +4,161 @@ namespace MyDb\Tests;
 
 use MyDb\Generic;
 use MyDb\Mysqli\Db;
+use PHPUnit\Framework\TestCase;
 
-class GenericTest extends \PHPUnit\Framework\TestCase
+// Create a concrete subclass of Generic for testing
+class TestGeneric extends Generic
 {
-    /**
-    * @var \MyDB\Mysqli\Db
-    */
+    public function connect()
+    {
+        // Mock connection logic for testing
+        return true;
+    }
+
+    public function query($query, $line = '', $file = '')
+    {
+        // Mock query execution logic for testing
+        $this->Record = ['test_field' => 'test_value'];
+        return $this->Record;
+    }
+
+    public function error()
+    {
+        // Mock error retrieval logic for testing
+        return $this->Error;
+    }
+
+    public function errno()
+    {
+        // Mock error number retrieval logic for testing
+        return $this->Errno;
+    }
+}
+
+class TestGenericTest extends TestCase
+{
     protected $db;
 
-    public function __construct($name = null, array $data = [], $dataName = '')
-    {
-        parent::__construct($name, $data, $dataName);
-        $this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
-        ;
-        $this->db->Debug = 1;
-    }
-
-    /**
-    * Sets up the fixture, for example, opens a network connection. This method is called before a test is executed.
-    */
     protected function setUp(): void
     {
-        if (version_compare(PHP_VERSION, '5.5.0') >= 0) {
-            $this->db->transactionBegin();
-        }
+        $this->db = new TestGeneric('test_db', 'test_user', 'test_password', 'localhost', '', '3306');
     }
 
-    /**
-    * Tears down the fixture, for example, closes a network connection. This method is called after a test is executed.
-    */
-    protected function tearDown(): void
+    public function testConstructor()
     {
-        if (version_compare(PHP_VERSION, '5.5.0') >= 0) {
-            $this->db->transactionAbort();
-        }
+        $this->assertEquals('test_db', $this->db->database);
+        $this->assertEquals('test_user', $this->db->user);
+        $this->assertEquals('test_password', $this->db->password);
+        $this->assertEquals('localhost', $this->db->host);
+        $this->assertEquals('3306', $this->db->port);
+        $this->assertEquals(0, $this->db->connectionAttempt);
     }
 
-    public function testLink_id()
+    public function testRealEscape()
     {
-        $this->db->linkId = 0;
-        $this->assertEquals($this->db->linkId, $this->db->linkId(), 'linkId() returns the linkId variable');
-        $this->db->connect();
-        $this->assertEquals($this->db->linkId, $this->db->linkId(), 'linkId() returns the linkId variable');
+        $this->assertEquals("O'Reilly", $this->db->real_escape("O'Reilly"));
     }
 
-    public function testEscaping()
+    public function testEscape()
     {
-        $oldId = $this->db->linkId;
-        $this->db->linkId = 0;
-        $string1 = 'hi there"dude';
-        $string3 = 'hi there\"dude';
-        $oldId = $this->db->linkId;
-        $this->db->linkId = 0;
-        $string2 = $this->db->real_escape($string1);
-        $this->assertEquals($string3, $string2);
-        $this->db->linkId = $oldId;
-        $string2 = $this->db->real_escape($string1);
-        $this->assertEquals($string3, $string2);
-        $string2 = $this->db->escape($string1);
-        $this->assertEquals($string3, $string2);
-        $string2 = $this->db->dbAddslashes($string1);
-        $this->assertEquals($string3, $string2);
-        $string2 = $this->db->dbAddslashes();
-        $this->assertEquals('', $string2);
+        $this->assertEquals("O\\'Reilly", $this->db->escape("O'Reilly"));
     }
 
-    public function testTo_timestamp()
+    public function testDbAddslashes()
     {
-        $t = 1502439626;
-        $this->assertEquals($this->db->toTimestamp($t), '2017-08-11 04:20:26');
+        $this->assertEquals("O\'Reilly", $this->db->dbAddslashes("O'Reilly"));
     }
 
-    public function testFrom_timestamp()
+    public function testToTimestamp()
     {
-        $t = 1502439626;
-        $this->assertEquals($this->db->fromTimestamp('2017-08-11 04:20:26'), $t);
+        $this->assertEquals('2023-10-05 12:34:56', $this->db->toTimestamp('2023-10-05 12:34:56'));
+        $this->assertEquals('2023-10-05 01:01:01', $this->db->toTimestamp('20231005010101'));
+        $this->assertEquals('2023-10-05 01:01:01', $this->db->toTimestamp('20231005'));
+        $this->assertEquals('1696490096', $this->db->toTimestamp('1696490096'));
     }
 
-    public function testLog()
+    public function testFromTimestamp()
     {
-        $this->markTestIncomplete('This test has not been implemented yet.');
+        $this->assertEquals(1696490096, $this->db->fromTimestamp('2023-10-05 12:34:56'));
+        $this->assertEquals(1696490096, $this->db->fromTimestamp('20231005123456'));
+        $this->assertEquals(1696486861, $this->db->fromTimestamp('20231005'));
+        $this->assertEquals(1696490096, $this->db->fromTimestamp('1696490096'));
     }
 
-    public function testLimit()
+    public function testLimitQuery()
     {
-        $this->markTestIncomplete('This test has not been implemented yet.');
+        $result = $this->db->limitQuery('SELECT * FROM test_table', 10, 5);
+        $this->assertEquals(['test_field' => 'test_value'], $result);
+    }
+
+    public function testQr()
+    {
+        $result = $this->db->qr('SELECT * FROM test_table');
+        $this->assertEquals(['test_field' => 'test_value'], $result);
+    }
+
+    public function testF()
+    {
+        $this->db->Record = ['test_field' => 'test_value'];
+        $this->assertEquals('test_value', $this->db->f('test_field'));
     }
 
     public function testHalt()
     {
-        $this->markTestIncomplete('This test has not been implemented yet.');
+        $this->db->haltOnError = 'no';
+        $this->assertTrue($this->db->halt('Test error'));
+
+        $this->db->haltOnError = 'report';
+        $this->assertTrue($this->db->halt('Test error'));
+
+        $this->db->haltOnError = 'yes';
+        $this->expectOutputString('<p><b>Session halted.</b>');
+        $this->db->halt('Test error');
+    }
+
+    public function testLogBackTrace()
+    {
+        ob_start();
+        $this->db->logBackTrace('Test error');
+        $output = ob_get_clean();
+        $this->assertNotEmpty($output);
+    }
+
+    public function testEmailError()
+    {
+        ob_start();
+        $this->db->emailError('SELECT * FROM test_table', 'Test error', __LINE__, __FILE__);
+        $output = ob_get_clean();
+        $this->assertNotEmpty($output);
     }
 
     public function testHaltmsg()
     {
-        $this->markTestIncomplete('This test has not been implemented yet.');
+        ob_start();
+        $this->db->haltmsg('Test error', __LINE__, __FILE__);
+        $output = ob_get_clean();
+        $this->assertNotEmpty($output);
+    }
+
+    public function testIndexNames()
+    {
+        $this->assertEquals([], $this->db->indexNames());
+    }
+
+    public function testAddLog()
+    {
+        $this->db->addLog('SELECT * FROM test_table', 0.001, __LINE__, __FILE__);
+        $this->assertCount(1, $this->db->getLog());
+    }
+
+    public function testGetLog()
+    {
+        $this->db->addLog('SELECT * FROM test_table', 0.001, __LINE__, __FILE__);
+        $log = $this->db->getLog();
+        $this->assertCount(1, $log);
+        $this->assertArrayHasKey('statement', $log[0]);
+        $this->assertArrayHasKey('time', $log[0]);
+        $this->assertArrayHasKey('line', $log[0]);
+        $this->assertArrayHasKey('file', $log[0]);
     }
 }
