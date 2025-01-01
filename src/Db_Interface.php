@@ -2,7 +2,7 @@
 /**
  * Generic SQL Driver Related Functionality
  * by detani@interserver.net
- * @copyright 2019
+ * @copyright 2025
  * @package MyAdmin
  * @category SQL
  */
