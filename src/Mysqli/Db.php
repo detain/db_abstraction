@@ -83,6 +83,7 @@ class Db extends Generic implements Db_Interface
             }
             if ($this->connectionAttempt >= $this->maxConnectErrors) {
                 $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
+exit;
                 return 0;
             }
             //error_log("real_connect($host, $user, $password, $database, $port)");
