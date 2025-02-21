@@ -80,9 +80,9 @@ class Db extends Generic implements Db_Interface
             $this->connectionAttempt++;
             if ($this->connectionAttempt >= $this->maxConnectErrors - 1) {
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
+exit;
             }
             if ($this->connectionAttempt >= $this->maxConnectErrors) {
-exit;
                 $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
                 return 0;
             }
