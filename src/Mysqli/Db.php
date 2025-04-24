@@ -1,11 +1,11 @@
 <?php
 /**
- * MySQL Related Functionality
- * @author Joe Huss <detain@interserver.net>
- * @copyright 2025
- * @package MyAdmin
- * @category SQL
- */
+* MySQL Related Functionality
+* @author Joe Huss <detain@interserver.net>
+* @copyright 2025
+* @package MyAdmin
+* @category SQL
+*/
 
 namespace MyDb\Mysqli;
 
@@ -13,34 +13,37 @@ use MyDb\Generic;
 use MyDb\Db_Interface;
 
 /**
- * Db
- *
- * @access public
- */
+* Db
+*
+* @access public
+*/
 class Db extends Generic implements Db_Interface
 {
     /**
-     * @var string
-     */
+    * @var string
+    */
     public $type = 'mysqli';
+    public $statement;
+    public $statement_query;
+    public $statement_vars;
 
     /**
-     * alias function of select_db, changes the database we are working with.
-     *
-     * @param string $database the name of the database to use
-     * @return void
-     */
+    * alias function of select_db, changes the database we are working with.
+    *
+    * @param string $database the name of the database to use
+    * @return void
+    */
     public function useDb($database)
     {
         $this->selectDb($database);
     }
 
     /**
-     * changes the database we are working with.
-     *
-     * @param string $database the name of the database to use
-     * @return void
-     */
+    * changes the database we are working with.
+    *
+    * @param string $database the name of the database to use
+    * @return void
+    */
     public function selectDb($database)
     {
         $this->connect();
@@ -50,13 +53,13 @@ class Db extends Generic implements Db_Interface
     /* public: connection management */
 
     /**
-     * Db::connect()
-     * @param string $database
-     * @param string $host
-     * @param string $user
-     * @param string $password
-     * @return int|\mysqli
-     */
+    * Db::connect()
+    * @param string $database
+    * @param string $host
+    * @param string $user
+    * @param string $password
+    * @return int|\mysqli
+    */
     public function connect($database = '', $host = '', $user = '', $password = '', $port = '')
     {
         /* Handle defaults */
@@ -80,7 +83,7 @@ class Db extends Generic implements Db_Interface
             $this->connectionAttempt++;
             if ($this->connectionAttempt >= $this->maxConnectErrors - 1) {
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
-exit;
+                exit;
             }
             if ($this->connectionAttempt >= $this->maxConnectErrors) {
                 $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
@@ -103,9 +106,9 @@ exit;
     }
 
     /**
-     * Db::disconnect()
-     * @return bool
-     */
+    * Db::disconnect()
+    * @return bool
+    */
     public function disconnect()
     {
         $return = !is_int($this->linkId) && method_exists($this->linkId, 'close') ? $this->linkId->close() : false;
@@ -114,9 +117,9 @@ exit;
     }
 
     /**
-     * @param $string
-     * @return string
-     */
+    * @param $string
+    * @return string
+    */
     public function real_escape($string = '')
     {
         if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
@@ -126,9 +129,9 @@ exit;
     }
 
     /**
-     * discard the query result
-     * @return void
-     */
+    * discard the query result
+    * @return void
+    */
     public function free()
     {
         if (is_resource($this->queryId)) {
@@ -138,16 +141,16 @@ exit;
     }
 
     /**
-     * Db::queryReturn()
-     *
-     * Sends an SQL query to the server like the normal query() command but iterates through
-     * any rows and returns the row or rows immediately or FALSE on error
-     *
-     * @param mixed $query SQL Query to be used
-     * @param string $line optionally pass __LINE__ calling the query for logging
-     * @param string $file optionally pass __FILE__ calling the query for logging
-     * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
-     */
+    * Db::queryReturn()
+    *
+    * Sends an SQL query to the server like the normal query() command but iterates through
+    * any rows and returns the row or rows immediately or FALSE on error
+    *
+    * @param mixed $query SQL Query to be used
+    * @param string $line optionally pass __LINE__ calling the query for logging
+    * @param string $file optionally pass __FILE__ calling the query for logging
+    * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+    */
     public function queryReturn($query, $line = '', $file = '')
     {
         $this->query($query, $line, $file);
@@ -166,28 +169,28 @@ exit;
     }
 
     /**
-     * db:qr()
-     *
-     *  alias of queryReturn()
-     *
-     * @param mixed $query SQL Query to be used
-     * @param string $line optionally pass __LINE__ calling the query for logging
-     * @param string $file optionally pass __FILE__ calling the query for logging
-     * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
-     */
+    * db:qr()
+    *
+    *  alias of queryReturn()
+    *
+    * @param mixed $query SQL Query to be used
+    * @param string $line optionally pass __LINE__ calling the query for logging
+    * @param string $file optionally pass __FILE__ calling the query for logging
+    * @return mixed FALSE if no rows, if a single row it returns that, if multiple it returns an array of rows, associative responses only
+    */
     public function qr($query, $line = '', $file = '')
     {
         return $this->queryReturn($query, $line, $file);
     }
 
     /**
-     * creates a prepaired statement from query
-     *
-     * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
-     * @return int|\MyDb\Mysqli\mysqli_stmt
-     * @param string $line
-     * @param string $file
-     */
+    * creates a prepaired statement from query
+    *
+    * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
+    * @return false|mysqli_stmt
+    * @param string $line
+    * @param string $file
+    */
     public function prepare($query, $line = '', $file = '')
     {
         if (!$this->connect()) {
@@ -196,24 +199,59 @@ exit;
         $haltPrev = $this->haltOnError;
         $this->haltOnError = 'no';
         $start = microtime(true);
-        $prepare = mysqli_prepare($this->linkId, $query);
+        $this->statement = mysqli_prepare($this->linkId, $query);
         if (!isset($GLOBALS['disable_db_queries'])) {
+            $this->statement_query = $query;
             $this->addLog($query, microtime(true) - $start, $line, $file);
         }
-        return $prepare;
+        return $this->statement;
     }
 
     /**
-     * Db::query()
-     *
-     *  Sends an SQL query to the database
-     *
-     * @param mixed $queryString
-     * @param int $line
-     * @param string $file
-     * @param bool $log
-     * @return mixed 0 if no query or query id handler, safe to ignore this return
-     */
+    * Binds variables to a prepared statement as parameters
+    * 
+    * @param string $types A string that contains one or more characters which specify the types for the corresponding bind variables: (i)nt, (d)ecimal, (s)tring, (b)inary 
+    * @param mixed $vars
+    * @return bool indicates success
+    */
+    public function bind_param($types, &...$vars) {
+        $params = [$this->statement, $types];
+        foreach ($vars as &$var) {
+            $params[] = &$var; // Ensure they stay references
+        }
+        $this->statement_vars &= $vars;
+        return call_user_func_array('mysqli_stmt_bind_param', $params);
+    }
+
+    /**
+    * Executes a prepared statement
+    * 
+    * @return bool success
+    */
+    public function execute($line = '', $file = '') {
+        $start = microtime(true);
+        $return = mysqli_stmt_execute($this->statement);
+        if (!isset($GLOBALS['disable_db_queries'])) {
+            $vars = $this->statement_vars;
+            $query = $result = preg_replace_callback('/\?/', function () use (&$vars) {
+                return array_shift($vars);
+                }, $this->statement_query);
+            $this->addLog($query, microtime(true) - $start, $line, $file);
+        }
+        return $return;
+    }
+
+    /**
+    * Db::query()
+    *
+    *  Sends an SQL query to the database
+    *
+    * @param mixed $queryString
+    * @param int $line
+    * @param string $file
+    * @param bool $log
+    * @return mixed 0 if no query or query id handler, safe to ignore this return
+    */
     public function query($queryString, $line = '', $file = '', $log = false)
     {
         /* No empty queries, please, since PHP4 chokes on them. */
@@ -305,8 +343,8 @@ exit;
     }
 
     /**
-     * @return array|null|object
-     */
+    * @return array|null|object
+    */
     public function fetchObject()
     {
         $this->Record = @mysqli_fetch_object($this->queryId);
@@ -316,11 +354,11 @@ exit;
     /* public: walk result set */
 
     /**
-     * Db::next_record()
-     *
-     * @param mixed $resultType
-     * @return bool
-     */
+    * Db::next_record()
+    *
+    * @param mixed $resultType
+    * @return bool
+    */
     public function next_record($resultType = MYSQLI_BOTH)
     {
         if ($this->queryId === false) {
@@ -341,11 +379,11 @@ exit;
     }
 
     /**
-     * switch to position in result set
-     *
-     * @param integer $pos the row numbe starting at 0 to switch to
-     * @return bool whetherit was successfu or not.
-     */
+    * switch to position in result set
+    *
+    * @param integer $pos the row numbe starting at 0 to switch to
+    * @return bool whetherit was successfu or not.
+    */
     public function seek($pos = 0)
     {
         $status = @mysqli_data_seek($this->queryId, $pos);
@@ -363,10 +401,10 @@ exit;
     }
 
     /**
-     * Initiates a transaction
-     *
-     * @return bool
-     */
+    * Initiates a transaction
+    *
+    * @return bool
+    */
     public function transactionBegin()
     {
         if (version_compare(PHP_VERSION, '5.5.0') < 0) {
@@ -379,10 +417,10 @@ exit;
     }
 
     /**
-     * Commits a transaction
-     *
-     * @return bool
-     */
+    * Commits a transaction
+    *
+    * @return bool
+    */
     public function transactionCommit()
     {
         if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0) {
@@ -392,10 +430,10 @@ exit;
     }
 
     /**
-     * Rolls back a transaction
-     *
-     * @return bool
-     */
+    * Rolls back a transaction
+    *
+    * @return bool
+    */
     public function transactionAbort()
     {
         if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0) {
@@ -405,14 +443,14 @@ exit;
     }
 
     /**
-     * This will get the last insert ID created on the current connection.  Should only be called after an insert query is
-     * run on a table that has an auto incrementing field.  $table and $field are required, but unused here since it's
-     * unnecessary for mysql.  For compatibility with pgsql, the params must be supplied.
-     *
-     * @param string $table
-     * @param string $field
-     * @return int|string
-     */
+    * This will get the last insert ID created on the current connection.  Should only be called after an insert query is
+    * run on a table that has an auto incrementing field.  $table and $field are required, but unused here since it's
+    * unnecessary for mysql.  For compatibility with pgsql, the params must be supplied.
+    *
+    * @param string $table
+    * @param string $field
+    * @return int|string
+    */
     public function getLastInsertId($table, $field)
     {
         if (!isset($table) || $table == '' || !isset($field) || $field == '') {
@@ -425,11 +463,11 @@ exit;
     /* public: table locking */
 
     /**
-     * Db::lock()
-     * @param mixed  $table
-     * @param string $mode
-     * @return bool|int|\mysqli_result
-     */
+    * Db::lock()
+    * @param mixed  $table
+    * @param string $mode
+    * @return bool|int|\mysqli_result
+    */
     public function lock($table, $mode = 'write')
     {
         $this->connect();
@@ -455,10 +493,10 @@ exit;
     }
 
     /**
-     * Db::unlock()
-     * @param bool $haltOnError optional, defaults to TRUE, whether or not to halt on error
-     * @return bool|int|\mysqli_result
-     */
+    * Db::unlock()
+    * @param bool $haltOnError optional, defaults to TRUE, whether or not to halt on error
+    * @return bool|int|\mysqli_result
+    */
     public function unlock($haltOnError = true)
     {
         $this->connect();
@@ -474,37 +512,37 @@ exit;
     /* public: evaluate the result (size, width) */
 
     /**
-     * Db::affectedRows()
-     * @return int
-     */
+    * Db::affectedRows()
+    * @return int
+    */
     public function affectedRows()
     {
         return @mysqli_affected_rows($this->linkId);
     }
 
     /**
-     * Db::num_rows()
-     * @return int
-     */
+    * Db::num_rows()
+    * @return int
+    */
     public function num_rows()
     {
         return @mysqli_num_rows($this->queryId);
     }
 
     /**
-     * Db::num_fields()
-     * @return int
-     */
+    * Db::num_fields()
+    * @return int
+    */
     public function num_fields()
     {
         return @mysqli_num_fields($this->queryId);
     }
 
     /**
-     * gets an array of the table names in teh current datase
-     *
-     * @return array
-     */
+    * gets an array of the table names in teh current datase
+    *
+    * @return array
+    */
     public function tableNames()
     {
         $return = [];
@@ -521,29 +559,29 @@ exit;
 }
 
 /**
- * @param $result
- * @param $row
- * @param int|string $field
- * @return bool
- */
+* @param $result
+* @param $row
+* @param int|string $field
+* @return bool
+*/
 /*
 function mysqli_result($result, $row, $field = 0) {
-    if ($result === false) return false;
-    if ($row >= mysqli_num_rows($result)) return false;
-    if (is_string($field) && !(mb_strpos($field, '.') === false)) {
-        $tField = explode('.', $field);
-        $field = -1;
-        $tFields = mysqli_fetch_fields($result);
-        for ($id = 0, $idMax = mysqli_num_fields($result); $id < $idMax; $id++) {
-            if ($tFields[$id]->table == $tField[0] && $tFields[$id]->name == $tField[1]) {
-                $field = $id;
-                break;
-            }
-        }
-        if ($field == -1) return false;
-    }
-    mysqli_data_seek($result, $row);
-    $line = mysqli_fetch_array($result);
-    return isset($line[$field]) ? $line[$field] : false;
+if ($result === false) return false;
+if ($row >= mysqli_num_rows($result)) return false;
+if (is_string($field) && !(mb_strpos($field, '.') === false)) {
+$tField = explode('.', $field);
+$field = -1;
+$tFields = mysqli_fetch_fields($result);
+for ($id = 0, $idMax = mysqli_num_fields($result); $id < $idMax; $id++) {
+if ($tFields[$id]->table == $tField[0] && $tFields[$id]->name == $tField[1]) {
+$field = $id;
+break;
+}
+}
+if ($field == -1) return false;
+}
+mysqli_data_seek($result, $row);
+$line = mysqli_fetch_array($result);
+return isset($line[$field]) ? $line[$field] : false;
 }
 */
