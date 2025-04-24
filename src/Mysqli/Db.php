@@ -219,7 +219,9 @@ class Db extends Generic implements Db_Interface
         foreach ($vars as &$var) {
             $params[] = &$var; // Ensure they stay references
         }
-        $this->statement_vars &= $vars;
+        if (!isset($GLOBALS['disable_db_queries'])) {
+            $this->statement_vars &= $vars;
+        }
         return call_user_func_array('mysqli_stmt_bind_param', $params);
     }
 
