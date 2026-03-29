@@ -4,3 +4,6 @@ vendor/
 .idea/workspace.xml
 .idea/libraries
 coverage.xml
+
+# Caliber local state
+.caliber/
