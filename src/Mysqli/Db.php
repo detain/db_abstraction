@@ -118,10 +118,17 @@ class Db extends Generic implements Db_Interface
 
     /**
     * @param $string
-    * @return string
+    * @return mixed escaped string if input was a string; input returned as-is otherwise
     */
     public function real_escape($string = '')
     {
+        if (!is_string($string)) {
+            // Non-string types (null, int, float, bool, array, object) can't carry
+            // SQL meta-characters through PHP string interpolation, so returning
+            // them as-is preserves the caller's intent and avoids the
+            // mysqli_real_escape_string(null) deprecation in PHP 8.1+.
+            return $string;
+        }
         if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
             return $this->escape($string);
         }
