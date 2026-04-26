@@ -173,7 +173,7 @@ class Loader
         if ($this->haltOnError != 'report') {
             echo '<p><b>Session halted.</b>';
             // FIXME! Add check for error levels
-            if (isset($GLOBALS['tf'])) {
+            if (\MyAdmin\App::has(\MyAdmin\tf::class)) {
                 \MyAdmin\App::output()->terminate();
             }
         }

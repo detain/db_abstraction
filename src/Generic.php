@@ -264,7 +264,7 @@ abstract class Generic
         }
         if ($this->haltOnError != 'report') {
             echo '<p><b>Session halted.</b>';
-            //if (isset($GLOBALS['tf']))
+            //if (\MyAdmin\App::has(\MyAdmin\tf::class))
             //\MyAdmin\App::output()->terminate();
             die();
         }
@@ -323,7 +323,7 @@ abstract class Generic
                 'request' => $_REQUEST,
                 'server' => $_SERVER,
             ]);
-            if (isset($GLOBALS['tf'])) {
+            if (\MyAdmin\App::has(\MyAdmin\tf::class)) {
                 $smarty->assign('account_id', \MyAdmin\App::session()->account_id);
             }
             $email = $smarty->fetch('email/admin/sql_error.tpl');
