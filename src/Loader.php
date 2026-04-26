@@ -174,7 +174,7 @@ class Loader
             echo '<p><b>Session halted.</b>';
             // FIXME! Add check for error levels
             if (isset($GLOBALS['tf'])) {
-                $GLOBALS['tf']->terminate();
+                \MyAdmin\App::output()->terminate();
             }
         }
     }
