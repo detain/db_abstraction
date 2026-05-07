@@ -5,14 +5,25 @@
 	"keywords": [
 		"db",
 		"database",
+		"database-abstraction",
+		"database-driver",
 		"sql",
 		"mysql",
 		"mysqli",
+		"pdo",
 		"adodb",
+		"orm",
+		"query-builder",
+		"sql-builder",
+		"prepared-statements",
+		"abstraction",
+		"wrapper",
+		"data-access-layer",
 		"pgsql",
 		"mdb2",
 		"sqlite",
-		"pdo"
+		"php",
+		"php-library"
 	],
 	"license": "LGPL-2.1-only",
 	"authors": [
