@@ -53,6 +53,47 @@ class Db extends Generic implements Db_Interface
     /* public: connection management */
 
     /**
+    * whether real_connect() has succeeded on the mysqli currently in linkId
+    * @var bool
+    */
+    protected $linkEstablished = false;
+
+    /**
+    * Db::linkIsUsable()
+    *
+    * Whether linkId is a handle we can still issue commands on.
+    *
+    * close() leaves the mysqli as a live PHP object, so is_object() alone could
+    * not tell a closed connection apart from a working one and connect() handed
+    * back the dead handle -- every later use then threw "mysqli object is already
+    * closed". Clones share one handle (there is no __clone here) and query()'s
+    * retry path below closes it, so one clone can close the connection out from
+    * under every other holder.
+    *
+    * Only a handle we actually connected is probed. A mysqli_init() whose
+    * real_connect() failed is still reported usable, exactly as the old
+    * is_object() check did, so an unreachable server keeps failing per query
+    * rather than looping back through the connect-attempt counter and tripping
+    * the exit() below. Reading a property is local, so this costs no round trip.
+    *
+    * @return bool
+    */
+    public function linkIsUsable()
+    {
+        if (!is_object($this->linkId)) {
+            return false;
+        }
+        if (!$this->linkEstablished) {
+            return true;
+        }
+        try {
+            return $this->linkId->thread_id > 0;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
     * Db::connect()
     * @param string $database
     * @param string $host
@@ -79,7 +120,7 @@ class Db extends Generic implements Db_Interface
             $port = $this->port;
         }
         /* establish connection, select database */
-        if (!is_object($this->linkId)) {
+        if (!$this->linkIsUsable()) {
             $this->connectionAttempt++;
             if ($this->connectionAttempt >= $this->maxConnectErrors - 1) {
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
@@ -90,6 +131,7 @@ class Db extends Generic implements Db_Interface
                 return 0;
             }
             //error_log("real_connect($host, $user, $password, $database, $port)");
+            $this->linkEstablished = false;
             $this->linkId = mysqli_init();
             $this->linkId->options(MYSQLI_INIT_COMMAND, "SET NAMES {$this->characterSet} COLLATE {$this->collation}, COLLATION_CONNECTION = {$this->collation}, COLLATION_DATABASE = {$this->collation}");
             if (!$this->linkId->real_connect($host, $user, $password, $database, $port != '' ? $port : NULL)) {
@@ -101,6 +143,12 @@ class Db extends Generic implements Db_Interface
                 $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
                 return 0;
             }
+            $this->linkEstablished = true;
+            // Counts *consecutive* failures, so clear it once we are connected.
+            // Without this it only ever grew, and since maxConnectErrors trips an
+            // exit() above, a long-lived worker that legitimately reconnects a few
+            // times would eventually be killed off mid-request.
+            $this->connectionAttempt = 0;
         }
         return $this->linkId;
     }
@@ -129,7 +177,10 @@ class Db extends Generic implements Db_Interface
             // mysqli_real_escape_string(null) deprecation in PHP 8.1+.
             return $string;
         }
-        if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
+        // mysqli is an object rather than a resource in PHP 8, so the old
+        // is_resource() test was always true and this always fell through to
+        // connect(); keep calling it, but off a check that can actually pass.
+        if (!$this->linkIsUsable() && !$this->connect()) {
             return $this->escape($string);
         }
         return mysqli_real_escape_string($this->linkId, $string);
