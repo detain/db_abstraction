@@ -161,6 +161,8 @@ class Db extends Generic implements Db_Interface
     {
         $return = !is_int($this->linkId) && method_exists($this->linkId, 'close') ? $this->linkId->close() : false;
         $this->linkId = 0;
+        // Closing the connection discards any open transaction server-side.
+        $this->inTransaction = false;
         return $return;
     }
 
@@ -338,12 +340,28 @@ class Db extends Generic implements Db_Interface
         if ($log === true || (isset($GLOBALS['log_queries']) && $GLOBALS['log_queries'] !== false)) {
             $this->log($queryString, $line, $file);
         }
+        $this->trackTransactionState($queryString);
         $tries = 2;
         $try = 0;
         $this->queryId = false;
         while ((null === $this->queryId || $this->queryId === false) && $try <= $tries) {
             $try++;
             if ($try > 1) {
+                /*
+                 * Never reconnect underneath an open transaction. Closing the
+                 * connection makes the server roll it back, and because the
+                 * reconnect below is transparent the caller keeps issuing
+                 * statements believing it is still inside the transaction --
+                 * so writes meant to be atomic land one at a time, with no
+                 * error raised. Surfacing the failure is the only safe move:
+                 * the transaction is already lost, and the caller has to be
+                 * told so it can decide whether to retry the whole unit.
+                 */
+                if ($this->inTransaction === true) {
+                    error_log('Refusing to reconnect mid-transaction; failing the query instead so the caller sees the broken transaction. Query: '.$queryString.' from '.$file.':'.$line);
+                    $this->inTransaction = false;
+                    break;
+                }
                 @mysqli_close($this->linkId);
                 $this->linkId = 0;
             }
@@ -351,11 +369,37 @@ class Db extends Generic implements Db_Interface
             $onlyRollback = true;
             $fails = -1;
             while ($fails < 30 && (null === $this->queryId || $this->queryId === false)) {
+                /*
+                 * connect() below would transparently reopen a dropped
+                 * connection. Inside a transaction that is exactly the silent
+                 * failure we are guarding against, so stop here and let the
+                 * caller see it.
+                 */
+                if ($this->inTransaction === true && !$this->linkIsUsable()) {
+                    error_log('Connection lost mid-transaction; failing the query rather than silently reconnecting. Query: '.$queryString.' from '.$file.':'.$line);
+                    $this->inTransaction = false;
+                    break;
+                }
                 $this->connect();
                 $fails++;
                 try {
                     $this->queryId = @mysqli_query($this->linkId, $queryString, MYSQLI_STORE_RESULT);
                     if (in_array((int)@mysqli_errno($this->linkId), [1213, 2006, 3101, 1180])) {
+                        /*
+                         * A deadlock (1213) or a Galera certification failure
+                         * (3101) makes the server roll the whole transaction
+                         * back, and a lost connection (2006) takes it with it.
+                         * Retrying just this one statement would succeed
+                         * outside the now-dead transaction, committing it on
+                         * its own while the caller still believes the unit is
+                         * atomic. Fail instead so the caller can replay the
+                         * whole transaction, which is the only correct retry.
+                         */
+                        if ($this->inTransaction === true) {
+                            error_log('Got SQL error '.(int)@mysqli_errno($this->linkId).' inside a transaction; the server has rolled it back, so failing rather than retrying the statement alone. Query: '.$queryString.' from '.$file.':'.$line);
+                            $this->inTransaction = false;
+                            break;
+                        }
                         //error_log("got ".@mysqli_errno($this->linkId)." sql error fails {$fails} on query {$queryString} from {$line}:{$file}");
                         usleep(250000); // 0.25 second
                     } else {
@@ -367,6 +411,12 @@ class Db extends Generic implements Db_Interface
                     }
                 } catch (\mysqli_sql_exception $e) {
                     if (in_array((int)$e->getCode(), [1213, 2006, 3101, 1180])) {
+                        // Same reasoning as the non-exception branch above.
+                        if ($this->inTransaction === true) {
+                            error_log('Got SQL exception '.(int)$e->getCode().' inside a transaction; the server has rolled it back, so failing rather than retrying the statement alone. Query: '.$queryString.' from '.$file.':'.$line);
+                            $this->inTransaction = false;
+                            break;
+                        }
                         //error_log("got ".$e->getCode()." sql error fails {$fails}");
                         usleep(250000); // 0.25 second
                     } else {
@@ -473,7 +523,11 @@ class Db extends Generic implements Db_Interface
         if (!$this->connect()) {
             return 0;
         }
-        return mysqli_begin_transaction($this->linkId);
+        $result = mysqli_begin_transaction($this->linkId);
+        if ($result) {
+            $this->inTransaction = true;
+        }
+        return $result;
     }
 
     /**
@@ -484,9 +538,12 @@ class Db extends Generic implements Db_Interface
     public function transactionCommit()
     {
         if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0) {
+            $this->inTransaction = false;
             return true;
         }
-        return mysqli_commit($this->linkId);
+        $result = mysqli_commit($this->linkId);
+        $this->inTransaction = false;
+        return $result;
     }
 
     /**
@@ -497,9 +554,12 @@ class Db extends Generic implements Db_Interface
     public function transactionAbort()
     {
         if (version_compare(PHP_VERSION, '5.5.0') < 0 || $this->linkId === 0) {
+            $this->inTransaction = false;
             return true;
         }
-        return mysqli_rollback($this->linkId);
+        $result = mysqli_rollback($this->linkId);
+        $this->inTransaction = false;
+        return $result;
     }
 
     /**
@@ -545,6 +605,8 @@ class Db extends Generic implements Db_Interface
             $query .= "$table $mode";
         }
         $res = @mysqli_query($this->linkId, $query);
+        // LOCK TABLES implicitly commits any open transaction.
+        $this->inTransaction = false;
         if (!$res) {
             $this->halt("lock($table, $mode) failed.");
             return 0;

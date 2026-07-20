@@ -64,6 +64,52 @@ abstract class Generic
     protected $log = [];
 
     /**
+     * Whether this connection currently has an open transaction.
+     *
+     * Tracked so query()'s retry path can refuse to close the connection out
+     * from under an open transaction. Closing it makes the server roll the
+     * transaction back, and since the retry then transparently reconnects and
+     * carries on, the remaining statements commit individually -- writes meant
+     * to be atomic get applied piecemeal with no error raised anywhere.
+     *
+     * Maintained both by transactionBegin()/Commit()/Abort() and by sniffing
+     * raw statements in query(), because in practice callers open transactions
+     * with `$db->query('start transaction')` rather than through the API.
+     *
+     * @var bool
+     */
+    protected $inTransaction = false;
+
+    /**
+     * Report whether a transaction is currently open on this connection.
+     *
+     * @return bool
+     */
+    public function inTransaction()
+    {
+        return $this->inTransaction;
+    }
+
+    /**
+     * Update transaction state from a raw SQL statement about to be run.
+     *
+     * Recognises the statements callers actually use to drive transactions
+     * without going through transactionBegin()/Commit()/Abort().
+     *
+     * @param string $queryString
+     * @return void
+     */
+    protected function trackTransactionState($queryString)
+    {
+        $normalized = ltrim($queryString, " \t\n\r(");
+        if (preg_match('/^(start\s+transaction|begin\s+work|begin)\b/i', $normalized)) {
+            $this->inTransaction = true;
+        } elseif (preg_match('/^(commit|rollback)\b/i', $normalized)) {
+            $this->inTransaction = false;
+        }
+    }
+
+    /**
      * Constructs the db handler, can optionally specify connection parameters
      *
      * @param string $database Optional The database name
