@@ -309,7 +309,59 @@ abstract class Generic
         }
     }
 
+    /**
+     * Re-entrancy guard for emailError().
+     *
+     * Reporting a failed query is itself database work: emailError() renders a
+     * Smarty template and calls Mail::adminMail(), which calls myadmin_log(),
+     * which writes to the `log` table through MyDbHandler. If the connection is
+     * broken, that write fails too and calls emailError() again -- an unbounded
+     * recursion that ends in stack exhaustion rather than a reported error.
+     *
+     * This is deliberately static, not per-instance: the recursion crosses
+     * object boundaries, because the failing object is typically a clone while
+     * MyDbHandler logs through App::db(). A per-instance flag would not see it.
+     *
+     * @var bool
+     */
+    private static $inEmailError = false;
+
     public function emailError($queryString, $error, $line, $file)
+    {
+        /*
+         * Already reporting an error -- do no further database work. Degrade to
+         * error_log(), which cannot re-enter, so the original failure is still
+         * recorded somewhere durable.
+         */
+        if (self::$inEmailError === true) {
+            error_log('SQL error while already reporting an SQL error (suppressed to avoid recursion): '.$error.' on query '.$queryString.' from '.$file.':'.$line);
+            return;
+        }
+        self::$inEmailError = true;
+        try {
+            $this->emailErrorInner($queryString, $error, $line, $file);
+        } catch (\Throwable $e) {
+            /*
+             * The reporting path must never be able to throw into the caller --
+             * a failed error report should not replace or mask the real error.
+             */
+            error_log('Failed to report SQL error ('.$e->getMessage().'). Original error: '.$error.' on query '.$queryString.' from '.$file.':'.$line);
+        } finally {
+            self::$inEmailError = false;
+        }
+    }
+
+    /**
+     * The original emailError() body. Only ever called via emailError(), which
+     * owns the re-entrancy guard and exception containment.
+     *
+     * @param mixed $queryString
+     * @param mixed $error
+     * @param mixed $line
+     * @param mixed $file
+     * @return void
+     */
+    private function emailErrorInner($queryString, $error, $line, $file)
     {
         $subject = php_uname('n').' MySQLi Error '.$queryString;
         if (class_exists('\\TFSmarty')) {
