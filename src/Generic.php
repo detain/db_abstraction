@@ -91,6 +91,39 @@ abstract class Generic
     }
 
     /**
+     * Give the copy a connection of its own.
+     *
+     * Cloning a db object is how callers ask for a handle they can work with
+     * independently -- one that runs its own queries while the original is
+     * partway through a result set of its own. PHP's default shallow copy hands
+     * the copy the *same* connection and result handles, which defeats that and
+     * is actively dangerous: either instance can then close or requery the link
+     * out from under the other, and the loser gets "mysqli object is already
+     * closed" thrown at it.
+     *
+     * So a clone starts out unconnected. It opens its own link the first time it
+     * needs one -- lazily, so cloning itself still costs nothing -- with none of
+     * the original's per-connection state (result cursor, open transaction,
+     * query log, connect-failure count) carried across. Connection settings, the
+     * things the caller set up before cloning, are copied as usual.
+     *
+     * @return void
+     */
+    public function __clone()
+    {
+        $this->linkId = 0;
+        $this->queryId = 0;
+        $this->connectionAttempt = 0;
+        $this->Record = [];
+        $this->Row = 0;
+        $this->Errno = 0;
+        $this->Error = '';
+        // an open transaction belongs to the original's connection, not ours
+        $this->inTransaction = false;
+        $this->log = [];
+    }
+
+    /**
      * Update transaction state from a raw SQL statement about to be run.
      *
      * Recognises the statements callers actually use to drive transactions

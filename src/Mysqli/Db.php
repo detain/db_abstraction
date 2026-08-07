@@ -59,6 +59,24 @@ class Db extends Generic implements Db_Interface
     protected $linkEstablished = false;
 
     /**
+    * Clear the mysqli-specific state a clone must not inherit.
+    *
+    * The connection itself is dropped by the parent, which leaves the prepared
+    * statement built on it -- a mysqli_stmt is bound to the connection that
+    * prepared it and is useless, and unsafe, once the clone reconnects.
+    *
+    * @return void
+    */
+    public function __clone()
+    {
+        parent::__clone();
+        $this->linkEstablished = false;
+        $this->statement = null;
+        $this->statement_query = null;
+        $this->statement_vars = null;
+    }
+
+    /**
     * Db::linkIsUsable()
     *
     * Whether linkId is a handle we can still issue commands on.
@@ -66,9 +84,9 @@ class Db extends Generic implements Db_Interface
     * close() leaves the mysqli as a live PHP object, so is_object() alone could
     * not tell a closed connection apart from a working one and connect() handed
     * back the dead handle -- every later use then threw "mysqli object is already
-    * closed". Clones share one handle (there is no __clone here) and query()'s
-    * retry path below closes it, so one clone can close the connection out from
-    * under every other holder.
+    * closed". query()'s retry path below closes the handle, and any other code
+    * holding a copy of the raw mysqli can too, so the link can go dead
+    * underneath us at any point.
     *
     * Only a handle we actually connected is probed. A mysqli_init() whose
     * real_connect() failed is still reported usable, exactly as the old
@@ -156,12 +174,13 @@ class Db extends Generic implements Db_Interface
     /**
     * Db::disconnect()
     *
-    * Closing a handle somebody else already closed is not an error here. Clones
-    * share one mysqli (there is no __clone), and query()'s retry path closes it
-    * too, so a second disconnect() reaches a mysqli that PHP 8 reports as
-    * "already closed" -- an Error, not a warning, which killed the caller
-    * outright. There is nothing left to release in that case, so swallow it and
-    * report the link as not-closed-by-us.
+    * Closing a handle that is already closed is not an error here. Anything
+    * holding a copy of the raw mysqli can close it -- query()'s retry path
+    * does, and so did clones before __clone() gave them their own connection --
+    * and PHP 8 answers close() on an already-closed mysqli with an Error rather
+    * than a warning, which killed the caller outright. There is nothing left to
+    * release in that case, so swallow it and report the link as
+    * not-closed-by-us.
     *
     * @return bool
     */
@@ -176,6 +195,7 @@ class Db extends Generic implements Db_Interface
             }
         }
         $this->linkId = 0;
+        $this->linkEstablished = false;
         // Closing the connection discards any open transaction server-side.
         $this->inTransaction = false;
         return $return;
@@ -377,8 +397,11 @@ class Db extends Generic implements Db_Interface
                     $this->inTransaction = false;
                     break;
                 }
-                @mysqli_close($this->linkId);
+                if (is_object($this->linkId)) {
+                    @mysqli_close($this->linkId);
+                }
                 $this->linkId = 0;
+                $this->linkEstablished = false;
             }
             $start = microtime(true);
             $onlyRollback = true;

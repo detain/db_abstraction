@@ -59,22 +59,30 @@ class DisconnectTest extends TestCase
 	}
 
 	/**
-	* clones share one handle, so the first disconnect() closes it out from
-	* under the second -- which used to be fatal.
+	* two holders of one raw mysqli: whoever closes second used to take a fatal.
 	*/
-	public function testDisconnectingTwoClonesOfOneHandleIsNotFatal()
+	public function testDisconnectingASharedHandleTwiceIsNotFatal()
 	{
-		$db = new Db();
-		$db->linkId = new AlreadyClosedLink();
-
-		$first = clone $db;
-		$second = clone $db;
+		$link = new AlreadyClosedLink();
+		$first = new Db();
+		$first->linkId = $link;
+		$second = new Db();
+		$second->linkId = $link;
 
 		$first->disconnect();
 		$second->disconnect();
 
 		$this->assertSame(0, $first->linkId);
 		$this->assertSame(0, $second->linkId);
+	}
+
+	public function testDisconnectTwiceOnOneInstanceIsNotFatal()
+	{
+		$db = new Db();
+		$db->linkId = new OpenLink();
+
+		$this->assertTrue($db->disconnect());
+		$this->assertFalse($db->disconnect());
 	}
 
 	public function testDisconnectWithNoLinkReportsFalse()
