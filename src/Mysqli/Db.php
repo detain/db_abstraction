@@ -155,11 +155,26 @@ class Db extends Generic implements Db_Interface
 
     /**
     * Db::disconnect()
+    *
+    * Closing a handle somebody else already closed is not an error here. Clones
+    * share one mysqli (there is no __clone), and query()'s retry path closes it
+    * too, so a second disconnect() reaches a mysqli that PHP 8 reports as
+    * "already closed" -- an Error, not a warning, which killed the caller
+    * outright. There is nothing left to release in that case, so swallow it and
+    * report the link as not-closed-by-us.
+    *
     * @return bool
     */
     public function disconnect()
     {
-        $return = !is_int($this->linkId) && method_exists($this->linkId, 'close') ? $this->linkId->close() : false;
+        $return = false;
+        if (!is_int($this->linkId) && is_object($this->linkId) && method_exists($this->linkId, 'close')) {
+            try {
+                $return = $this->linkId->close();
+            } catch (\Throwable $e) {
+                $return = false;
+            }
+        }
         $this->linkId = 0;
         // Closing the connection discards any open transaction server-side.
         $this->inTransaction = false;
