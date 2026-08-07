@@ -59,6 +59,24 @@ class Db extends Generic implements Db_Interface
     protected $linkEstablished = false;
 
     /**
+    * Let go of the connection without closing it.
+    *
+    * On top of what the parent clears, the prepared statement has to go: a
+    * mysqli_stmt belongs to the connection that prepared it, so it is useless,
+    * and unsafe, against whatever connection this instance opens next.
+    *
+    * @return void
+    */
+    public function detach()
+    {
+        parent::detach();
+        $this->linkEstablished = false;
+        $this->statement = null;
+        $this->statement_query = null;
+        $this->statement_vars = null;
+    }
+
+    /**
     * Db::linkIsUsable()
     *
     * Whether linkId is a handle we can still issue commands on.

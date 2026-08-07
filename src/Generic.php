@@ -91,6 +91,57 @@ abstract class Generic
     }
 
     /**
+     * Let go of the current connection without closing it.
+     *
+     * Leaves this instance with no link, so the next query opens one of its own.
+     * Every other holder keeps using the connection we let go of -- which is the
+     * difference from disconnect(), and what makes this safe to call on a clone.
+     *
+     * `clone $db` copies the handle, so the copy shares the original's
+     * connection: cheap, and the right thing when all you want is a second
+     * cursor. Detach when the copy needs a connection of its own instead:
+     *
+     *     $own = clone $db;
+     *     $own->detach();      // stop sharing $db's connection
+     *     $own->host = $other; // optional: point it somewhere else
+     *     $own->query(...);    // connects on its own
+     *
+     * @return void
+     */
+    public function detach()
+    {
+        $this->linkId = 0;
+        $this->queryId = 0;
+        // an open transaction belonged to the connection we just let go of
+        $this->inTransaction = false;
+    }
+
+    /**
+     * A copy of this handle with a connection all its own.
+     *
+     * The shorthand for clone-then-detach. Use it when the copy needs isolation
+     * from the original rather than just a second cursor. A plain clone shares
+     * the connection, and with it everything the server tracks per connection:
+     * transactions, LOCK TABLES, temporary tables, user variables, session
+     * settings and LAST_INSERT_ID(). This gives you none of that -- just the
+     * connection settings, with the connection opened lazily on first query.
+     *
+     * @return static
+     */
+    public function newConnection()
+    {
+        $copy = clone $this;
+        $copy->detach();
+        $copy->connectionAttempt = 0;
+        $copy->Record = [];
+        $copy->Row = 0;
+        $copy->Errno = 0;
+        $copy->Error = '';
+        $copy->log = [];
+        return $copy;
+    }
+
+    /**
      * Update transaction state from a raw SQL statement about to be run.
      *
      * Recognises the statements callers actually use to drive transactions
