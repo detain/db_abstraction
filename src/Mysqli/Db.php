@@ -59,17 +59,17 @@ class Db extends Generic implements Db_Interface
     protected $linkEstablished = false;
 
     /**
-    * Clear the mysqli-specific state a clone must not inherit.
+    * Let go of the connection without closing it.
     *
-    * The connection itself is dropped by the parent, which leaves the prepared
-    * statement built on it -- a mysqli_stmt is bound to the connection that
-    * prepared it and is useless, and unsafe, once the clone reconnects.
+    * On top of what the parent clears, the prepared statement has to go: a
+    * mysqli_stmt belongs to the connection that prepared it, so it is useless,
+    * and unsafe, against whatever connection this instance opens next.
     *
     * @return void
     */
-    public function __clone()
+    public function detach()
     {
-        parent::__clone();
+        parent::detach();
         $this->linkEstablished = false;
         $this->statement = null;
         $this->statement_query = null;
@@ -84,9 +84,10 @@ class Db extends Generic implements Db_Interface
     * close() leaves the mysqli as a live PHP object, so is_object() alone could
     * not tell a closed connection apart from a working one and connect() handed
     * back the dead handle -- every later use then threw "mysqli object is already
-    * closed". query()'s retry path below closes the handle, and any other code
-    * holding a copy of the raw mysqli can too, so the link can go dead
-    * underneath us at any point.
+    * closed". Clones share one handle on purpose, and while a clone is not
+    * allowed to close it (see Generic::$linkOwner), its owner still can -- from
+    * disconnect(), or from query()'s retry path below -- so a borrowed handle
+    * can go dead under any holder at any time.
     *
     * Only a handle we actually connected is probed. A mysqli_init() whose
     * real_connect() failed is still reported usable, exactly as the old
@@ -162,6 +163,9 @@ class Db extends Generic implements Db_Interface
                 return 0;
             }
             $this->linkEstablished = true;
+            // We opened this one, so we are the holder that closes it -- even if
+            // we started out as a clone borrowing somebody else's connection.
+            $this->linkOwner = true;
             // Counts *consecutive* failures, so clear it once we are connected.
             // Without this it only ever grew, and since maxConnectErrors trips an
             // exit() above, a long-lived worker that legitimately reconnects a few
@@ -174,12 +178,16 @@ class Db extends Generic implements Db_Interface
     /**
     * Db::disconnect()
     *
-    * Closing a handle that is already closed is not an error here. Anything
-    * holding a copy of the raw mysqli can close it -- query()'s retry path
-    * does, and so did clones before __clone() gave them their own connection --
-    * and PHP 8 answers close() on an already-closed mysqli with an Error rather
-    * than a warning, which killed the caller outright. There is nothing left to
-    * release in that case, so swallow it and report the link as
+    * On a borrowed handle this only detaches -- closing would take the
+    * connection out from under every other holder. Either way the instance is
+    * left with no link, so the next query opens a fresh one; on a clone that is
+    * how it gets a connection of its own.
+    *
+    * Closing a handle that is already closed is not an error either. query()'s
+    * retry path closes the link, and any other code holding a copy of the raw
+    * mysqli can too, and PHP 8 answers close() on an already-closed mysqli with
+    * an Error rather than a warning, which killed the caller outright. There is
+    * nothing left to release in that case, so swallow it and report the link as
     * not-closed-by-us.
     *
     * @return bool
@@ -187,17 +195,14 @@ class Db extends Generic implements Db_Interface
     public function disconnect()
     {
         $return = false;
-        if (!is_int($this->linkId) && is_object($this->linkId) && method_exists($this->linkId, 'close')) {
+        if ($this->linkOwner && !is_int($this->linkId) && is_object($this->linkId) && method_exists($this->linkId, 'close')) {
             try {
                 $return = $this->linkId->close();
             } catch (\Throwable $e) {
                 $return = false;
             }
         }
-        $this->linkId = 0;
-        $this->linkEstablished = false;
-        // Closing the connection discards any open transaction server-side.
-        $this->inTransaction = false;
+        $this->detach();
         return $return;
     }
 
@@ -397,11 +402,13 @@ class Db extends Generic implements Db_Interface
                     $this->inTransaction = false;
                     break;
                 }
-                if (is_object($this->linkId)) {
+                // Drop the handle before retrying, but only close it if it is
+                // ours: on a clone the connection still belongs to whoever it
+                // was cloned from, and closing it here would break them mid-query.
+                if ($this->linkOwner && is_object($this->linkId)) {
                     @mysqli_close($this->linkId);
                 }
-                $this->linkId = 0;
-                $this->linkEstablished = false;
+                $this->detach();
             }
             $start = microtime(true);
             $onlyRollback = true;

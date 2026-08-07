@@ -6,86 +6,106 @@ use MyDb\Mysqli\Db as MysqliDb;
 use MyDb\Mdb2\Db as Mdb2Db;
 use MyDb\Pdo\Db as PdoDb;
 use MyDb\Pgsql\Db as PgsqlDb;
+use MyDb\Tests\Mysqli\AlreadyClosedLink;
 use MyDb\Tests\Mysqli\OpenLink;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__.'/Mysqli/DisconnectTest.php';
 
 /**
-* Cloning a db object is how callers get a handle they can drive independently,
-* so the copy has to come with a connection of its own rather than the
-* original's.
+* A clone keeps sharing the original's connection -- that is what makes
+* `clone $db` a free way to get a second cursor -- but it does not own it, so it
+* can never close the connection out from under the original. detach() and
+* newConnection() are how a copy breaks off and gets a connection of its own.
 */
 class CloneTest extends TestCase
 {
 	/**
 	* @return array
 	*/
-	public function independentDriverProvider()
+	public function driverProvider()
 	{
 		return [
 			'mysqli' => [MysqliDb::class],
 			'mdb2' => [Mdb2Db::class],
 			'pgsql' => [PgsqlDb::class],
+			'pdo' => [PdoDb::class],
 		];
 	}
 
 	/**
-	* @dataProvider independentDriverProvider
+	* @dataProvider driverProvider
 	* @param string $class
 	*/
-	public function testCloneStartsWithNoConnection($class)
+	public function testCloneSharesTheConnection($class)
 	{
 		$db = new $class();
-		$db->linkId = new OpenLink();
-		$db->queryId = new OpenLink();
-
-		$clone = clone $db;
-
-		$this->assertSame(0, $clone->linkId, 'the clone must not share the connection');
-		$this->assertSame(0, $clone->queryId, 'the clone must not share the result cursor');
-	}
-
-	/**
-	* @dataProvider independentDriverProvider
-	* @param string $class
-	*/
-	public function testCloneKeepsTheConnectionSettings($class)
-	{
-		$db = new $class('test_db', 'test_user', 'test_password', 'db.example.org', '', '3307');
-		$db->characterSet = 'latin1';
-
-		$clone = clone $db;
-
-		$this->assertSame('db.example.org', $clone->host);
-		$this->assertSame('test_user', $clone->user);
-		$this->assertSame('test_password', $clone->password);
-		$this->assertSame('test_db', $clone->database);
-		$this->assertSame('3307', $clone->port);
-		$this->assertSame('latin1', $clone->characterSet);
-	}
-
-	public function testCloneDoesNotTouchTheOriginalsConnection()
-	{
-		$db = new MysqliDb();
 		$link = new OpenLink();
 		$db->linkId = $link;
 
 		$clone = clone $db;
-		$clone->disconnect();
 
-		$this->assertSame($link, $db->linkId, 'the original keeps its connection');
-		$this->assertSame(0, $link->closeCalls, 'and nobody closed it');
+		$this->assertSame($link, $clone->linkId, 'a clone reuses the connection rather than opening a second one');
 	}
 
 	/**
-	* the crash this all started from: cloning a db per host, then disconnecting
-	* each clone so it reconnects to the host it was pointed at.
+	* @dataProvider driverProvider
+	* @param string $class
+	*/
+	public function testCloneDoesNotOwnTheConnection($class)
+	{
+		$db = new $class();
+		$db->linkId = new OpenLink();
+
+		$clone = clone $db;
+
+		$this->assertTrue($db->ownsConnection());
+		$this->assertFalse($clone->ownsConnection());
+	}
+
+	public function testCloneOfACloneAlsoBorrows()
+	{
+		$db = new MysqliDb();
+		$db->linkId = new OpenLink();
+
+		$grandchild = clone (clone $db);
+
+		$this->assertFalse($grandchild->ownsConnection());
+	}
+
+	public function testDisconnectingACloneLeavesTheOriginalConnected()
+	{
+		$db = new MysqliDb();
+		$link = new OpenLink();
+		$db->linkId = $link;
+		$clone = clone $db;
+
+		$this->assertFalse($clone->disconnect(), 'the clone closed nothing, so it reports false');
+		$this->assertSame(0, $clone->linkId, 'but it did let go of the handle');
+		$this->assertSame(0, $link->closeCalls, 'the shared connection stays open');
+		$this->assertSame($link, $db->linkId, 'and the original still has it');
+	}
+
+	public function testOriginalStillClosesItsOwnConnection()
+	{
+		$db = new MysqliDb();
+		$link = new OpenLink();
+		$db->linkId = $link;
+		$clone = clone $db;
+		$clone->disconnect();
+
+		$this->assertTrue($db->disconnect());
+		$this->assertSame(1, $link->closeCalls);
+	}
+
+	/**
+	* the crash this all started from: one db cloned per host, each clone
+	* disconnected so it reconnects to the host it was pointed at.
 	*/
 	public function testCloningPerHostAndDisconnectingEachIsNotFatal()
 	{
 		$db = new MysqliDb();
-		$link = new OpenLink();
+		$link = new AlreadyClosedLink();
 		$db->linkId = $link;
 
 		foreach (['10.0.0.1', '10.0.0.2', '10.0.0.3'] as $host) {
@@ -97,84 +117,120 @@ class CloneTest extends TestCase
 			$this->assertSame(0, $clone->linkId);
 		}
 
-		$this->assertSame($link, $db->linkId);
-		$this->assertSame(0, $link->closeCalls);
+		$this->assertSame($link, $db->linkId, 'the original was never disturbed');
+		$this->assertSame(0, $link->closeCalls, 'and nobody tried to close its connection');
 	}
 
-	public function testCloneDoesNotInheritResultState()
+	public function testDetachGivesUpTheHandleWithoutClosingIt()
 	{
 		$db = new MysqliDb();
-		$db->Record = ['id' => 7];
-		$db->Row = 3;
-		$db->Errno = 1064;
-		$db->Error = 'You have an error in your SQL syntax';
-
+		$link = new OpenLink();
+		$db->linkId = $link;
 		$clone = clone $db;
 
-		$this->assertSame([], $clone->Record);
-		$this->assertSame(0, $clone->Row);
-		$this->assertSame(0, $clone->Errno);
-		$this->assertSame('', $clone->Error);
+		$clone->detach();
+
+		$this->assertSame(0, $clone->linkId);
+		$this->assertSame(0, $clone->queryId);
+		$this->assertSame(0, $link->closeCalls);
+		$this->assertTrue($clone->ownsConnection(), 'whatever it connects next is its own to close');
 	}
 
-	public function testCloneDoesNotInheritAnOpenTransaction()
+	public function testDetachDropsThePreparedStatement()
 	{
 		$db = new MysqliDb();
+		$db->linkId = new OpenLink();
+		$db->statement = new OpenLink();
+		$db->statement_query = 'select ?';
+
+		$clone = clone $db;
+		$clone->detach();
+
+		$this->assertNull($clone->statement, 'a mysqli_stmt belongs to the connection that prepared it');
+		$this->assertNull($clone->statement_query);
+		$this->assertNotNull($db->statement, 'the original keeps its own');
+	}
+
+	public function testDetachClearsAnInheritedTransactionFlag()
+	{
+		$db = new MysqliDb();
+		$db->linkId = new OpenLink();
 		$reflection = new \ReflectionProperty(\MyDb\Generic::class, 'inTransaction');
 		$reflection->setAccessible(true);
 		$reflection->setValue($db, true);
 
 		$clone = clone $db;
+		$this->assertTrue($clone->inTransaction(), 'while sharing the connection it shares the transaction');
 
-		$this->assertTrue($db->inTransaction(), 'the original is still in its transaction');
-		$this->assertFalse($clone->inTransaction(), 'the clone is on another connection, so it is not');
+		$clone->detach();
+		$this->assertFalse($clone->inTransaction(), 'once detached that transaction is not ours');
+		$this->assertTrue($db->inTransaction(), 'the original is still in it');
 	}
 
-	public function testCloneDoesNotInheritTheQueryLog()
+	public function testNewConnectionStartsUnconnectedAndOwning()
 	{
 		$db = new MysqliDb();
-		$db->addLog('select 1', 0.01, __LINE__, __FILE__);
-		$clone = clone $db;
-
-		$this->assertNotEmpty($db->getLog());
-		$this->assertSame([], $clone->getLog(), 'the clone has not run any queries yet');
-	}
-
-	public function testCloneDoesNotInheritAPreparedStatement()
-	{
-		$db = new MysqliDb();
-		$db->statement = new OpenLink();
-		$db->statement_query = 'select ?';
-
-		$clone = clone $db;
-
-		$this->assertNull($clone->statement, 'a mysqli_stmt belongs to the connection that prepared it');
-		$this->assertNull($clone->statement_query);
-	}
-
-	public function testCloneDoesNotInheritTheConnectFailureCount()
-	{
-		$db = new MysqliDb();
-		$db->connectionAttempt = 4;
-
-		$clone = clone $db;
-
-		$this->assertSame(0, $clone->connectionAttempt);
-	}
-
-	/**
-	* pdo and adodb connect() only reopen when linkId is exactly false, so their
-	* clones keep sharing until that is fixed -- pinned here so the difference
-	* is deliberate rather than a surprise.
-	*/
-	public function testPdoCloneStillSharesTheConnection()
-	{
-		$db = new PdoDb();
 		$link = new OpenLink();
 		$db->linkId = $link;
 
-		$clone = clone $db;
+		$own = $db->newConnection();
 
-		$this->assertSame($link, $clone->linkId);
+		$this->assertInstanceOf(MysqliDb::class, $own);
+		$this->assertSame(0, $own->linkId, 'it connects lazily, on its first query');
+		$this->assertTrue($own->ownsConnection());
+		$this->assertSame($link, $db->linkId, 'the original is untouched');
+		$this->assertSame(0, $link->closeCalls);
+	}
+
+	public function testNewConnectionKeepsTheConnectionSettings()
+	{
+		$db = new MysqliDb('test_db', 'test_user', 'test_password', 'db.example.org', '', '3307');
+		$db->characterSet = 'latin1';
+
+		$own = $db->newConnection();
+
+		$this->assertSame('db.example.org', $own->host);
+		$this->assertSame('test_user', $own->user);
+		$this->assertSame('test_password', $own->password);
+		$this->assertSame('test_db', $own->database);
+		$this->assertSame('3307', $own->port);
+		$this->assertSame('latin1', $own->characterSet);
+	}
+
+	public function testNewConnectionCarriesNoConnectionState()
+	{
+		$db = new MysqliDb();
+		$db->linkId = new OpenLink();
+		$db->Record = ['id' => 7];
+		$db->Row = 3;
+		$db->Errno = 1064;
+		$db->Error = 'You have an error in your SQL syntax';
+		$db->connectionAttempt = 4;
+		$db->addLog('select 1', 0.01, __LINE__, __FILE__);
+
+		$own = $db->newConnection();
+
+		$this->assertSame([], $own->Record);
+		$this->assertSame(0, $own->Row);
+		$this->assertSame(0, $own->Errno);
+		$this->assertSame('', $own->Error);
+		$this->assertSame(0, $own->connectionAttempt);
+		$this->assertSame([], $own->getLog());
+		$this->assertNotEmpty($db->getLog(), 'the original keeps its own log');
+	}
+
+	/**
+	* @dataProvider driverProvider
+	* @param string $class
+	*/
+	public function testNewConnectionIsAvailableOnEveryDriver($class)
+	{
+		$db = new $class();
+		$db->linkId = new OpenLink();
+
+		$own = $db->newConnection();
+
+		$this->assertInstanceOf($class, $own);
+		$this->assertSame(0, $own->linkId);
 	}
 }

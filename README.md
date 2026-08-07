@@ -57,6 +57,47 @@ Install with composer like
 composer require detain/db_abstraction
 ```
 
+## Cloning a handle
+
+`clone $db` gives you a second cursor on the **same** connection. It costs
+nothing, and it is the right tool when you need to run a query without
+disturbing a result set you are already iterating:
+
+```php
+$db->query('select * from customers', __LINE__, __FILE__);
+$sub = clone $db;
+while ($db->next_record(MYSQL_ASSOC)) {
+    $sub->query('select * from orders where custid = '.$db->Record['id'], __LINE__, __FILE__);
+    while ($sub->next_record(MYSQL_ASSOC)) { /* ... */ }
+}
+```
+
+Result sets are buffered client-side, so the two cursors do not interfere.
+Everything the *server* keeps per connection is still shared, though:
+transactions, `LOCK TABLES`, temporary tables, user variables, session settings
+and `LAST_INSERT_ID()`. One clone committing or rolling back ends the
+transaction for all of them.
+
+A clone does not own the connection, so it can never close it out from under the
+original — `disconnect()` on a clone just lets go of the handle.
+
+When you need real isolation, ask for a connection of your own:
+
+```php
+$own = $db->newConnection();   // same settings, its own connection, opened lazily
+$own->query('start transaction', __LINE__, __FILE__);
+```
+
+`newConnection()` is shorthand for `clone` followed by `detach()`. Call
+`detach()` directly when you want to repoint an existing copy:
+
+```php
+$other = clone $db;
+$other->detach();
+$other->host = $replicaIp;
+$other->query('select ...', __LINE__, __FILE__);   // connects to the replica
+```
+
 ## License
 
 The Database Abstraction Class class is licensed under the LGPL-v2.1 license.

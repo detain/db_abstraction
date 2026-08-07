@@ -54,6 +54,24 @@ abstract class Generic
     public $linkId = 0;
     public $queryId = 0;
 
+    /**
+     * Whether this instance opened the handle in linkId and may therefore close it.
+     *
+     * Cloning is how callers all over this codebase get a second cursor without
+     * paying for a second connection, so a clone keeps sharing its original's
+     * handle. What it must not do is close that handle: every other holder is
+     * then left with a mysqli that PHP 8 reports as "already closed", which is
+     * an Error rather than a warning and takes the request down. Only the
+     * instance that opened a connection may close it; everyone else lets go of
+     * it instead -- see detach().
+     *
+     * True by default, so an instance that connects the ordinary way, or is
+     * handed a link directly, still closes it exactly as before.
+     *
+     * @var bool
+     */
+    protected $linkOwner = true;
+
     public $characterSet = 'utf8mb4';
     public $collation = 'utf8mb4_unicode_ci';
 
@@ -91,36 +109,84 @@ abstract class Generic
     }
 
     /**
-     * Give the copy a connection of its own.
+     * Hand the copy a borrowed handle rather than an owned one.
      *
-     * Cloning a db object is how callers ask for a handle they can work with
-     * independently -- one that runs its own queries while the original is
-     * partway through a result set of its own. PHP's default shallow copy hands
-     * the copy the *same* connection and result handles, which defeats that and
-     * is actively dangerous: either instance can then close or requery the link
-     * out from under the other, and the loser gets "mysqli object is already
-     * closed" thrown at it.
+     * A clone goes on using the original's connection -- that is the point of
+     * cloning here, and what keeps `clone $db` a free way to get a second
+     * cursor. All that changes is that the copy may no longer close it. Anything
+     * that would have closed the shared handle now merely lets go of it, so the
+     * clone ends up disconnected while every other holder carries on.
      *
-     * So a clone starts out unconnected. It opens its own link the first time it
-     * needs one -- lazily, so cloning itself still costs nothing -- with none of
-     * the original's per-connection state (result cursor, open transaction,
-     * query log, connect-failure count) carried across. Connection settings, the
-     * things the caller set up before cloning, are copied as usual.
+     * Be aware of what a shared connection means: result cursors are separate
+     * (results are buffered client-side), but everything the server tracks per
+     * connection is not. Transactions, LOCK TABLES, temporary tables, user
+     * variables, session settings and LAST_INSERT_ID() are all common property,
+     * so one clone can commit or roll back another's work. Call newConnection()
+     * instead of clone when you need genuine isolation.
      *
      * @return void
      */
     public function __clone()
     {
+        $this->linkOwner = false;
+    }
+
+    /**
+     * Whether this instance may close the handle it is holding.
+     *
+     * @return bool
+     */
+    public function ownsConnection()
+    {
+        return $this->linkOwner;
+    }
+
+    /**
+     * Let go of the current connection without closing it.
+     *
+     * Leaves this instance with no link, so the next query opens one of its own
+     * -- which it then owns. Everyone else keeps using the connection we let go
+     * of. This is what disconnect() does on a borrowed handle, and it is also
+     * the supported way for a clone to break off and get its own connection:
+     *
+     *     $own = clone $db;
+     *     $own->detach();      // stop sharing $db's connection
+     *     $own->host = $other; // optional: point it somewhere else
+     *     $own->query(...);    // connects on its own
+     *
+     * @return void
+     */
+    public function detach()
+    {
         $this->linkId = 0;
         $this->queryId = 0;
-        $this->connectionAttempt = 0;
-        $this->Record = [];
-        $this->Row = 0;
-        $this->Errno = 0;
-        $this->Error = '';
-        // an open transaction belongs to the original's connection, not ours
+        $this->linkOwner = true;
+        // an open transaction belonged to the connection we just let go of
         $this->inTransaction = false;
-        $this->log = [];
+    }
+
+    /**
+     * A copy of this handle with a connection all its own.
+     *
+     * The shorthand for clone-then-detach. Use it when the copy needs isolation
+     * from the original rather than just a second cursor: its own transaction,
+     * its own temporary tables or session variables, its own LAST_INSERT_ID(),
+     * or a connection to a different host. It connects lazily, on first query,
+     * and copies the connection settings but none of the connection state.
+     *
+     * @return static
+     */
+    public function newConnection()
+    {
+        $copy = clone $this;
+        $copy->detach();
+        $copy->connectionAttempt = 0;
+        $copy->Record = [];
+        $copy->Row = 0;
+        $copy->Errno = 0;
+        $copy->Error = '';
+        $copy->log = [];
+        return $copy;
     }
 
     /**

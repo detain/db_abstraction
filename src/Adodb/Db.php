@@ -24,21 +24,6 @@ class Db extends Generic implements Db_Interface
     public $type = 'adodb';
 
     /**
-     * Keep PHP's plain shallow copy for this driver.
-     *
-     * Generic::__clone() hands the copy an empty linkId to reconnect from, which
-     * only works where connect() reopens on demand. Here it tests
-     * `$this->linkId === false`, so a cleared link would never be reopened and
-     * the clone would be unusable. Until that check is fixed the copy keeps
-     * sharing the original's connection, exactly as it always has.
-     *
-     * @return void
-     */
-    public function __clone()
-    {
-    }
-
-    /**
      * Db::connect()
      * @param string $database
      * @param string $host

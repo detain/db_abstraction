@@ -27,21 +27,6 @@ class Db extends Generic implements Db_Interface
     public $type = 'pdo';
 
     /**
-     * Keep PHP's plain shallow copy for this driver.
-     *
-     * Generic::__clone() hands the copy an empty linkId to reconnect from, which
-     * only works where connect() reopens on demand. Here it tests
-     * `$this->linkId === false`, so a cleared link would never be reopened and
-     * the clone would be unusable. Until that check is fixed the copy keeps
-     * sharing the original's PDO, exactly as it always has.
-     *
-     * @return void
-     */
-    public function __clone()
-    {
-    }
-
-    /**
      * changes the database we are working with.
      *
      * @param string $database the name of the database to use
