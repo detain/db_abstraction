@@ -369,6 +369,45 @@ abstract class Generic
     }
 
     /**
+     * Returns a copy of request data ($_POST/$_GET) that is safe to log:
+     * every value under a secret-looking key (password, token, card data,
+     * api key, ...) is replaced, recursing into nested arrays. Uses MyAdmin's
+     * SecretLogRedactor when it is available, otherwise a local key match.
+     *
+     * @param array $data
+     * @return array
+     */
+    public static function redactForLog(array $data)
+    {
+        if (class_exists(\MyAdmin\Security\SecretLogRedactor::class)) {
+            return \MyAdmin\Security\SecretLogRedactor::scrubArray($data);
+        }
+        return static::redactSecretKeys($data);
+    }
+
+    /**
+     * The standalone fallback for redactForLog(): replaces the value of every
+     * secret-looking key, recursing into nested arrays. Empty values are kept
+     * so "was a password supplied at all" stays visible.
+     *
+     * @param array $data
+     * @return array
+     */
+    public static function redactSecretKeys(array $data)
+    {
+        foreach ($data as $key => $value) {
+            if (is_string($key) && preg_match('/pass|pwd|secret|token|cvv|ccv|api_?key|^cc$|card/i', $key) === 1) {
+                if ($value !== '' && $value !== null && $value !== []) {
+                    $data[$key] = '[redacted]';
+                }
+            } elseif (is_array($value)) {
+                $data[$key] = static::redactSecretKeys($value);
+            }
+        }
+        return $data;
+    }
+
+    /**
      * @param mixed $msg
      * @param string $line
      * @param string $file
@@ -377,14 +416,16 @@ abstract class Generic
     public function logBackTrace($msg, $line = '', $file = '')
     {
         $backtrace = (function_exists('debug_backtrace') ? debug_backtrace() : []);
+        $post = (isset($_POST) && is_array($_POST)) ? static::redactForLog($_POST) : [];
+        $get = (isset($_GET) && is_array($_GET)) ? static::redactForLog($_GET) : [];
         $this->log(
             ('' !== getenv('REQUEST_URI') ? ' '.getenv('REQUEST_URI') : '').
-            ((isset($_POST) && count($_POST)) ? ' POST='.json_encode($_POST) : '').
-            ((isset($_GET) && count($_GET)) ? ' GET='.json_encode($_GET) : '').
+            (count($post) ? ' POST='.json_encode($post) : '').
+            (count($get) ? ' GET='.json_encode($get) : '').
             ((isset($_FILES) && count($_FILES)) ? ' FILES='.json_encode($_FILES) : '').
             ('' !== getenv('HTTP_USER_AGENT') ? ' AGENT="'.getenv('HTTP_USER_AGENT').'"' : '').
             (isset($_SERVER['REQUEST_METHOD']) ? ' METHOD="'.$_SERVER['REQUEST_METHOD'].'"'.
-                ($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'.json_encode($_POST).'"' : '') : ''),
+                ($_SERVER['REQUEST_METHOD'] === 'POST' ? ' POST="'.json_encode($post).'"' : '') : ''),
             $line,
             $file,
             'error'
@@ -396,9 +437,11 @@ abstract class Generic
                 (isset($backtrace[$level] ['type']) ? $backtrace[$level] ['type'].' ' : '').
                 $backtrace[$level] ['function'].'(';
             if (isset($backtrace[$level] ['args'])) {
+                // never print the arguments of auth/password/login functions: they are the credentials
+                $hideArgs = preg_match('/auth|pass|login/i', (string) $backtrace[$level]['function']) === 1;
                 for ($argument = 0, $argumentMax = count($backtrace[$level]['args']); $argument < $argumentMax; $argument++) {
                     $message .= ($argument > 0 ? ', ' : '').
-                        (is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : json_encode($backtrace[$level]['args'][$argument]));
+                        ($hideArgs ? '[arg]' : (is_object($backtrace[$level]['args'][$argument]) ? 'class '.get_class($backtrace[$level]['args'][$argument]) : json_encode($backtrace[$level]['args'][$argument])));
                 }
             }
             $message .= ')';
