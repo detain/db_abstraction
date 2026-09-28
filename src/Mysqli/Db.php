@@ -376,7 +376,7 @@ class Db extends Generic implements Db_Interface
                  * told so it can decide whether to retry the whole unit.
                  */
                 if ($this->inTransaction === true) {
-                    error_log('Refusing to reconnect mid-transaction; failing the query instead so the caller sees the broken transaction. Query: '.$queryString.' from '.$file.':'.$line);
+                    error_log('Refusing to reconnect mid-transaction; failing the query instead so the caller sees the broken transaction. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
                     $this->inTransaction = false;
                     break;
                 }
@@ -394,7 +394,7 @@ class Db extends Generic implements Db_Interface
                  * caller see it.
                  */
                 if ($this->inTransaction === true && !$this->linkIsUsable()) {
-                    error_log('Connection lost mid-transaction; failing the query rather than silently reconnecting. Query: '.$queryString.' from '.$file.':'.$line);
+                    error_log('Connection lost mid-transaction; failing the query rather than silently reconnecting. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
                     $this->inTransaction = false;
                     break;
                 }
@@ -414,7 +414,7 @@ class Db extends Generic implements Db_Interface
                          * whole transaction, which is the only correct retry.
                          */
                         if ($this->inTransaction === true) {
-                            error_log('Got SQL error '.(int)@mysqli_errno($this->linkId).' inside a transaction; the server has rolled it back, so failing rather than retrying the statement alone. Query: '.$queryString.' from '.$file.':'.$line);
+                            error_log('Got SQL error '.(int)@mysqli_errno($this->linkId).' inside a transaction; the server has rolled it back, so failing rather than retrying the statement alone. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
                             $this->inTransaction = false;
                             break;
                         }
@@ -431,14 +431,14 @@ class Db extends Generic implements Db_Interface
                     if (in_array((int)$e->getCode(), [1213, 2006, 3101, 1180])) {
                         // Same reasoning as the non-exception branch above.
                         if ($this->inTransaction === true) {
-                            error_log('Got SQL exception '.(int)$e->getCode().' inside a transaction; the server has rolled it back, so failing rather than retrying the statement alone. Query: '.$queryString.' from '.$file.':'.$line);
+                            error_log('Got SQL exception '.(int)$e->getCode().' inside a transaction; the server has rolled it back, so failing rather than retrying the statement alone. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
                             $this->inTransaction = false;
                             break;
                         }
                         //error_log("got ".$e->getCode()." sql error fails {$fails}");
                         usleep(250000); // 0.25 second
                     } else {
-                        error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.$e->getMessage().' on query '.$queryString.' from '.$line.':'.$file);
+                        error_log('Got mysqli_sql_exception code '.$e->getCode().' error '.static::redactQueryForLog($e->getMessage(), $queryString).' on query '.static::redactQueryForLog($queryString).' from '.$line.':'.$file);
                         $onlyRollback = false;
                         if (in_array((int)@mysqli_errno($this->linkId), [1064])) {
                             $tries = 0;
@@ -459,7 +459,7 @@ class Db extends Generic implements Db_Interface
         }
         $this->haltOnError = $haltPrev;
         if ($onlyRollback === true && false === $this->queryId) {
-            error_log('Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up on '.$queryString.' from '.$line.':'.$file.' on '.__LINE__.':'.__FILE__);
+            error_log('Got MySQLi 3101 Rollback Error '.$fails.' Times, Giving Up on '.static::redactQueryForLog($queryString).' from '.$line.':'.$file.' on '.__LINE__.':'.__FILE__);
         }
         if (null === $this->queryId || $this->queryId === false) {
             $this->emailError($queryString, 'Error #'.$this->Errno.': '.$this->Error, $line, $file);

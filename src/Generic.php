@@ -408,6 +408,84 @@ abstract class Generic
     }
 
     /**
+     * Returns $queryString safe to put in a log line or an error email. A
+     * query that names a secret-looking column (password, token, api key,
+     * card data, ...) has every quoted string literal replaced, so legacy
+     * SQL like "account_passwd=md5('...')" or an INSERT carrying a root
+     * password never leaves the database layer in clear text. Queries that
+     * name no such column are returned unchanged so ordinary SQL errors stay
+     * debuggable. Also used on driver error messages, which quote fragments
+     * of the failing query ("near '...'", "Duplicate entry '...'").
+     *
+     * @param mixed $queryString
+     * @param mixed $context text used to decide whether redaction applies (defaults to $queryString)
+     * @return string
+     */
+    public static function redactQueryForLog($queryString, $context = null)
+    {
+        $queryString = (string) $queryString;
+        $context = $context === null ? $queryString : (string) $context;
+        if (preg_match('/pass|pwd|secret|token|cvv|ccv|api_?key|cc_?num|card|salt/i', $context) !== 1) {
+            return $queryString;
+        }
+        return (string) preg_replace(
+            // each literal runs to its closing quote, or to the end when a driver error truncated the query
+            ["/'(?:[^'\\\\]|\\\\.|'')*(?:'|\\z)/s", '/"(?:[^"\\\\]|\\\\.|"")*(?:"|\\z)/s'],
+            ["'[redacted]'", '"[redacted]"'],
+            $queryString
+        );
+    }
+
+    /**
+     * Returns the part of $_SERVER that is useful in an SQL error report and
+     * safe to email: a fixed allowlist of request/host keys (never
+     * PHP_AUTH_PW, Authorization, cookies, or FPM environment secrets), with
+     * secret-looking query-string parameters redacted.
+     *
+     * @param array $server
+     * @return array
+     */
+    public static function serverForReport(array $server)
+    {
+        $keep = ['HTTP_HOST', 'SERVER_NAME', 'SERVER_ADDR', 'REQUEST_METHOD', 'REQUEST_URI', 'SCRIPT_NAME', 'SCRIPT_FILENAME', 'PHP_SELF', 'QUERY_STRING', 'HTTP_REFERER', 'HTTP_USER_AGENT', 'REMOTE_ADDR', 'HTTP_X_FORWARDED_FOR', 'HTTP_CF_CONNECTING_IP', 'REQUEST_TIME', 'argc'];
+        $out = [];
+        foreach ($keep as $key) {
+            if (!isset($server[$key])) {
+                continue;
+            }
+            $value = $server[$key];
+            if (is_string($value) && in_array($key, ['REQUEST_URI', 'QUERY_STRING', 'HTTP_REFERER', 'PHP_SELF'], true)) {
+                $value = static::redactUrlQuery($value);
+            }
+            $out[$key] = $value;
+        }
+        return $out;
+    }
+
+    /**
+     * Redacts secret-looking parameters in the query-string part of a URL,
+     * or in a bare query string.
+     *
+     * @param string $value
+     * @return string
+     */
+    public static function redactUrlQuery($value)
+    {
+        $pos = strpos($value, '?');
+        $prefix = $pos === false ? '' : substr($value, 0, $pos + 1);
+        $query = $pos === false ? $value : substr($value, $pos + 1);
+        if ($query === '' || ($pos === false && strpos($query, '=') === false)) {
+            return $value;
+        }
+        parse_str($query, $params);
+        $redacted = static::redactForLog($params);
+        if ($redacted === $params) {
+            return $value;
+        }
+        return $prefix.http_build_query($redacted);
+    }
+
+    /**
      * @param mixed $msg
      * @param string $line
      * @param string $file
@@ -474,7 +552,7 @@ abstract class Generic
          * recorded somewhere durable.
          */
         if (self::$inEmailError === true) {
-            error_log('SQL error while already reporting an SQL error (suppressed to avoid recursion): '.$error.' on query '.$queryString.' from '.$file.':'.$line);
+            error_log('SQL error while already reporting an SQL error (suppressed to avoid recursion): '.static::redactQueryForLog($error, $queryString).' on query '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
             return;
         }
         self::$inEmailError = true;
@@ -485,7 +563,7 @@ abstract class Generic
              * The reporting path must never be able to throw into the caller --
              * a failed error report should not replace or mask the real error.
              */
-            error_log('Failed to report SQL error ('.$e->getMessage().'). Original error: '.$error.' on query '.$queryString.' from '.$file.':'.$line);
+            error_log('Failed to report SQL error ('.$e->getMessage().'). Original error: '.static::redactQueryForLog($error, $queryString).' on query '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
         } finally {
             self::$inEmailError = false;
         }
@@ -503,7 +581,15 @@ abstract class Generic
      */
     private function emailErrorInner($queryString, $error, $line, $file)
     {
-        $subject = php_uname('n').' MySQLi Error '.$queryString;
+        /*
+         * Nothing secret may reach the email: the subject is also logged by the
+         * mailer, so it carries only the location; the query and driver error
+         * are literal-redacted when they touch a secret column; request data is
+         * key-redacted and the server array is an allowlist.
+         */
+        $error = static::redactQueryForLog(is_string($error) ? $error : json_encode($error), $queryString);
+        $queryString = static::redactQueryForLog($queryString);
+        $subject = php_uname('n').' MySQLi Error at '.basename((string) $file).':'.$line;
         if (class_exists('\\TFSmarty')) {
             $smarty = new \TFSmarty();
             $smarty->assign([
@@ -512,8 +598,8 @@ abstract class Generic
                 'error' => $error,
                 'line' => $line,
                 'file' => $file,
-                'request' => $_REQUEST,
-                'server' => $_SERVER,
+                'request' => static::redactForLog(isset($_REQUEST) && is_array($_REQUEST) ? $_REQUEST : []),
+                'server' => static::serverForReport(isset($_SERVER) && is_array($_SERVER) ? $_SERVER : []),
             ]);
             if (\MyAdmin\App::has(\MyAdmin\tf::class)) {
                 $smarty->assign('account_id', \MyAdmin\App::session()->account_id);
