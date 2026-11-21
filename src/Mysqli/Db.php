@@ -264,19 +264,23 @@ class Db extends Generic implements Db_Interface
     protected $txNotReplayableWhy = '';
 
     /**
-    * innodb_lock_wait_timeout, in seconds, set on every connection this instance opens after it moved a START
-    * TRANSACTION off a shared link (startApart()): the handle that keeps the shared link has a transaction open there,
-    * and in the same request it may hold row locks this instance's statements wait for, which nothing releases while
-    * they wait. A lock wait then fails with 1205 after this long instead of the server's innodb_lock_wait_timeout (by
-    * default 50 s). 0 leaves the server's own.
+    * innodb_lock_wait_timeout, in seconds, set on every connection this instance opens while the transaction it moved
+    * off a shared link (startApart()) runs: the handle that keeps the shared link has a transaction open there, and in
+    * the same request it may hold row locks this instance's statements wait for, which nothing releases while they
+    * wait. A lock wait then fails with 1205 after this long instead of the server's innodb_lock_wait_timeout (by
+    * default 50 s). Only for that transaction: once it is over the connection gets the server's value back
+    * (endApartLockWait()). 0 leaves the server's own.
     *
     * @var int
     */
     public $apartLockWaitSeconds = 5;
 
     /**
-    * Whether this instance moved a START TRANSACTION off a shared link (startApart()): every connection it opens from
-    * then on gets $apartLockWaitSeconds (connect()). A clone, and a detach()/newConnection() copy, start without it.
+    * Whether a START TRANSACTION this instance moved off a shared link (startApart()) is under way: from the move until
+    * that transaction is over (committed, rolled back, given up or lost; or it never began), every connection this
+    * instance opens gets $apartLockWaitSeconds (connect()), and at its end the connection it holds is set back to the
+    * server's value and this is cleared (endApartLockWait()). A clone, and a detach()/newConnection() copy, start
+    * without it.
     *
     * @var bool
     */
@@ -338,19 +342,21 @@ class Db extends Generic implements Db_Interface
     * application's handle in the middle of its work). A transaction its source has open on the shared link is the
     * source's: the clone's statements run inside it on the server (making it not replayable, and ending it if they
     * end a transaction, see query()), and linkHasOpenTransaction() sees it. Nor does it inherit the shorter lock wait
-    * of a handle that moved a START off a shared link ($movedApart): it holds its source's connection as it is.
+    * of a handle that moved a START off a shared link ($movedApart): it holds its source's connection as it is (made
+    * while that moved transaction runs, it shares the shorter wait on it until the transaction ends; made after, it
+    * gets the server's), and it never sets the connection back itself (cleared first, before anything here could).
     *
     * @return void
     */
     public function __clone()
     {
+        $this->movedApart = false;
         $this->inTransaction = false;
         $this->clearTransactionLost();
         $this->txEnd();
         $this->replaying = false;
         $this->reportingFailure = false;
         $this->haltUnlocking = false;
-        $this->movedApart = false;
     }
 
     /**
@@ -358,17 +364,20 @@ class Db extends Generic implements Db_Interface
     *
     * On top of what the parent clears, the prepared statement has to go: a
     * mysqli_stmt belongs to the connection that prepared it, so it is useless,
-    * and unsafe, against whatever connection this instance opens next.
+    * and unsafe, against whatever connection this instance opens next. A handle
+    * whose moved START is under way ($movedApart) sets the connection it lets go
+    * of back to the server's lock wait first (endApartLockWait()): whoever keeps
+    * it must not inherit the shorter one.
     *
     * @return void
     */
     public function detach()
     {
+        $this->endApartLockWait(false);
         parent::detach();
         $this->linkEstablished = false;
         $this->txRefuse = false;
         $this->txEnd();
-        $this->movedApart = false;
         $this->statement = null;
         $this->statement_query = null;
         $this->statement_vars = null;
@@ -479,10 +488,11 @@ class Db extends Generic implements Db_Interface
 
     /**
     * Sets $apartLockWaitSeconds as innodb_lock_wait_timeout on the connection connect() has just opened for an instance
-    * that moved a START TRANSACTION off a shared link (startApart()). Sent once per connection, straight to the server:
-    * not counted and not recorded as session state, since connect() sets it again on any new connection this instance
-    * opens (a replay that reconnects included). A failure is logged in one line and changes nothing else: the
-    * connection then waits for row locks as long as the server says.
+    * whose START TRANSACTION moved off a shared link (startApart()) is under way. Sent once per connection, straight to
+    * the server: not counted and not recorded as session state, since connect() sets it again on any new connection
+    * this instance opens while that transaction runs (a replay that reconnects included), and endApartLockWait() sets
+    * it back when the transaction is over. A failure is logged in one line and changes nothing else: the connection
+    * then waits for row locks as long as the server says.
     *
     * @return void
     */
@@ -501,6 +511,43 @@ class Db extends Generic implements Db_Interface
         }
         if ($ok === false) {
             error_log('Could not cut innodb_lock_wait_timeout to '.$seconds.' s on the connection of its own of a START TRANSACTION moved off a shared connection (SQL error '.$errno.'): its row lock waits last as long as the server says');
+        }
+    }
+
+    /**
+    * The transaction of a START this instance moved off a shared link (startApart(), $movedApart) is over: it committed,
+    * rolled back, was given up or lost, the START never began one, or the instance lets go of the connection. The
+    * shorter lock wait was for that transaction only, so $movedApart is cleared (a connection opened from now on, a
+    * reconnect outside any transaction included, gets the server's value) and the connection this instance still holds,
+    * if usable, gets `SET SESSION innodb_lock_wait_timeout=DEFAULT` (the server's global value, what a new connection
+    * gets): its later autocommit statements, and a clone made from it later (get_module_db() clones share the
+    * connection), wait as long as the server says. Sent straight to the server like setApartLockWait() (not counted,
+    * not session state); it ends nothing on the server and touches no transaction (a session variable is not
+    * transactional). A failure (other than a connection that is gone or out of sync, where there is nothing to set
+    * back) is logged in one line and changes nothing else.
+    *
+    * @param bool $whenOver true: only once this instance has no transaction open (inTransaction false); false: now (the
+    *                       transaction is lost, or the connection is about to be let go of)
+    * @return void
+    */
+    protected function endApartLockWait($whenOver = true)
+    {
+        if (!$this->movedApart || ($whenOver && $this->inTransaction === true)) {
+            return;
+        }
+        $this->movedApart = false;
+        if ((int) $this->apartLockWaitSeconds < 1 || !is_object($this->linkId) || !$this->linkEstablished || !$this->linkIsUsable()) {
+            return;
+        }
+        try {
+            $ok = @mysqli_query($this->linkId, 'SET SESSION innodb_lock_wait_timeout=DEFAULT');
+            $errno = $ok === false ? (int) @mysqli_errno($this->linkId) : 0;
+        } catch (\Throwable $e) {
+            $ok = false;
+            $errno = (int) $e->getCode();
+        }
+        if ($ok === false && $errno !== 2014 && !in_array($errno, self::LINK_ERRORS, true)) {
+            error_log('Could not set innodb_lock_wait_timeout back to the server\'s value after the transaction of a START TRANSACTION moved off a shared connection (SQL error '.$errno.'): this connection keeps the shorter wait');
         }
     }
 
@@ -845,14 +892,17 @@ class Db extends Generic implements Db_Interface
     * transaction of its own while another handle sharing the link has one open there is not sent either (it would
     * end that handle's transaction): it succeeds as a ROLLBACK with nothing open does (rollbackWithoutTransaction());
     * a ROLLBACK ... AND CHAIN from such a handle begins its chained transaction on a connection of its own, like a
-    * START (startApart()). A ROLLBACK meant for another handle's transaction has to go through that handle. The same
-    * goes for a COMMIT (COMMIT ... RELEASE too) from a handle with no transaction of its own (and no lost one, whose
-    * COMMIT is refused): while another handle sharing the link has one open there it is not sent (it would commit that
-    * handle's transaction half done) and succeeds as a COMMIT with nothing open does (commitWithoutTransaction(),
-    * transactionCommit() too), and COMMIT ... AND CHAIN begins its transaction on a connection of its own. ROLLBACK TO
-    * SAVEPOINT stays inside the transaction. A START TRANSACTION/BEGIN with none open keeps the retry and reconnect
-    * behaviour every statement had before; inTransaction is true only once it has succeeded. Leading SQL comments
-    * are ignored when these statements are recognised, a comment between their words is not, and COMMIT/ROLLBACK
+    * START (startApart()). A ROLLBACK meant for another handle's transaction has to go through that handle. A COMMIT
+    * (COMMIT ... RELEASE and COMMIT ... AND CHAIN too) from a handle with no transaction of its own (and no lost one,
+    * whose COMMIT is refused), while another handle sharing the link has one open there, is not sent either (it would
+    * commit that handle's transaction half done, behind its back), and it FAILS (2006, "the open transaction belongs
+    * to another handle"; commitWithoutTransaction(), and transactionCommit() too, without mail or halt there): a
+    * caller sending it most likely meant that other transaction, and a COMMIT answered as one with nothing open would
+    * tell it those writes were saved while they are still uncommitted (rolled back if that handle never commits them).
+    * Commit through the handle that began the transaction. ROLLBACK TO SAVEPOINT stays inside the transaction. A START
+    * TRANSACTION/BEGIN with none open keeps the retry and reconnect behaviour every statement had before;
+    * inTransaction is true only once it has succeeded. Leading SQL comments are ignored when these statements are
+    * recognised, a comment between their words is not, and COMMIT/ROLLBACK
     * ... AND CHAIN (not AND CHAIN RELEASE) leave a transaction open, even with none open (MySQL's chain starts one
     * even with autocommit=1). With completion_type=1 (server/session) a plain COMMIT/ROLLBACK chains too; the
     * tracker does not read that variable (deferred). With haltOnError 'no' or 'report' halt() does not throw the
@@ -890,10 +940,11 @@ class Db extends Generic implements Db_Interface
     * that hands out another id could go on); send no raw $db->linkId statements inside a transaction (they are
     * not counted); prepare()/execute() inside a transaction make it not replayable (and execute() refuses a statement
     * prepared on a connection this handle has let go of); lock() inside a transaction commits it (a failed one gives
-    * it up, see lock()); a SET AUTOCOMMIT=0 outside one opens an implicit transaction the tracker does not see.
-    * halt() no longer lets a mysqli_sql_exception from its UNLOCK TABLES escape under haltOnError 'no' or 'report':
-    * on a connection that is gone a persistent 2006 now returns false there (it used to throw); under 'yes' it still
-    * throws (callers catch it), as before.
+    * it up, see lock()); COMMIT through the handle that began the transaction (from another handle of the clone family
+    * it fails, 2006, and is not sent: see above); a SET AUTOCOMMIT=0 outside one opens an implicit transaction the
+    * tracker does not see. halt() no longer lets a mysqli_sql_exception from its UNLOCK TABLES escape under haltOnError
+    * 'no' or 'report': on a connection that is gone a persistent 2006 now returns false there (it used to throw);
+    * under 'yes' it still throws (callers catch it), as before.
     */
     public function query($queryString, $line = '', $file = '', $log = false)
     {
@@ -945,12 +996,10 @@ class Db extends Generic implements Db_Interface
             $this->startApart();
         } elseif ($isCommit && !$this->transactionLost && $this->anotherHolderInTransaction()) {
             // this handle has no transaction of its own, and another handle sharing the link has one open there: the
-            // COMMIT would commit that one, half done, behind its back (a refused COMMIT of a lost one is never sent)
-            if (preg_match('/\band\s+chain\b(?!\s+release\b)/i', static::withoutComments($lead)) !== 1) {
-                return $this->commitWithoutTransaction($queryString, $line, $file);
-            }
-            // AND CHAIN begins a transaction: like a START, on a connection of its own
-            $this->startApart();
+            // COMMIT (AND CHAIN and RELEASE too) would commit that one, half done, behind its back, and answered as a
+            // COMMIT with nothing open it would report that transaction's writes as saved (a refused COMMIT of a lost
+            // one is never sent either)
+            return $this->commitWithoutTransaction($queryString, $line, $file);
         }
         if (!$isStart && !$isRollback && !$isCommit && $this->refusing()) {
             // the transaction the caller is still running was lost: sent now, this would commit on its own
@@ -968,7 +1017,17 @@ class Db extends Generic implements Db_Interface
         }
         // a COMMIT whose transaction was lost is refused without a connection (it is never sent)
         $refused = $isCommit && $this->transactionLost;
-        if (!$refused && !$this->connect()) {
+        $connected = false;
+        try {
+            $connected = $refused || $this->connect();
+        } finally {
+            if (!$connected) {
+                // a START (or ROLLBACK ... AND CHAIN) moved off a shared link that could not connect (connect() returned
+                // 0, or threw under MYSQLI_REPORT_STRICT) began nothing
+                $this->endApartLockWait();
+            }
+        }
+        if (!$connected) {
             return 0;
             /* we already complained in connect() about that. */
         }
@@ -1119,6 +1178,10 @@ class Db extends Generic implements Db_Interface
             $this->haltOnError = $haltPrev;
             if (!$done && $legacyStart) {
                 $this->inTransaction = false;
+            }
+            if (!$done) {
+                // nor did a START (or ROLLBACK ... AND CHAIN) moved off a shared link that threw here
+                $this->endApartLockWait();
             }
         }
         if (null !== $this->queryId && $this->queryId !== false && static::changesSessionState($lead)) {
@@ -1880,6 +1943,9 @@ class Db extends Generic implements Db_Interface
         if (is_object($this->linkId) && $this->linkId === $this->txLink && $this->linkIsUsable() && !$this->anotherHolderInTransaction()) {
             $this->sendQuietly('ROLLBACK');
         }
+        // the transaction is lost: a connection it moved off a shared link (startApart()) gets the server's lock wait
+        // back before it is let go of, so whoever keeps it does not inherit the shorter one
+        $this->endApartLockWait(false);
         $this->releaseLink();
     }
 
@@ -2012,12 +2078,15 @@ class Db extends Generic implements Db_Interface
     * part of a transaction that is gone. No request path of MyAdmin does this (it would take two handles of one clone
     * family each running a transaction, one of them after changing the session state). Either way one error_log()
     * line says so, with no SQL and no values. The other handle may hold row locks the moved transaction's statements
-    * wait for, and nothing releases them while this request waits: every connection this instance opens from now on
-    * (the one connect() opens next, and any later one: $movedApart) gets innodb_lock_wait_timeout =
-    * $apartLockWaitSeconds (5 s; setApartLockWait()), so such a wait costs at most that, then fails with 1205 as any
-    * lock wait timeout does (with innodb_rollback_on_timeout OFF only the statement is rolled back and the
-    * transaction stays open), instead of the server's 50 s, and instead of silently committing the other handle's
-    * work. The shorter wait stays with this instance's connections (its own, shared with no other handle).
+    * wait for, and nothing releases them while this request waits: every connection this instance opens while the
+    * moved transaction runs (the one connect() opens next, and any later one, a replay's reconnect included:
+    * $movedApart) gets innodb_lock_wait_timeout = $apartLockWaitSeconds (5 s; setApartLockWait()), so such a wait
+    * costs at most that, then fails with 1205 as any lock wait timeout does (with innodb_rollback_on_timeout OFF only
+    * the statement is rolled back and the transaction stays open), instead of the server's 50 s, and instead of
+    * silently committing the other handle's work. The shorter wait is the moved transaction's only: when it is over
+    * (committed, rolled back, given up or lost, or the START began nothing) the connection is set back to the
+    * server's value and later connections are not cut (endApartLockWait()). While it runs, a clone made from this
+    * instance shares the connection and with it the shorter wait.
     *
     * @return void
     */
@@ -2099,18 +2168,24 @@ class Db extends Generic implements Db_Interface
     }
 
     /**
-    * A COMMIT (query(), not AND CHAIN; COMMIT ... RELEASE included) of a handle that has no transaction of its own and
-    * no lost one to refuse, while another handle sharing the link has one open there: it is not sent. The server keeps
-    * one transaction per connection, so it would commit the other handle's transaction half done, behind its back
-    * (that handle would then find it ended elsewhere: its writes so far committed, its next statements refused and its
-    * own COMMIT failing with 2006). This handle has nothing to commit, so it is answered as MySQL answers a COMMIT with
-    * nothing open: it succeeds (true, Errno 0), with one error_log() line saying so. A COMMIT meant for the other
-    * handle's transaction has to be sent through that handle. transactionCommit() does the same.
+    * A COMMIT (query(); COMMIT ... RELEASE and COMMIT ... AND CHAIN included) of a handle that has no transaction of its
+    * own and no lost one to refuse, while another handle sharing the link has one open there: it is not sent, and it
+    * fails. The server keeps one transaction per connection, so it would commit the other handle's transaction half
+    * done, behind its back (that handle would then find it ended elsewhere: its writes so far committed, its next
+    * statements refused and its own COMMIT failing with 2006). Nor may it succeed as a COMMIT with nothing open: the
+    * caller most likely meant that other transaction (begun through another handle of the clone family, App::db() and
+    * a get_module_db() clone say), and true would tell it those writes were saved while they are still uncommitted, and
+    * rolled back when the connection closes unless that handle commits them. So it fails like a statement that never
+    * reached the server: false, Errno 2006 (the errno a caller must not retry a transaction on; nothing was sent, so
+    * nothing was committed), Error saying the open transaction belongs to another handle, one error_log() line (no SQL),
+    * then emailError()/halt() as for any failed statement (reportFailure()). Nothing changes for either handle: the
+    * other handle's transaction goes on, and this one still has none. Commit through the handle that began the
+    * transaction. transactionCommit() fails the same way, without mail or halt.
     *
     * @param string $queryString
     * @param string|int $line
     * @param string $file
-    * @return true
+    * @return false
     */
     protected function commitWithoutTransaction($queryString, $line, $file)
     {
@@ -2118,12 +2193,13 @@ class Db extends Generic implements Db_Interface
             $this->free();
         }
         $this->txEnd();
-        $this->queryId = true;
+        $this->queryId = false;
         $this->Row = 0;
-        $this->Errno = 0;
-        $this->Error = '';
-        error_log('COMMIT not sent: this handle has no transaction open, and another handle sharing the connection has one open there, which it would commit. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
-        return true;
+        $this->Errno = 2006;
+        $this->Error = 'COMMIT not sent: the open transaction belongs to another handle (commit it through the handle that began it)';
+        error_log('COMMIT not sent: this handle has no transaction open, and the transaction open on the shared connection belongs to another handle; it fails (2006), nothing was committed: commit through the handle that began it. From '.$file.':'.$line);
+        $this->reportFailure($queryString, $line, $file);
+        return false;
     }
 
     /**
@@ -2536,6 +2612,8 @@ class Db extends Generic implements Db_Interface
     */
     protected function txEnd()
     {
+        // a transaction a START moved off a shared link ran is over: its connection gets the server's lock wait back
+        $this->endApartLockWait();
         $this->txOpener = false;
         $this->txSteps = [];
         $this->txBytes = 0;
@@ -2800,7 +2878,17 @@ class Db extends Generic implements Db_Interface
             // never on a link another handle has a transaction open on: the START would commit that one
             $this->startApart();
         }
-        if (!$this->connect()) {
+        $connected = false;
+        try {
+            $connected = (bool) $this->connect();
+        } finally {
+            if (!$connected) {
+                // a START moved off a shared link that could not connect (connect() returned 0, or threw under
+                // MYSQLI_REPORT_STRICT) began nothing
+                $this->endApartLockWait();
+            }
+        }
+        if (!$connected) {
             return 0;
         }
         $this->txLastStep = null;
@@ -2816,7 +2904,9 @@ class Db extends Generic implements Db_Interface
             return $result;
         }
         if (!$wasOpen || ($exception === null || !$exception instanceof \Error) && in_array($errno, self::START_NOT_RUN_ERRORS, true)) {
-            // nothing was open, or the server never ran it: whatever was open is still open
+            // nothing was open, or the server never ran it: whatever was open is still open (a START moved off a shared
+            // link that began nothing sets its connection back to the server's lock wait)
+            $this->endApartLockWait();
             if ($exception instanceof \Error) {
                 // (nothing was open) a handle mysqli cannot use (half-open, or closed): nothing began, and the handle
                 // is let go of so the next call connects anew, instead of an \Error to the caller
@@ -2900,8 +2990,10 @@ class Db extends Generic implements Db_Interface
     * another holder of the shared link is refused (2006: whether its writes were committed is not known here).
     * With no link at all and nothing open it returns true, as it always did. With nothing open of its own while another
     * handle sharing the link has a transaction open there, nothing is sent (the COMMIT would commit that handle's
-    * transaction behind its back) and it returns true, as query('COMMIT') does (commitWithoutTransaction()). It never
-    * mails or halts, and the statements after it are not refused (the caller has ended the transaction).
+    * transaction behind its back) and it fails: false, Errno 2006, Error "the open transaction belongs to another
+    * handle", as query('COMMIT') does (commitWithoutTransaction()), and that other transaction goes on; commit it
+    * through the handle that began it. It never mails or halts, and the statements after it are not refused (the
+    * caller has ended the transaction).
     *
     * @return bool
     */
@@ -2949,10 +3041,13 @@ class Db extends Generic implements Db_Interface
         }
         if (!$wasOpen && $this->anotherHolderInTransaction()) {
             // nothing open of its own, and another handle sharing the link has a transaction open there, which the
-            // COMMIT would commit behind its back: nothing to commit here (as query('COMMIT'), commitWithoutTransaction())
+            // COMMIT would commit behind its back; answered true it would report that transaction's writes as saved
+            // (as query('COMMIT'), commitWithoutTransaction(); no mail, no halt here)
             $this->txEnd();
-            error_log('transactionCommit(): COMMIT not sent: this handle has no transaction open, and another handle sharing the connection has one open there, which it would commit.');
-            return true;
+            $this->Errno = 2006;
+            $this->Error = 'COMMIT not sent: the open transaction belongs to another handle (commit it through the handle that began it)';
+            error_log('transactionCommit(): COMMIT not sent: this handle has no transaction open, and the transaction open on the shared connection belongs to another handle; it fails (2006), nothing was committed: commit through the handle that began it.');
+            return false;
         }
         if ($wasOpen && $this->txReplayable && $this->linkStatementCount() !== $this->txSeq) {
             $this->txNotReplayable('another handle sharing the connection ran a statement inside it');
@@ -3148,9 +3243,10 @@ class Db extends Generic implements Db_Interface
     * LOCK TABLES commits the transaction open on the connection first (MySQL runs that implicit commit before it looks
     * at the tables). Inside a transaction of this instance's own: once it worked, the transaction is over (committed).
     * When it failed, either the server never ran it (NOT_RUN_ERRORS: it did not parse, or it was never sent), and the
-    * transaction is still open (but no longer replayable), or it did, and the transaction is over in a way only the
-    * error tells (see lockFailed()): it is given up like a statement in it, marked lost, so a later COMMIT is refused
-    * instead of reporting rolled-back writes as saved, statements are refused until a ROLLBACK, START or
+    * transaction is still open (but no longer replayable), or it did, and the transaction is over, committed or rolled
+    * back (see lockFailed(): only 3101/1180 say it was rolled back; anything else, 1213 included, leaves that unknown,
+    * lost with 2006): it is given up like a statement in it, marked lost, so a later COMMIT is refused instead of
+    * reporting writes whose fate is not known as saved, statements are refused until a ROLLBACK, START or
     * transactionAbort(), and a quiet ROLLBACK makes sure nothing of it is left open. The failure itself is answered as
     * always (halt(), or the exception under MYSQLI_REPORT_STRICT).
     *
@@ -3212,14 +3308,17 @@ class Db extends Generic implements Db_Interface
     }
 
     /**
-    * LOCK TABLES failed (lock()). With a transaction of this instance's own open ($wasOpen):
+    * LOCK TABLES failed (lock()). MySQL runs it in two steps: first the implicit commit of the open transaction, then
+    * the table (and metadata) locks. With a transaction of this instance's own open ($wasOpen):
     *  - the server never ran it (NOT_RUN_ERRORS): the transaction is still open, and stays so (not replayable);
-    *  - it was rolled back (ROLLED_BACK_ERRORS: the implicit commit failed with 1213, 3101 or 1180): lost with that
-    *    error, nothing was committed;
-    *  - anything else (the connection went, LINK_ERRORS, or an error that may have come before or after the implicit
-    *    commit: a Group Replication refusal of that commit such as 3100 rolled it back, 1146 on a missing table left it
-    *    committed): whether its writes were committed is not known here, so it is lost with 2006 (a connection error
-    *    keeps its own errno), the errno a caller must not retry the transaction on.
+    *  - the implicit commit was rolled back (3101, a Group Replication certification failure, or 1180, an error during
+    *    COMMIT: both come from the commit step only): lost with that error, nothing was committed;
+    *  - anything else, 1213 included (a deadlock can come from the commit, rolled back, or from the metadata lock
+    *    acquisition after the commit went through), and the other errors that may come before or after the implicit
+    *    commit (a Group Replication refusal of that commit such as 3100 rolled it back, 1146 on a missing table left it
+    *    committed): whether its writes were committed is not known here, so it is lost with 2006, the errno a caller
+    *    must not retry the transaction on (a caller retrying on 1213/3101 would apply writes that did commit twice);
+    *    a connection error (LINK_ERRORS) keeps its own errno, which says the same.
     * A lost one refuses a later COMMIT (never reported as saved) and statements until a ROLLBACK, START or
     * transactionAbort() (the caller still takes it to be open), and a quiet ROLLBACK on its usable link (not while
     * another handle has a transaction open there) makes sure nothing of it is left open on the server. One error_log()
@@ -3237,9 +3336,11 @@ class Db extends Generic implements Db_Interface
             // nothing was open, or the server never ran it: whatever was open is still open
             return;
         }
-        if (in_array($errno, self::ROLLED_BACK_ERRORS, true) || in_array($errno, self::LINK_ERRORS, true)) {
+        if (in_array($errno, [3101, 1180], true) || in_array($errno, self::LINK_ERRORS, true)) {
+            // rolled back at the implicit commit (3101, 1180), or the connection went (outcome unknown, so it says)
             $this->markTransactionLost($errno, (string) $error, true);
         } else {
+            // 1213 among them: it may come after the implicit commit went through
             $this->markTransactionLost(2006, 'Transaction lost: LOCK TABLES failed (SQL error '.$errno.') after the implicit commit of the open transaction may have run, so whether its writes were committed is not known', true);
         }
         $this->inTransaction = false;

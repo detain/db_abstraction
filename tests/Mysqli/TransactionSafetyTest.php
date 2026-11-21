@@ -2336,7 +2336,7 @@ class TransactionSafetyTest extends TestCase
 		$cases = [];
 		foreach ([
 			'3101 at the implicit commit (rolled back)' => [3101, 3101],
-			'1213 (rolled back)' => [1213, 1213],
+			'1213 (outcome unknown: a metadata lock deadlock comes after the implicit commit)' => [1213, 2006],
 			'1180 (rolled back)' => [1180, 1180],
 			'2013 the connection went (outcome unknown)' => [2013, 2013],
 			'4031 the connection went (outcome unknown)' => [4031, 4031],
@@ -2447,12 +2447,51 @@ class TransactionSafetyTest extends TestCase
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'), 'nothing is refused');
 	}
 
+	/**
+	* Round 5 #3: LOCK TABLES runs the implicit commit of the open transaction first, then takes its table and metadata
+	* locks, and a deadlock (1213) in that second step comes after the commit went through. So a 1213 from lock() inside
+	* a transaction leaves the outcome unknown: the transaction is lost with 2006, not 1213, and a caller that retries a
+	* transaction only on 1213/3101 (the documented contract: NativeDb, CcMeta, Session) stops instead of running it
+	* again, so its writes land once. Before, it was lost with 1213 and such a caller applied them twice.
+	*/
+	public function testALockDeadlockAfterTheImplicitCommitIsNotRetriedIntoADuplicate()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$attempts = 0;
+		for ($attempt = 1; $attempt <= 3; $attempt++) {
+			$attempts++;
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+			if ($attempt === 1) {
+				// the implicit commit goes through, then the metadata lock deadlocks
+				foreach (FakeServer::$open[1] as $write) {
+					FakeServer::$committed[] = $write;
+				}
+				FakeServer::$open[1] = [];
+				FakeServer::failNext('/^lock tables/', 1213);
+			}
+			$db->lock('t');
+			if ($db->transactionCommit()) {
+				break;
+			}
+			if (!in_array((int) $db->Errno, [1213, 3101], true)) {
+				break;
+			}
+		}
+
+		$this->assertSame(1, $attempts, 'not retried: whether the transaction committed is not known');
+		$this->assertSame(2006, (int) $db->Errno, 'the refused COMMIT says so');
+		$this->assertStringContainsString('LOCK TABLES failed (SQL error 1213) after the implicit commit of the open transaction may have run', $db->Error);
+		$this->assertSame(['INSERT INTO t VALUES (1)'], self::writes(), 'once, not twice');
+	}
+
 	public static function apartStarts()
 	{
 		return [
 			'START TRANSACTION' => ['START TRANSACTION'],
 			'transactionBegin()' => ['transactionBegin'],
-			'COMMIT AND CHAIN' => ['COMMIT AND CHAIN'],
+			'ROLLBACK AND CHAIN' => ['ROLLBACK AND CHAIN'],
 		];
 	}
 
@@ -2479,7 +2518,7 @@ class TransactionSafetyTest extends TestCase
 		$this->assertTrue($how === 'transactionBegin' ? $other->transactionBegin() : $this->q($other, $how));
 
 		$this->assertSame(2, FakeServer::$connections);
-		$this->assertSame(['SET SESSION innodb_lock_wait_timeout=5', $how === 'COMMIT AND CHAIN' ? 'COMMIT AND CHAIN' : 'START TRANSACTION'], self::sentOn(2), 'cut first, on the new connection');
+		$this->assertSame(['SET SESSION innodb_lock_wait_timeout=5', $how === 'ROLLBACK AND CHAIN' ? 'ROLLBACK AND CHAIN' : 'START TRANSACTION'], self::sentOn(2), 'cut first, on the new connection');
 		$this->assertNotContains('SET SESSION innodb_lock_wait_timeout=5', self::sentOn(1), 'never on the shared one');
 		FakeServer::failNext('/^UPDATE locked/', 1205);
 		$this->assertFalse($this->q($other, 'UPDATE locked SET x=1'));
@@ -2547,6 +2586,262 @@ class TransactionSafetyTest extends TestCase
 		$this->assertSame(['SET SESSION innodb_lock_wait_timeout=5', 'START TRANSACTION'], self::sentOn(2));
 		$this->assertStringContainsString('Could not cut innodb_lock_wait_timeout to 5 s', implode("\n", FakeServer::$log));
 		$this->assertSame(0, (int) $other->Errno);
+	}
+
+	/**
+	* The innodb_lock_wait_timeout in effect for $sql: the last SET of it sent on the connection $sql ran on, before it
+	* (null: none, the server's own).
+	*
+	* @param string $sql
+	* @return string|null
+	*/
+	private static function lockWaitFor($sql)
+	{
+		$connection = null;
+		foreach (FakeServer::$wire as $event) {
+			if ($event[0] === 'query' && $event[2] === $sql) {
+				$connection = $event[1];
+			}
+		}
+		$last = null;
+		foreach (FakeServer::$wire as $event) {
+			if ($event[0] !== 'query' || $event[1] !== $connection) {
+				continue;
+			}
+			if ($event[2] === $sql) {
+				return $last;
+			}
+			if (strpos($event[2], 'innodb_lock_wait_timeout') !== false) {
+				$last = $event[2];
+			}
+		}
+		return $last;
+	}
+
+	public static function movedTransactionEnds()
+	{
+		return [
+			"query('COMMIT')" => ['COMMIT'],
+			'transactionCommit()' => ['transactionCommit'],
+			"query('ROLLBACK')" => ['ROLLBACK'],
+			'transactionAbort()' => ['transactionAbort'],
+			'given up (a deadlock every replay hits)' => ['giveup'],
+			'lost (a clone sharing its connection ended it)' => ['elsewhere'],
+			'lock() (LOCK TABLES commits it)' => ['lock'],
+			'detach() inside it' => ['detach'],
+			'disconnect() inside it' => ['disconnect'],
+		];
+	}
+
+	/**
+	* Round 5 #4: the shorter lock wait of a START moved off a shared connection belongs to that transaction only. When
+	* it is over (committed, rolled back, given up, lost, ended by LOCK TABLES, or the handle lets go of the connection)
+	* the connection it ran on gets `SET SESSION innodb_lock_wait_timeout=DEFAULT` (the server's value) once: a clone made
+	* while it ran (sharing the connection, and the cut) runs its later statements with the server's wait, so does a
+	* clone made afterwards, and a connection the handle opens later outside any transaction is not cut. Making that
+	* clone sets nothing back. Before, the cut stayed with the handle and its connection for the rest of the process,
+	* and a reconnect outside any transaction set it again.
+	*
+	* @dataProvider movedTransactionEnds
+	* @param string $how
+	*/
+	#[DataProvider('movedTransactionEnds')]
+	public function testTheLockWaitCutEndsWithTheMovedTransaction($how)
+	{
+		FakeServer::$strict = false;
+		$default = 'SET SESSION innodb_lock_wait_timeout=DEFAULT';
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$other = clone $db;
+		$this->assertTrue($this->q($other, 'SELECT 2'));
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		$this->assertTrue($this->q($other, 'START TRANSACTION'), 'moved to a connection of its own');
+		$this->assertTrue($this->q($other, 'INSERT INTO t VALUES (2)'));
+		$during = clone $other;
+		$this->assertTrue($this->q($during, 'SELECT 3'), 'a clone made inside the moved transaction shares its connection');
+		$this->assertSame(['SET SESSION innodb_lock_wait_timeout=5', 'START TRANSACTION', 'INSERT INTO t VALUES (2)', 'SELECT 3'], self::sentOn(2), 'cut while it runs; the clone sets nothing back');
+
+		switch ($how) {
+			case 'transactionCommit':
+				$this->assertTrue($other->transactionCommit());
+				break;
+			case 'transactionAbort':
+				$this->assertTrue($other->transactionAbort());
+				break;
+			case 'giveup':
+				FakeServer::failNext('/^UPDATE g/', 1213, self::ALWAYS);
+				$this->assertFalse($this->q($other, 'UPDATE g SET x=1'));
+				$this->assertTrue($other->lostTransactionPending());
+				break;
+			case 'elsewhere':
+				$this->assertTrue($this->q($during, 'TRUNCATE x'), 'ends the moved transaction (an implicit commit)');
+				$this->assertFalse($this->q($other, 'INSERT INTO t VALUES (3)'), 'found lost');
+				$this->assertSame(0, $other->linkId, 'and the shared connection let go of');
+				break;
+			case 'lock':
+				$this->assertNotSame(0, $other->lock('t'));
+				$this->assertTrue($this->q($other, 'UNLOCK TABLES'));
+				break;
+			case 'detach':
+				$other->detach();
+				break;
+			case 'disconnect':
+				$other->disconnect();
+				break;
+			default:
+				$this->assertTrue($this->q($other, $how));
+		}
+
+		$this->assertFalse($other->inTransaction());
+		$on2 = self::sentOn(2);
+		$this->assertSame($how === 'disconnect' ? 0 : 1, count(array_keys($on2, $default, true)), 'set back once (a closed connection needs nothing)');
+		$this->assertSame('SET SESSION innodb_lock_wait_timeout=5', self::lockWaitFor('SELECT 3'), 'the clone made inside it shared the cut');
+		$this->assertTrue($this->q($during, 'SELECT 4'));
+		$this->assertContains(self::lockWaitFor('SELECT 4'), [$default, null], 'and runs with the server\'s wait once it is over');
+		$after = clone $other;
+		$this->assertTrue($this->q($after, 'SELECT 5'));
+		$this->assertContains(self::lockWaitFor('SELECT 5'), [$default, null], 'a clone made after it runs with the server\'s wait');
+		$this->assertTrue($this->q($other, 'ROLLBACK'), 'whatever it left the caller with is ended');
+		$this->assertTrue($this->q($other, 'SELECT 7'));
+		$this->assertContains(self::lockWaitFor('SELECT 7'), [$default, null], 'so do its own later autocommit statements');
+		FakeServer::failNext('/^SELECT 6$/', 2006);
+		$connections = FakeServer::$connections;
+		$this->assertTrue($this->q($other, 'SELECT 6'), 'no transaction open: retried on a new connection');
+		$this->assertSame($connections + 1, FakeServer::$connections);
+		$this->assertSame(['SELECT 6'], self::sentOn(FakeServer::$connections), 'a reconnect outside any transaction is not cut');
+		$this->assertTrue($db->transactionCommit());
+		$this->assertContains('INSERT INTO t VALUES (1)', self::writes());
+		$this->assertSame(1, count(array_keys(FakeServer::statements(), 'SET SESSION innodb_lock_wait_timeout=5', true)), 'cut once, for the moved transaction only');
+	}
+
+	public static function movedStartsThatBeginNothing()
+	{
+		return [
+			"query('START TRANSACTION')" => ['START TRANSACTION'],
+			'transactionBegin()' => ['transactionBegin'],
+		];
+	}
+
+	/**
+	* Round 5 #4: a START moved off a shared connection that begins nothing (the server refused it) leaves no cut: its
+	* connection is set back to the server's wait at once, and the handle's later autocommit statements there, and a
+	* reconnect outside any transaction, run with the server's wait.
+	*
+	* @dataProvider movedStartsThatBeginNothing
+	* @param string $how
+	*/
+	#[DataProvider('movedStartsThatBeginNothing')]
+	public function testAMovedStartThatBeginsNothingLeavesNoCut($how)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$other = clone $db;
+		$this->assertTrue($this->q($other, 'SELECT 2'));
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		FakeServer::failNext('/^START TRANSACTION$/', 1227);
+
+		$this->assertFalse($how === 'transactionBegin' ? $other->transactionBegin() : $this->q($other, $how));
+
+		$this->assertFalse($other->inTransaction());
+		// (halt() sends UNLOCK TABLES after the failure query() reports)
+		$on2 = array_values(array_diff(self::sentOn(2), ['unlock tables']));
+		$this->assertSame(['SET SESSION innodb_lock_wait_timeout=5', 'START TRANSACTION', 'SET SESSION innodb_lock_wait_timeout=DEFAULT'], $on2, 'set back at once');
+		$this->assertTrue($this->q($other, 'SELECT 3'));
+		$this->assertSame('SELECT 3', array_values(array_diff(self::sentOn(2), ['unlock tables']))[3] ?? null);
+		FakeServer::failNext('/^SELECT 4$/', 2006);
+		$this->assertTrue($this->q($other, 'SELECT 4'));
+		$this->assertSame(3, FakeServer::$connections);
+		$this->assertSame(['SELECT 4'], self::sentOn(3), 'a reconnect outside any transaction is not cut');
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(['INSERT INTO t VALUES (1)'], self::writes());
+	}
+
+	/**
+	* Round 5 #4: the cut is set back only once the moved transaction is over. A START inside it that the server never
+	* ran (it did not parse) leaves it open, and with it the cut: nothing is set back, and a replay that has to reconnect
+	* cuts its new connection too; the COMMIT then sets that one back.
+	*/
+	public function testAStartTheServerNeverRanInsideTheMovedTransactionKeepsTheCut()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$other = clone $db;
+		$this->assertTrue($this->q($other, 'SELECT 2'));
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($other, 'START TRANSACTION'), 'moved to a connection of its own');
+		$this->assertTrue($this->q($other, 'INSERT INTO t VALUES (2)'));
+		FakeServer::failNext('/^START TRANSACTION$/', 1064);
+
+		$this->assertFalse($other->transactionBegin());
+
+		$this->assertTrue($other->inTransaction(), 'never ran: still open');
+		$this->assertNotContains('SET SESSION innodb_lock_wait_timeout=DEFAULT', FakeServer::statements(), 'nothing set back');
+		FakeServer::failNext('/^UPDATE u/', 2006);
+		$this->assertTrue($this->q($other, 'UPDATE u SET y=1'), 'replayed on a new connection');
+		$this->assertSame(3, FakeServer::$connections);
+		$this->assertSame('SET SESSION innodb_lock_wait_timeout=5', self::sentOn(3)[0] ?? null, 'still cut');
+		$this->assertTrue($other->transactionCommit());
+		$on3 = self::sentOn(3);
+		$this->assertSame('SET SESSION innodb_lock_wait_timeout=DEFAULT', end($on3), 'set back once it is over');
+		$this->assertTrue($db->transactionCommit());
+	}
+
+	public static function movedStartsThatCannotConnect()
+	{
+		$cases = [];
+		foreach (["query('START TRANSACTION')" => 'START TRANSACTION', "query('ROLLBACK AND CHAIN')" => 'ROLLBACK AND CHAIN', 'transactionBegin()' => 'transactionBegin'] as $name => $how) {
+			foreach (['thrown (MYSQLI_REPORT_STRICT)' => true, 'returned' => false] as $mode => $strict) {
+				$cases[$name.', '.$mode] = [$how, $strict];
+			}
+		}
+		return $cases;
+	}
+
+	/**
+	* Round 5 #4: a START (or ROLLBACK ... AND CHAIN) moved off a shared connection whose connection of its own cannot be
+	* opened (connect() returns 0, or throws under MYSQLI_REPORT_STRICT) began nothing, so nothing of it is left: a
+	* connection the handle opens later outside any transaction is not cut. Before, the moved flag stayed and the next
+	* reconnect set the shorter wait on a connection that runs autocommit statements.
+	*
+	* @dataProvider movedStartsThatCannotConnect
+	* @param string $how
+	* @param bool $strict
+	*/
+	#[DataProvider('movedStartsThatCannotConnect')]
+	public function testAMovedStartThatCannotConnectLeavesNoCut($how, $strict)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$other = clone $db;
+		$this->assertTrue($this->q($other, 'SELECT 2'));
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		FakeServer::$strict = $strict;
+		FakeServer::$connectFails = 1;
+
+		try {
+			$result = $how === 'transactionBegin' ? $other->transactionBegin() : $this->q($other, $how);
+			$this->assertFalse($strict, 'only without strict mode does it return');
+			$this->assertSame(0, $result);
+		} catch (\mysqli_sql_exception $e) {
+			$this->assertTrue($strict);
+			$this->assertSame(2002, $e->getCode());
+		}
+
+		FakeServer::$strict = false;
+		$this->assertFalse($other->inTransaction());
+		$this->assertNotContains('SET SESSION innodb_lock_wait_timeout=5', FakeServer::statements());
+		FakeServer::failNext('/^SELECT 3$/', 2006);
+		$this->assertTrue($this->q($other, 'SELECT 3'), 'no transaction open: retried on a new connection');
+		$this->assertSame(['SELECT 3'], self::sentOn(FakeServer::$connections), 'a reconnect outside any transaction is not cut');
+		$this->assertNotContains('SET SESSION innodb_lock_wait_timeout=5', FakeServer::statements());
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(['INSERT INTO t VALUES (1)'], self::writes());
 	}
 
 	/**
@@ -2652,22 +2947,27 @@ class TransactionSafetyTest extends TestCase
 			"query('COMMIT')" => ['COMMIT'],
 			"query('COMMIT WORK')" => ['COMMIT WORK'],
 			"query('COMMIT RELEASE')" => ['COMMIT RELEASE'],
+			"query('COMMIT AND CHAIN')" => ['COMMIT AND CHAIN'],
 			'commented COMMIT' => ['/* c */ COMMIT'],
 			'transactionCommit()' => ['transactionCommit'],
 		];
 	}
 
 	/**
-	* F-B: a COMMIT from a handle with no transaction of its own, while another handle sharing the connection has one
-	* open there, is not sent: it would commit that transaction half done. It succeeds as a COMMIT with nothing open
-	* does, one log line says so, and the other handle's transaction goes on and commits whole. Before, it was
-	* committed half done and the other handle found it lost.
+	* F-B, round 5 #2: a COMMIT from a handle with no transaction of its own, while another handle sharing the
+	* connection has one open there, is not sent (it would commit that transaction half done) and FAILS: false, Errno
+	* 2006 (a caller retrying on 1213/3101 does not retry it), Error saying the transaction belongs to another handle,
+	* one log line without the SQL; query() reports it like any failed statement (emailError()/halt()),
+	* transactionCommit() does not. COMMIT ... AND CHAIN too (it begins nothing). Neither handle's state changes: the
+	* other handle's transaction goes on and commits whole through its own handle. In a225018 it returned true (Errno
+	* 0), and a caller that meant the other handle's transaction took its writes for saved; before that it committed
+	* them half done.
 	*
 	* @dataProvider commitsWithoutATransaction
 	* @param string $how
 	*/
 	#[DataProvider('commitsWithoutATransaction')]
-	public function testACommitOfAHandleWithNoTransactionOfItsOwnLeavesAnotherHandlesTransactionAlone($how)
+	public function testACommitOfAHandleWithNoTransactionOfItsOwnBesideAnotherHandlesTransactionFails($how)
 	{
 		FakeServer::$strict = false;
 		$db = $this->db();
@@ -2676,18 +2976,78 @@ class TransactionSafetyTest extends TestCase
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
 
-		$this->assertTrue($how === 'transactionCommit' ? $other->transactionCommit() : $this->q($other, $how));
+		// (a marker in the statement, to tell whether the log line carries it)
+		$sql = $how.' /* caller-x7q */';
+		$this->assertFalse($how === 'transactionCommit' ? $other->transactionCommit() : $this->q($other, $sql), 'not reported as saved');
 
-		$this->assertSame(0, FakeServer::sent('COMMIT') + FakeServer::sent($how), 'not sent');
+		$this->assertSame(2006, (int) $other->Errno);
+		$this->assertStringContainsString('the open transaction belongs to another handle', $other->Error);
+		$this->assertSame(0, FakeServer::sent('COMMIT') + FakeServer::sent($sql), 'not sent');
 		$this->assertSame([], self::writes(), 'nothing committed behind the other handle\'s back');
 		$this->assertSame(['INSERT INTO t VALUES (1)'], FakeServer::$open[1] ?? null);
-		$this->assertStringContainsString('COMMIT not sent: this handle has no transaction open, and another handle sharing the connection has one open there', implode("\n", FakeServer::$log));
-		$this->assertFalse($other->inTransaction());
+		$log = implode("\n", FakeServer::$log);
+		$this->assertStringContainsString('COMMIT not sent: this handle has no transaction open, and the transaction open on the shared connection belongs to another handle; it fails (2006)', $log);
+		$this->assertStringNotContainsString('INSERT INTO t', $log, 'no SQL in the log line');
+		$this->assertStringNotContainsString('x7q', $log, 'not even the COMMIT\'s own');
+		$this->assertCount($how === 'transactionCommit' ? 0 : 1, $other->reported, 'query() reports it as a failed statement; transactionCommit() never mails');
+		$this->assertFalse($other->inTransaction(), 'AND CHAIN began nothing');
+		$this->assertFalse($other->lost());
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (2)'), 'the transaction goes on');
 		$this->assertTrue($db->transactionCommit());
 		$this->assertFalse($db->lost());
 		$this->assertSame(['INSERT INTO t VALUES (1)', 'INSERT INTO t VALUES (2)'], self::writes());
 		$this->assertSame(1, FakeServer::$connections);
+		$this->assertTrue($this->q($other, 'COMMIT'), 'nothing open anywhere now: sent as always');
+	}
+
+	public static function siblingCommitModes()
+	{
+		return [
+			'clone made before the START' => ['clone_before'],
+			'clone made inside the transaction' => ['clone_after'],
+		];
+	}
+
+	/**
+	* Round 5 #2, the reviewer's scenario: a transaction started through handle A and committed through B, a clone of the
+	* same family (App::db() and a get_module_db() clone, or two get_module_db() calls). B's COMMIT fails, so a caller
+	* that checks it does not take A's writes for saved; when the request then ends without A's COMMIT, nothing is
+	* committed, and nothing said it was. Committed through A, they land once.
+	*
+	* @dataProvider siblingCommitModes
+	* @param string $mode
+	*/
+	#[DataProvider('siblingCommitModes')]
+	public function testATransactionCommittedThroughASiblingHandleIsNeverReportedAsSaved($mode)
+	{
+		FakeServer::$strict = false;
+		$a = $this->db();
+		$this->assertTrue($this->q($a, 'SELECT 1'));
+		$b = $mode === 'clone_before' ? clone $a : null;
+		$this->assertTrue($this->q($a, 'START TRANSACTION'));
+		$this->assertTrue($this->q($a, 'INSERT INTO a VALUES (1)'));
+		if ($b === null) {
+			$b = clone $a;
+		}
+
+		$this->assertFalse($this->q($b, 'COMMIT'));
+		$this->assertSame(2006, (int) $b->Errno);
+		$this->assertFalse($b->transactionCommit());
+		$this->assertSame(2006, (int) $b->Errno);
+		$this->assertSame([], self::writes());
+
+		$a->disconnect();
+		$this->assertSame([], self::writes(), 'the request ended without A\'s COMMIT: nothing committed, and nothing said so');
+
+		FakeServer::reset();
+		FakeServer::$strict = false;
+		$a = $this->db();
+		$this->assertTrue($this->q($a, 'START TRANSACTION'));
+		$this->assertTrue($this->q($a, 'INSERT INTO a VALUES (1)'));
+		$b = clone $a;
+		$this->assertFalse($this->q($b, 'COMMIT'));
+		$this->assertTrue($a->transactionCommit(), 'through the handle that began it');
+		$this->assertSame(['INSERT INTO a VALUES (1)'], self::writes());
 	}
 
 	/**
@@ -2720,10 +3080,13 @@ class TransactionSafetyTest extends TestCase
 	}
 
 	/**
-	* F-B: COMMIT ... AND CHAIN from a handle with no transaction of its own begins its chained transaction on a
-	* connection of its own (like a START), leaving the other handle's transaction alone.
+	* F-B, round 5 #2: COMMIT ... AND CHAIN from a handle with no transaction of its own, beside another handle's open
+	* transaction, fails like a plain COMMIT and begins nothing: no connection of its own is opened (no lock wait cut),
+	* nothing is chained (in a225018 it began a transaction on a connection of its own and returned true, so a caller that
+	* meant the other handle's transaction took it for committed). ROLLBACK ... AND CHAIN still begins its transaction on
+	* a connection of its own: a ROLLBACK with nothing of its own to roll back reports nothing as saved.
 	*/
-	public function testACommitAndChainOfAHandleWithNoTransactionBeginsItOnAConnectionOfItsOwn()
+	public function testACommitAndChainOfAHandleWithNoTransactionBeginsNothing()
 	{
 		FakeServer::$strict = false;
 		$db = $this->db();
@@ -2733,13 +3096,19 @@ class TransactionSafetyTest extends TestCase
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
 
-		$this->assertTrue($this->q($other, 'COMMIT AND CHAIN'));
+		$this->assertFalse($this->q($other, 'COMMIT AND CHAIN'));
 
+		$this->assertSame(2006, (int) $other->Errno);
+		$this->assertFalse($other->inTransaction());
+		$this->assertSame(1, FakeServer::$connections, 'no connection of its own');
+		$this->assertNotContains('COMMIT AND CHAIN', FakeServer::statements());
+		$this->assertNotContains('SET SESSION innodb_lock_wait_timeout=5', FakeServer::statements());
+		$this->assertSame(['INSERT INTO t VALUES (1)'], FakeServer::$open[1] ?? null);
+
+		$this->assertTrue($this->q($other, 'ROLLBACK AND CHAIN'), 'a ROLLBACK ... AND CHAIN still moves apart');
 		$this->assertTrue($other->inTransaction());
 		$this->assertSame(2, FakeServer::$connections);
-		$this->assertContains('COMMIT AND CHAIN', self::sentOn(2));
-		$this->assertNotContains('COMMIT AND CHAIN', self::sentOn(1));
-		$this->assertSame(['INSERT INTO t VALUES (1)'], FakeServer::$open[1] ?? null);
+		$this->assertSame(['SET SESSION innodb_lock_wait_timeout=5', 'ROLLBACK AND CHAIN'], self::sentOn(2));
 		$this->assertTrue($this->q($other, 'INSERT INTO t VALUES (2)'));
 		$this->assertTrue($other->transactionCommit());
 		$this->assertTrue($db->transactionCommit());
