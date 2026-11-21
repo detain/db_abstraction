@@ -717,7 +717,9 @@ class Db extends Generic implements Db_Interface
     * handle's open transaction, startApart(); a transaction found ended by another holder; a dead link closed and a
     * new one opened), the statement is not sent: run there it would land inside whatever another handle has open on
     * that connection, or fail on a closed one. It fails like a lost connection instead (false, Errno 2006, one
-    * error_log() line; no mail, no halt, as for any failed execute()): prepare() it again.
+    * error_log() line; no mail, no halt, as for any failed execute()): prepare() it again. A statement that commits
+    * implicitly (DDL, LOCK TABLES...) run inside a transaction of this instance's own ends it when it works and gives it
+    * up when it fails after the server ran it, as through query() (see executeFailed(), queryInTransaction()).
     *
     * @return bool success
     */
@@ -735,18 +737,31 @@ class Db extends Generic implements Db_Interface
             $this->txNotReplayable('execute() ran inside it');
         }
         $start = microtime(true);
-        $ends = static::endsTransaction(static::leadingKeywordSql((string) $this->statement_query));
+        $lead = static::leadingKeywordSql((string) $this->statement_query);
+        $ends = static::endsTransaction($lead);
+        // a statement that commits the open transaction of this instance's own implicitly before it runs (see
+        // queryInTransaction())
+        $implicitCommit = $ends && $this->inTransaction === true && preg_match('/^(?:start\s+transaction|begin|commit|rollback)\b/i', $lead) !== 1;
         $this->countStatement($ends);
         try {
             $return = mysqli_stmt_execute($this->statement);
         } catch (\mysqli_sql_exception $e) {
-            $this->uncountEnd((int) $e->getCode(), $ends);
-            $this->executeFailed((int) $e->getCode(), $e->getMessage(), $line, $file);
+            $errno = (int) $e->getCode();
+            $this->uncountEnd($errno, $ends);
+            $lostWith = $this->executeFailed($errno, $e->getMessage(), $line, $file, $implicitCommit);
+            if ($lostWith !== null && $lostWith !== $errno) {
+                // lost with 2006 (outcome unknown), never the server's 1213 (as lock())
+                throw new \mysqli_sql_exception($this->transactionLostError, $lostWith, $e);
+            }
             throw $e;
         }
         if ($return === false) {
             $this->uncountEnd((int) @mysqli_stmt_errno($this->statement), $ends);
-            $this->executeFailed((int) @mysqli_stmt_errno($this->statement), (string) @mysqli_stmt_error($this->statement), $line, $file);
+            $this->executeFailed((int) @mysqli_stmt_errno($this->statement), (string) @mysqli_stmt_error($this->statement), $line, $file, $implicitCommit);
+        } elseif ($implicitCommit && preg_match('/^set\b(?!\s+password\b)/i', $lead) !== 1) {
+            // it committed the open transaction first: the transaction is over (see queryInTransaction())
+            $this->inTransaction = false;
+            $this->txEnd();
         }
         if (!isset($GLOBALS['disable_db_queries'])) {
             $vars = $this->statement_vars;
@@ -778,23 +793,41 @@ class Db extends Generic implements Db_Interface
     * open transaction of this instance's own is given up (lost: a later COMMIT is refused, as for a statement through
     * query(); prepare()/execute() inside it already made it not replayable), and otherwise that is counted as an end
     * on the link for another holder's (countFailedEnd()). A lost connection is found by the next statement or COMMIT
-    * on the dead link; any other failure fails only the statement.
+    * on the dead link; any other failure fails only the statement. A statement that commits the open transaction
+    * implicitly before it runs ($implicitCommit: DDL, LOCK TABLES...) and that the server ran is given up as through
+    * query() (queryInTransaction(), lockFailed()): rolled back for 3101/1180, the connection's errno for a lost
+    * connection, lost with 2006 (outcome unknown) for anything else, 1213 included; Errno/Error are set to what it
+    * was lost with, and execute() throws a 2006 exception in place of the server's under MYSQLI_REPORT_STRICT.
     *
     * @param int $errno
     * @param string $error
     * @param string|int $line
     * @param string $file
-    * @return void
+    * @param bool $implicitCommit
+    * @return int|null the errno the transaction was lost with (null: not given up here)
     */
-    protected function executeFailed($errno, $error, $line, $file)
+    protected function executeFailed($errno, $error, $line, $file, $implicitCommit = false)
     {
+        $sql = (string) $this->statement_query;
+        if ($implicitCommit && $this->inTransaction === true && !in_array($errno, self::NOT_RUN_ERRORS, true)) {
+            $what = static::firstWord(static::leadingKeywordSql($sql));
+            $lostWith = $errno;
+            if (!in_array($errno, [3101, 1180], true) && !in_array($errno, self::LINK_ERRORS, true)) {
+                $lostWith = 2006;
+                $error = 'Transaction lost: '.$what.' failed (SQL error '.$errno.') after the implicit commit of the open transaction may have run, so whether its writes were committed is not known';
+            }
+            $this->giveUpTransaction($sql, $line, $file, false, $lostWith, $error, false, null, '', false, $what, $errno);
+            $this->Errno = $lostWith;
+            $this->Error = $error;
+            return $lostWith;
+        }
         if ($this->inTransaction === true && in_array($errno, self::ROLLED_BACK_ERRORS, true)) {
-            $sql = (string) $this->statement_query;
             $this->giveUpTransaction($sql, $line, $file, false, $errno, $error, false, null, '', false, static::firstWord(static::leadingKeywordSql($sql)));
-            return;
+            return null;
         }
         $this->countFailedEnd($errno);
         $this->endImplicitTransaction($errno);
+        return null;
     }
 
     /**
@@ -890,9 +923,12 @@ class Db extends Generic implements Db_Interface
     * transaction another holder of the shared link ended is not sent at all (rollbackElsewhere(): it would end that
     * holder's transaction) and fails, the transaction lost (2006). A plain ROLLBACK from a handle with no
     * transaction of its own while another handle sharing the link has one open there is not sent either (it would
-    * end that handle's transaction): it succeeds as a ROLLBACK with nothing open does (rollbackWithoutTransaction());
-    * a ROLLBACK ... AND CHAIN from such a handle begins its chained transaction on a connection of its own, like a
-    * START (startApart()). A ROLLBACK meant for another handle's transaction has to go through that handle. A COMMIT
+    * end that handle's transaction): after a give-up of its own (a lost record) it is the cleanup and succeeds as a
+    * ROLLBACK with nothing open does; otherwise it FAILS, nothing rolled back (2006, "the open transaction belongs to
+    * another handle"; never mailed, never halts: rollbackWithoutTransaction()), since true would tell a caller that
+    * meant the other transaction its writes were discarded while they stay open for that handle's next COMMIT or
+    * START to commit; a ROLLBACK ... AND CHAIN from such a handle begins its chained transaction on a connection of
+    * its own, like a START (startApart()). Roll back through the handle that began the transaction. A COMMIT
     * (COMMIT ... RELEASE and COMMIT ... AND CHAIN too) from a handle with no transaction of its own (and no lost one,
     * whose COMMIT is refused), while another handle sharing the link has one open there, is not sent either (it would
     * commit that handle's transaction half done, behind its back), and it FAILS (2006, "the open transaction belongs
@@ -939,9 +975,12 @@ class Db extends Generic implements Db_Interface
     * transaction's own handle (getLastInsertId(), affectedRows(); a raw $db->linkId read is invisible, so a replay
     * that hands out another id could go on); send no raw $db->linkId statements inside a transaction (they are
     * not counted); prepare()/execute() inside a transaction make it not replayable (and execute() refuses a statement
-    * prepared on a connection this handle has let go of); lock() inside a transaction commits it (a failed one gives
-    * it up, see lock()); COMMIT through the handle that began the transaction (from another handle of the clone family
-    * it fails, 2006, and is not sent: see above); a SET AUTOCOMMIT=0 outside one opens an implicit transaction the
+    * prepared on a connection this handle has let go of); lock() inside a transaction commits it, and so does a DDL,
+    * LOCK TABLES or any other statement that commits implicitly sent through query() (it ends the transaction; a
+    * failed one gives it up, lost with 2006 unless the server says it rolled back: see lock() and
+    * queryInTransaction(); a 1213 from such a statement never reads as "rolled back, retry"); COMMIT and ROLLBACK
+    * through the handle that began the transaction (from another handle of the clone family they fail, 2006, and are
+    * not sent: see above); a SET AUTOCOMMIT=0 outside one opens an implicit transaction the
     * tracker does not see. halt() no longer lets a mysqli_sql_exception from its UNLOCK TABLES escape under haltOnError
     * 'no' or 'report': on a connection that is gone a persistent 2006 now returns false there (it used to throw);
     * under 'yes' it still throws (callers catch it), as before.
@@ -1241,11 +1280,19 @@ class Db extends Generic implements Db_Interface
     * lost connection (it may have committed). Any other failure of a COMMIT ends the transaction (lost; a COMMIT
     * never sent, 2014, too: its connection is closed, which ends the transaction on the server). A START/BEGIN
     * that the server never ran (START_NOT_RUN_ERRORS) fails on its own and leaves the transaction open; any other
-    * failure of one ends it. Any other failure of a statement fails only the statement and the transaction stays
-    * open, as on the server. A transaction whose link was replaced underneath it (a reconnect) or that another
-    * holder of the shared link ended is lost: the statement is not sent (it would run outside the transaction),
-    * nothing is replayed, and the link is let go of without being closed (another handle may have a transaction
-    * open on it, which closing it would roll back).
+    * failure of one ends it. A statement MySQL runs only after committing the open transaction implicitly (DDL other
+    * than on temporary tables, LOCK TABLES, SET autocommit, GRANT, TRUNCATE...: endsTransaction(), ROLLBACK aside) is
+    * never replayed. When it works the transaction is over, as after lock(): the writes before it were committed and
+    * what runs next autocommits (SET autocommit aside: with autocommit on it commits nothing, and the transaction goes
+    * on). When it fails, unless the server never ran it (NOT_RUN_ERRORS: the transaction stays open), the transaction
+    * is given up like a lock() that failed (lockFailed()): rolled back at the commit for 3101/1180 (that errno), the
+    * connection's own errno for a lost connection, and for anything else, 1213 included (a deadlock on the metadata
+    * locks comes after the commit went through), lost with 2006, outcome unknown, so a caller that retries on 1213/3101
+    * does not apply writes that were committed twice. Any other failure of a statement fails only the statement and
+    * the transaction stays open, as on the server. A transaction whose link was replaced underneath it (a reconnect)
+    * or that another holder of the shared link ended is lost: the statement is not sent (it would run outside the
+    * transaction), nothing is replayed, and the link is let go of without being closed (another handle may have a
+    * transaction open on it, which closing it would roll back).
     *
     * @param string $queryString
     * @param string|int $line
@@ -1260,6 +1307,10 @@ class Db extends Generic implements Db_Interface
     {
         // a START/BEGIN with a transaction open commits it first, so it fails and recovers like a COMMIT
         $commitLike = $isCommit || $isStart;
+        $ends = static::endsTransaction($lead);
+        // a statement MySQL runs only after committing the open transaction (DDL, LOCK TABLES, SET autocommit...: a
+        // ROLLBACK ends it without a commit)
+        $implicitCommit = $ends && !$commitLike && strncasecmp($lead, 'rollback', 8) !== 0;
         $haltPrev = $this->haltOnError;
         $this->haltOnError = 'no';
         $result = false;
@@ -1296,8 +1347,10 @@ class Db extends Generic implements Db_Interface
                 $errno = 2006;
                 $error = 'Transaction lost: '.$elsewhere;
             } else {
-                list($result, $errno, $error, $exception) = $this->send($queryString, '', static::endsTransaction($lead));
+                list($result, $errno, $error, $exception) = $this->send($queryString, '', $ends);
             }
+            // the error of a statement that commits implicitly, when the commit may have gone through before it failed
+            $implicitErrno = null;
             if ($result === false) {
                 $linkLost = $linkGone || in_array($errno, self::LINK_ERRORS, true);
                 if ($elsewhere !== '') {
@@ -1318,13 +1371,24 @@ class Db extends Generic implements Db_Interface
                         $result = $replay['result'];
                     }
                 }
+                if ($result === false && $implicitCommit && !$linkLost && $elsewhere === '' && !in_array($errno, self::NOT_RUN_ERRORS, true) && !in_array($errno, [3101, 1180], true)) {
+                    // the server ran it, so it committed the open transaction first; it failed after that commit or in
+                    // it (a deadlock, 1213, on the metadata locks comes after the commit went through), so whether the
+                    // writes were committed is not known: lost with 2006, never 1213 ("rolled back, retry": a caller
+                    // retrying on 1213/3101 would apply writes that did commit twice), as lock() does (lockFailed()).
+                    // 3101 and 1180 come from the commit only (rolled back), a connection error says unknown itself;
+                    // a statement the server never ran (NOT_RUN_ERRORS) left the transaction open.
+                    $implicitErrno = $errno;
+                    $errno = 2006;
+                    $error = 'Transaction lost: '.static::firstWord($lead).' failed (SQL error '.$implicitErrno.') after the implicit commit of the open transaction may have run, so whether its writes were committed is not known';
+                }
                 if ($result === false) {
                     // a START/BEGIN the server never ran left the transaction open (its own failure only)
                     $notRun = $isStart && in_array($errno, self::START_NOT_RUN_ERRORS, true);
                     if ($replay !== null && $replay['restored']) {
                         // the transaction is back as it was, but the statement failed on its own
                         $giveUp = $commitLike && !$notRun;
-                    } elseif ($linkLost || $elsewhere !== '' || $replay !== null || in_array($errno, self::ROLLED_BACK_ERRORS, true)) {
+                    } elseif ($linkLost || $elsewhere !== '' || $replay !== null || $implicitErrno !== null || in_array($errno, self::ROLLED_BACK_ERRORS, true)) {
                         $giveUp = true;
                     } else {
                         // the server rolled back only the statement; a COMMIT (or the START that commits first) that failed
@@ -1348,6 +1412,15 @@ class Db extends Generic implements Db_Interface
                     $this->clearTransactionLost();
                 }
                 $this->txAfter($this->trackTransactionState($queryString), true, $queryString, $line, $file, $result);
+                if ($implicitCommit && preg_match('/^set\b(?!\s+password\b)/i', $lead) !== 1) {
+                    // it committed the open transaction before it ran (MySQL's implicit commit: the writes so far are
+                    // committed), and the connection is back in autocommit: the transaction is over, as after lock(), so
+                    // a later 1213 is never taken for the rollback of a transaction that is gone. Not SET autocommit:
+                    // with autocommit on (the session's own value inside START TRANSACTION) it commits nothing, and
+                    // the transaction goes on.
+                    $this->inTransaction = false;
+                    $this->txEnd();
+                }
                 if ($replay !== null) {
                     error_log('Replayed a transaction the server rolled back (SQL error '.$replay['first'].'; '.$replay['attempts'].' replay(s) of '.$replay['steps'].' statement(s)); the statement went through. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
                 }
@@ -1358,7 +1431,7 @@ class Db extends Generic implements Db_Interface
                     // the caller's own COMMIT ends the transaction; anything else (a statement in it, a START/BEGIN or
                     // an AND CHAIN that opens the next one) leaves the caller taking it to be open
                     $endsHere = $isCommit && preg_match('/\band\s+chain\b(?!\s+release\b)/i', static::withoutComments($lead)) !== 1;
-                    $this->giveUpTransaction($queryString, $line, $file, $commitLike, $errno, $error, $linkGone, $replay, $elsewhere, $endsHere, static::firstWord($lead));
+                    $this->giveUpTransaction($queryString, $line, $file, $commitLike, $errno, $error, $linkGone, $replay, $elsewhere, $endsHere, static::firstWord($lead), $implicitCommit ? ($implicitErrno !== null ? $implicitErrno : (int) $errno) : null);
                 } else {
                     if ($replay !== null) {
                         error_log('Replayed a transaction the server rolled back (SQL error '.$replay['first'].'; '.$replay['attempts'].' replay(s) of '.$replay['steps'].' statement(s)); the statement then failed on its own (#'.$errno.'), the transaction is still open. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
@@ -1401,12 +1474,17 @@ class Db extends Generic implements Db_Interface
     * caller's own COMMIT, which ended the transaction as far as the caller is concerned), later statements are
     * refused until a ROLLBACK, START/BEGIN or transactionAbort() (see query()).
     *
+    * $implicit is the server's error of a statement that commits the open transaction implicitly before it runs (DDL,
+    * LOCK TABLES...: see queryInTransaction()), for the log line: unless that error came from the commit (3101, 1180:
+    * rolled back) the commit may have gone through, so the line never says the server rolled the transaction back.
+    *
     * @param string $elsewhere why the transaction is not on this instance's link any more ('' when it is)
     * @param bool $endsHere
     * @param string $what the statement's first word, for the log line
+    * @param int|null $implicit the statement's own error when it commits implicitly (null: it does not)
     * @return void
     */
-    protected function giveUpTransaction($queryString, $line, $file, $commitLike, $errno, $error, $linkGone, $replay, $elsewhere = '', $endsHere = false, $what = 'COMMIT')
+    protected function giveUpTransaction($queryString, $line, $file, $commitLike, $errno, $error, $linkGone, $replay, $elsewhere = '', $endsHere = false, $what = 'COMMIT', $implicit = null)
     {
         $this->inTransaction = false;
         $this->markTransactionLost((int) $errno, (string) $error, !$endsHere);
@@ -1424,6 +1502,8 @@ class Db extends Generic implements Db_Interface
             $message = 'Connection lost mid-transaction; failing the query rather than silently reconnecting.';
         } elseif ($elsewhere !== '') {
             $message = 'The transaction is lost ('.$elsewhere.'); failing the query rather than running it outside the transaction.';
+        } elseif ($implicit !== null) {
+            $message = $what.' inside a transaction failed (SQL error '.(int) $implicit.'); it commits the open transaction first, '.(in_array((int) $implicit, [3101, 1180], true) ? 'and that commit was rolled back' : 'so whether its writes were committed is not known (not to be retried)').': the transaction is given up (lost, #'.(int) $errno.'), a later COMMIT is refused, and so are statements until a ROLLBACK or a new START.';
         } elseif ($commitLike && in_array((int) $errno, self::LINK_ERRORS, true)) {
             $message = $what.' lost the connection (SQL error '.(int) $errno.'); it may have committed, so it is not replayed, and a later COMMIT is refused.';
         } elseif ($commitLike && (int) $errno === 2014) {
@@ -2139,32 +2219,48 @@ class Db extends Generic implements Db_Interface
 
     /**
     * A plain ROLLBACK (query(), not AND CHAIN) of a handle that has no transaction of its own, while another handle
-    * sharing the link has one open there (a cleanup after a give-up, a ROLLBACK "just in case"): it is not sent.
-    * The server keeps one transaction per connection, so it would end the other handle's, whose writes would be gone
-    * and whose COMMIT would then fail. This handle has nothing to roll back, so it is answered as MySQL answers a
-    * ROLLBACK with nothing open: it succeeds (true, Errno 0), and a lost record this handle kept (a transaction it
-    * gave up, already rolled back or let go of) is cleared, as by any successful ROLLBACK. One error_log() line says
-    * so. A ROLLBACK ... RELEASE is not sent either (it would also close the connection under that handle). A ROLLBACK
-    * meant for another handle's transaction has to be sent through that handle (or transactionAbort() on it).
+    * sharing the link has one open there: it is not sent. The server keeps one transaction per connection, so it would
+    * end the other handle's, whose writes would be gone and whose COMMIT would then fail. A ROLLBACK ... RELEASE is not
+    * sent either (it would also close the connection under that handle).
+    *  - The handle kept a lost record (a transaction of its own it gave up, already rolled back or let go of): this is
+    *    its cleanup, with nothing left to roll back, so it is answered as MySQL answers a ROLLBACK with nothing open:
+    *    it succeeds (true, Errno 0) and the record is cleared, as by any successful ROLLBACK.
+    *  - Otherwise the caller most likely meant the other handle's transaction (begun through another handle of the
+    *    clone family: App::db() and a get_module_db() clone, or two get_module_db() calls), and true would tell it
+    *    those writes were discarded while they stay open, for that handle's next COMMIT or START to commit (a retry
+    *    would then apply them twice). So it fails, nothing rolled back: false, Errno 2006 (not a conflict errno: a
+    *    caller must not retry its transaction on it), Error saying the open transaction belongs to another handle.
+    *    It is never mailed and never halts, whatever haltOnError is (a ROLLBACK sent "just in case" stays harmless):
+    *    the caller reads false. Nothing changes for either handle.
+    * One error_log() line says so either way. A ROLLBACK meant for another handle's transaction has to be sent
+    * through the handle that began it (or transactionAbort() on it).
     *
     * @param string $queryString
     * @param string|int $line
     * @param string $file
-    * @return true
+    * @return bool
     */
     protected function rollbackWithoutTransaction($queryString, $line, $file)
     {
         if (is_resource($this->queryId)) {
             $this->free();
         }
-        $this->clearTransactionLost();
         $this->txEnd();
-        $this->queryId = true;
         $this->Row = 0;
-        $this->Errno = 0;
-        $this->Error = '';
-        error_log('ROLLBACK not sent: this handle has no transaction open, and another handle sharing the connection has one open there, which it would end. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
-        return true;
+        if ($this->transactionLost) {
+            // the cleanup after this handle's own give-up: nothing of it is left to roll back
+            $this->clearTransactionLost();
+            $this->queryId = true;
+            $this->Errno = 0;
+            $this->Error = '';
+            error_log('ROLLBACK not sent: this handle has no transaction open (its own was given up), and another handle sharing the connection has one open there, which it would end. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
+            return true;
+        }
+        $this->queryId = false;
+        $this->Errno = 2006;
+        $this->Error = 'ROLLBACK not sent: the open transaction belongs to another handle: roll it back through the handle that began it';
+        error_log('ROLLBACK not sent: this handle has no transaction open, and the transaction open on the shared connection belongs to another handle; it fails (2006), nothing was rolled back: roll it back through the handle that began it. Query: '.static::redactQueryForLog($queryString).' from '.$file.':'.$line);
+        return false;
     }
 
     /**
@@ -3145,9 +3241,11 @@ class Db extends Generic implements Db_Interface
     * asked: its writes may have been committed by whatever ended it, so it is marked lost (2006), the link let go of
     * without closing it, and false returned (no mail, no halt); a quiet ROLLBACK goes out first only while no other
     * handle has a transaction open there (releaseEndedElsewhere()). With no transaction of its own while another
-    * handle sharing the link has one open there, nothing is sent (the ROLLBACK would end that handle's transaction)
-    * and it returns true, as query('ROLLBACK') does (rollbackWithoutTransaction()). Under MYSQLI_REPORT_STRICT a
-    * server error still throws its mysqli_sql_exception.
+    * handle sharing the link has one open there, nothing is sent (the ROLLBACK would end that handle's transaction),
+    * as query('ROLLBACK') (rollbackWithoutTransaction()): true when the handle kept a lost record of its own (the
+    * cleanup after its own give-up; the record is cleared), else false with Errno 2006, "the open transaction belongs
+    * to another handle" (roll it back through the handle that began it; no mail, no halt, no exception). Under
+    * MYSQLI_REPORT_STRICT a server error still throws its mysqli_sql_exception.
     *
     * @return bool
     */
@@ -3174,11 +3272,20 @@ class Db extends Generic implements Db_Interface
             }
         } elseif ($this->anotherHolderInTransaction()) {
             // no transaction of its own, and another handle sharing the link has one open there, which the ROLLBACK
-            // would end: nothing to roll back here (as query('ROLLBACK'), see rollbackWithoutTransaction())
+            // would end (as query('ROLLBACK'), see rollbackWithoutTransaction())
             $this->txEnd();
-            $this->clearTransactionLost();
-            error_log('transactionAbort(): ROLLBACK not sent: this handle has no transaction open, and another handle sharing the connection has one open there, which it would end.');
-            return true;
+            if ($this->transactionLost) {
+                // the cleanup after this handle's own give-up: nothing of it is left to roll back
+                $this->clearTransactionLost();
+                error_log('transactionAbort(): ROLLBACK not sent: this handle has no transaction open (its own was given up), and another handle sharing the connection has one open there, which it would end.');
+                return true;
+            }
+            // most likely meant for that other transaction: true would report its writes as discarded while they stay
+            // open (no mail, no halt)
+            $this->Errno = 2006;
+            $this->Error = 'ROLLBACK not sent: the open transaction belongs to another handle: roll it back through the handle that began it';
+            error_log('transactionAbort(): ROLLBACK not sent: this handle has no transaction open, and the transaction open on the shared connection belongs to another handle; it fails (2006), nothing was rolled back: roll it back through the handle that began it.');
+            return false;
         }
         $this->countStatement(true);
         $this->inTransaction = false;
@@ -3248,7 +3355,11 @@ class Db extends Generic implements Db_Interface
     * lost with 2006): it is given up like a statement in it, marked lost, so a later COMMIT is refused instead of
     * reporting writes whose fate is not known as saved, statements are refused until a ROLLBACK, START or
     * transactionAbort(), and a quiet ROLLBACK makes sure nothing of it is left open. The failure itself is answered as
-    * always (halt(), or the exception under MYSQLI_REPORT_STRICT).
+    * always (halt(), or the exception under MYSQLI_REPORT_STRICT), with the errno the transaction was lost with: Errno,
+    * and the exception's code (a lost one with 2006 throws a new 2006 exception whose previous is the server's 1213,
+    * never the 1213 itself, which a caller retrying on 1213/3101 would take for "rolled back, retry"). Errno/Error are
+    * set on every failure. LOCK TABLES sent through query() inside a transaction is answered the same way (see
+    * queryInTransaction()).
     *
     * @param mixed  $table
     * @param string $mode
@@ -3289,15 +3400,27 @@ class Db extends Generic implements Db_Interface
         try {
             $res = @mysqli_query($this->linkId, $query);
         } catch (\mysqli_sql_exception $e) {
+            $errno = (int) $e->getCode();
             // an end the server never ran ended nothing
-            $this->uncountEnd((int) $e->getCode(), true);
-            $this->lockFailed($wasOpen, (int) $e->getCode(), $e->getMessage());
+            $this->uncountEnd($errno, true);
+            $lostWith = $this->lockFailed($wasOpen, $errno, $e->getMessage());
+            $this->Errno = $lostWith !== null ? $lostWith : $errno;
+            $this->Error = $lostWith !== null ? $this->transactionLostError : $e->getMessage();
+            if ($lostWith !== null && $lostWith !== $errno) {
+                // the transaction was lost with 2006 (outcome unknown): the caller must not read the server's 1213 as
+                // "rolled back, retry" (a retry would apply writes that did commit twice); the server's error stays
+                // reachable as the previous exception
+                throw new \mysqli_sql_exception($this->transactionLostError, $lostWith, $e);
+            }
             throw $e;
         }
         if (!$res) {
             $errno = (int) @mysqli_errno($this->linkId);
+            $error = (string) @mysqli_error($this->linkId);
             $this->uncountEnd($errno, true);
-            $this->lockFailed($wasOpen, $errno, (string) @mysqli_error($this->linkId));
+            $lostWith = $this->lockFailed($wasOpen, $errno, $error);
+            $this->Errno = $lostWith !== null ? $lostWith : $errno;
+            $this->Error = $lostWith !== null ? $this->transactionLostError : $error;
             $this->halt("lock($table, $mode) failed.");
             return 0;
         }
@@ -3322,19 +3445,20 @@ class Db extends Generic implements Db_Interface
     * A lost one refuses a later COMMIT (never reported as saved) and statements until a ROLLBACK, START or
     * transactionAbort() (the caller still takes it to be open), and a quiet ROLLBACK on its usable link (not while
     * another handle has a transaction open there) makes sure nothing of it is left open on the server. One error_log()
-    * line says so.
+    * line says so. lock() hands the caller the errno it was lost with (Errno, and under MYSQLI_REPORT_STRICT the code
+    * of the exception it throws: a 2006 one, with the server's exception as its previous, in place of a 1213).
     *
     * @param bool $wasOpen whether this instance had a transaction open when lock() was called
     * @param int $errno
     * @param string $error
-    * @return void
+    * @return int|null the errno the transaction was lost with (null: nothing was open, or it is still open)
     */
     protected function lockFailed($wasOpen, $errno, $error)
     {
         $errno = (int) $errno;
         if (!$wasOpen || in_array($errno, self::NOT_RUN_ERRORS, true)) {
             // nothing was open, or the server never ran it: whatever was open is still open
-            return;
+            return null;
         }
         if (in_array($errno, [3101, 1180], true) || in_array($errno, self::LINK_ERRORS, true)) {
             // rolled back at the implicit commit (3101, 1180), or the connection went (outcome unknown, so it says)
@@ -3349,6 +3473,7 @@ class Db extends Generic implements Db_Interface
             $this->sendQuietly('ROLLBACK');
         }
         error_log('LOCK TABLES inside a transaction failed (SQL error '.$errno.'); it commits the open transaction first, so the transaction is given up (lost, #'.$this->transactionLostErrno.'): a later COMMIT is refused, and so are statements until a ROLLBACK or a new START.');
+        return $this->transactionLostErrno;
     }
 
     /**

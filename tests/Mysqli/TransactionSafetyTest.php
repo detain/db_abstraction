@@ -291,7 +291,7 @@ class TransactionSafetyTest extends TestCase
 		return [
 			// a plain ROLLBACK (or transactionAbort()) of a handle with no transaction of its own is not sent while
 			// another handle has one open on the link (see
-			// testARollbackOfAHandleWithNoTransactionOfItsOwnLeavesAnotherHandlesTransactionAlone), nor is a COMMIT
+			// testARollbackOfAHandleWithNoTransactionOfItsOwnFailsAndLeavesAnotherHandlesTransactionAlone), nor is a COMMIT
 			// (query() or transactionCommit(), see testACommitOfAHandleWithNoTransactionOfItsOwnLeavesAnotherHandlesTransactionAlone)
 			// a START of a handle with no transaction of its own moves to a connection of its own (see
 			// testAStartOfAHandleWithNoTransactionRunsOnAConnectionOfItsOwnWhenAnotherHasOneOpen), except when the
@@ -588,6 +588,92 @@ class TransactionSafetyTest extends TestCase
 		$this->assertSame(0, FakeServer::sent('ROLLBACK'));
 		$this->assertSame(1, self::committed('INSERT INTO t VALUES (1)'));
 		$this->assertSame(1, self::committed('INSERT INTO t VALUES (2)'));
+	}
+
+	public static function preparedImplicitCommitFailures()
+	{
+		$cases = [];
+		foreach ([
+			'1213 (outcome unknown)' => [1213, 2006],
+			'1060 after the implicit commit (outcome unknown)' => [1060, 2006],
+			'3101 at the implicit commit (rolled back)' => [3101, 3101],
+			'1064 never ran (still open)' => [1064, null],
+		] as $name => $case) {
+			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+				$cases[$name.', '.$mode] = [$case[0], $case[1], $strict];
+			}
+		}
+		return $cases;
+	}
+
+	/**
+	* Round 6 A, the execute() twin of queryInTransaction()'s rule: a prepared statement that commits implicitly (here
+	* ALTER TABLE) and fails inside a transaction after the server ran it gives the transaction up with the errno of
+	* lockFailed()'s rule (2006 for a 1213 or any error that may come after the commit; Errno, and the code of the
+	* exception under strict mode, never the server's 1213), and its COMMIT is refused with it; one the server never
+	* ran leaves the transaction open. Before, a 1213 gave it up as "rolled back" (1213) and a 1060 left it open.
+	*
+	* @dataProvider preparedImplicitCommitFailures
+	* @param int $errno
+	* @param int|null $lostWith null: not lost
+	* @param bool $strict
+	*/
+	#[DataProvider('preparedImplicitCommitFailures')]
+	public function testAPreparedStatementThatCommitsImplicitlyAndFailsGivesTheTransactionUpLikeQuery($errno, $lostWith, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		$this->assertNotSame(0, $db->prepare('ALTER TABLE t ADD COLUMN c INT'));
+		FakeServer::failNext('/^ALTER TABLE/', $errno);
+
+		try {
+			$this->assertFalse($db->execute());
+			$this->assertFalse($strict, 'returned only with reporting off');
+		} catch (\mysqli_sql_exception $e) {
+			$this->assertTrue($strict);
+			$this->assertSame($lostWith === null ? $errno : $lostWith, $e->getCode());
+			if ($lostWith !== null && $lostWith !== $errno) {
+				$this->assertSame($errno, $e->getPrevious()->getCode(), 'the server\'s exception stays reachable');
+			}
+		}
+
+		if ($lostWith === null) {
+			$this->assertTrue($db->inTransaction(), 'still open');
+			$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (2)'));
+			$this->assertTrue($db->transactionCommit());
+			$this->assertSame(['INSERT INTO t VALUES (1)', 'INSERT INTO t VALUES (2)'], self::writes());
+			return;
+		}
+		$this->assertSame($lostWith, (int) $db->Errno);
+		$this->assertStringNotContainsString('the server has rolled it back', implode("\n", FakeServer::$log));
+		$this->assertSame(1, FakeServer::sent('ROLLBACK'));
+		$this->assertLostAndRefused($db, $lostWith);
+		$this->assertSame([], self::writes());
+	}
+
+	/**
+	* Round 6 A(c), execute(): a prepared statement that commits implicitly and works inside a transaction ended it (the
+	* writes before it committed), so a 1213 on the next statement is retried on its own and the INSERT lands once.
+	*/
+	public function testAPreparedStatementThatCommitsImplicitlyEndsTheTransaction()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		$this->assertNotSame(0, $db->prepare('TRUNCATE TABLE x'));
+		self::implicitCommit();
+
+		$this->assertTrue($db->execute());
+
+		$this->assertFalse($db->inTransaction(), 'the transaction is over');
+		$this->assertFalse($db->lost());
+		FakeServer::failNext('/^UPDATE t/', 1213);
+		$this->assertTrue($this->q($db, 'UPDATE t SET x=1'), 'retried on its own');
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(['INSERT INTO t VALUES (1)', 'UPDATE t SET x=1'], self::writes());
 	}
 
 	public static function sessionStates()
@@ -1938,17 +2024,19 @@ class TransactionSafetyTest extends TestCase
 	}
 
 	/**
-	* Fix 5: a plain ROLLBACK (or transactionAbort()) of a handle that has no transaction of its own, while another
-	* handle sharing the connection has one open there, is not sent: on the server it would end that other
-	* transaction (one per connection), whose writes would be gone and whose COMMIT would fail. It succeeds as a
-	* ROLLBACK with nothing open does, and says so in one log line. Before, it went out and rolled the other
-	* handle's transaction back.
+	* Fix 5 + round 6 B: a plain ROLLBACK (or transactionAbort()) of a handle that has no transaction of its own (and no
+	* lost record of its own to clean up), while another handle sharing the connection has one open there, is not sent:
+	* on the server it would end that other transaction (one per connection), whose writes would be gone and whose
+	* COMMIT would fail. Nor does it succeed: the caller most likely meant that other transaction, and true would tell it
+	* the writes were discarded while they stay open for that handle's next COMMIT or START to commit. It fails (2006,
+	* "the open transaction belongs to another handle"), is never mailed and never halts, and says so in one log line
+	* (no SQL values). Fix 5 answered true; before that it went out and rolled the other handle's transaction back.
 	*
 	* @dataProvider rollbacksWithoutATransaction
 	* @param string $how
 	*/
 	#[DataProvider('rollbacksWithoutATransaction')]
-	public function testARollbackOfAHandleWithNoTransactionOfItsOwnLeavesAnotherHandlesTransactionAlone($how)
+	public function testARollbackOfAHandleWithNoTransactionOfItsOwnFailsAndLeavesAnotherHandlesTransactionAlone($how)
 	{
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'SELECT 1'));
@@ -1957,14 +2045,19 @@ class TransactionSafetyTest extends TestCase
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
 		$sent = count(FakeServer::statements());
 
-		$this->assertTrue($how === 'transactionAbort' ? $other->transactionAbort() : $this->q($other, $how), 'a ROLLBACK with nothing to roll back succeeds');
+		$this->assertFalse($how === 'transactionAbort' ? $other->transactionAbort() : $this->q($other, $how), 'nothing was rolled back: it fails');
 
 		$this->assertSame($sent, count(FakeServer::statements()), 'nothing was sent');
 		$this->assertSame(0, self::rollbacksSent());
-		$this->assertSame(0, (int) $other->Errno);
+		$this->assertSame(2006, (int) $other->Errno, 'not a conflict errno: never retried into a duplicate');
+		$this->assertSame('ROLLBACK not sent: the open transaction belongs to another handle: roll it back through the handle that began it', $other->Error);
+		$this->assertSame(0, $other->halts, 'never halts');
 		$this->assertFalse($other->inTransaction());
 		$this->assertFalse($other->lost());
-		$this->assertStringContainsString('ROLLBACK not sent: this handle has no transaction open', implode("\n", FakeServer::$log));
+		$log = implode("\n", FakeServer::$log);
+		$this->assertStringContainsString('ROLLBACK not sent: this handle has no transaction open, and the transaction open on the shared connection belongs to another handle; it fails (2006), nothing was rolled back', $log);
+		$this->assertCount(1, FakeServer::$log, 'one line');
+		$this->assertSame(['INSERT INTO t VALUES (1)'], FakeServer::$open[1] ?? null, 'the other transaction is untouched on the server');
 		$this->assertSame($db->linkId, $other->linkId, 'the connection is still shared');
 		$this->assertTrue($db->inTransaction());
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (2)'));
@@ -1976,6 +2069,82 @@ class TransactionSafetyTest extends TestCase
 		$this->assertSame(0, FakeServer::closes());
 		$this->assertTrue($this->q($other, 'ROLLBACK'), 'with nothing open on the connection it is sent, as before');
 		$this->assertSame(1, self::rollbacksSent());
+	}
+
+	/**
+	* Round 6 B, the reviewer's s3: handle A (a get_module_db() clone, say) runs START, an INSERT and an UPDATE that fails
+	* on its own (1205: the transaction stays open); the caller rolls back through B, another handle of the clone family
+	* (App::db(), or another get_module_db() call), and starts again on A. Fix 5 answered B's ROLLBACK true without
+	* sending it, and A's next START committed the "rolled back" INSERT: a retry then applied it twice. Now B's ROLLBACK
+	* fails (2006, nothing sent, A's transaction untouched), so a caller that reads the answer rolls back through the
+	* handle that began it, and the INSERT lands once.
+	*
+	* @dataProvider rollbacks
+	* @param string $how
+	*/
+	#[DataProvider('rollbacks')]
+	public function testARollbackThroughTheWrongHandleOfTheCloneFamilyIsNeverTakenForDone($how)
+	{
+		FakeServer::$strict = false;
+		$a = $this->db();
+		$this->assertTrue($this->q($a, 'SELECT 1'));
+		$b = clone $a;
+		$this->assertTrue($this->q($b, 'SELECT 2'));
+		FakeServer::failNext('/^UPDATE u/', 1205);
+		$wrongHandle = null;
+		for ($attempt = 1; $attempt <= 2; $attempt++) {
+			$this->assertTrue($this->q($a, 'START TRANSACTION'));
+			$this->assertTrue($this->q($a, 'INSERT INTO t VALUES (1)'));
+			if ($this->q($a, 'UPDATE u SET x=1')) {
+				$this->assertTrue($a->transactionCommit());
+				break;
+			}
+			$this->assertSame(1205, (int) $a->Errno, 'only the statement failed');
+			$wrongHandle = $how === 'transactionAbort' ? $b->transactionAbort() : $this->q($b, 'ROLLBACK');
+			if (!$wrongHandle) {
+				$this->assertSame(2006, (int) $b->Errno);
+				$this->assertTrue($a->inTransaction(), 'A\'s transaction goes on');
+				$this->assertSame(['INSERT INTO t VALUES (1)'], FakeServer::$open[1] ?? null, 'nothing was rolled back, nothing committed');
+				$this->assertSame([], self::writes());
+				// told it failed, the caller rolls back through the handle that began it
+				$this->assertTrue($how === 'transactionAbort' ? $a->transactionAbort() : $this->q($a, 'ROLLBACK'));
+			}
+		}
+
+		$this->assertFalse($wrongHandle, 'the ROLLBACK through the wrong handle failed');
+		$this->assertSame(1, self::rollbacksSent(), 'only the one through the handle that began it went out');
+		$this->assertSame(1, self::committed('INSERT INTO t VALUES (1)'), 'once, not twice');
+		$this->assertSame(['INSERT INTO t VALUES (1)', 'UPDATE u SET x=1'], self::writes());
+		$this->assertSame([], $b->reported);
+	}
+
+	/**
+	* Round 6 B: a ROLLBACK sent "just in case" through a handle with no transaction of its own, beside another handle's
+	* open transaction, stays harmless under haltOnError 'yes': it fails (false, 2006) but is never mailed and never
+	* halts (a halt there would end the process), and the other transaction commits whole. A COMMIT through the wrong
+	* handle (commitWithoutTransaction()) is reported like any failed statement; a ROLLBACK, which saves nothing, is not.
+	*
+	* @dataProvider rollbacks
+	* @param string $how
+	*/
+	#[DataProvider('rollbacks')]
+	public function testAJustInCaseRollbackThroughAnotherHandleNeverHaltsUnderYes($how)
+	{
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$other = clone $db;
+		$other->haltOnError = 'yes';
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+
+		$this->assertFalse($how === 'transactionAbort' ? $other->transactionAbort() : $this->q($other, 'ROLLBACK'));
+
+		$this->assertSame(0, $other->halts, 'no halt(): under \'yes\' it would have ended the process');
+		$this->assertSame([], $other->reported, 'not mailed');
+		$this->assertSame(2006, (int) $other->Errno);
+		$this->assertSame('yes', $other->haltOnError);
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(['INSERT INTO t VALUES (1)'], self::writes());
 	}
 
 	/**
@@ -2377,8 +2546,17 @@ class TransactionSafetyTest extends TestCase
 			$this->assertFalse($strict, 'only without strict mode does it return');
 		} catch (\mysqli_sql_exception $e) {
 			$this->assertTrue($strict);
-			$this->assertSame($errno, $e->getCode());
+			// round 6 A(a): the code is the errno it was lost with, never a 1213 that reads "rolled back, retry"
+			$this->assertSame($lostWith, $e->getCode());
+			if ($lostWith !== $errno) {
+				$this->assertStringContainsString('after the implicit commit of the open transaction may have run', $e->getMessage());
+				$this->assertInstanceOf(\mysqli_sql_exception::class, $e->getPrevious(), 'the server\'s exception stays reachable');
+				$this->assertSame($errno, $e->getPrevious()->getCode());
+			} else {
+				$this->assertNull($e->getPrevious(), 'the server\'s own exception, as it was');
+			}
 		}
+		$this->assertSame($lostWith, (int) $db->Errno, 'what the caller reads, thrown or returned');
 
 		$this->assertFalse($db->inTransaction());
 		$this->assertTrue($db->lost());
@@ -2447,14 +2625,275 @@ class TransactionSafetyTest extends TestCase
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'), 'nothing is refused');
 	}
 
+	/** MySQL's implicit commit of the transaction open on a connection, which it runs before a DDL or LOCK TABLES */
+	private static function implicitCommit($connection = 1)
+	{
+		foreach (FakeServer::$open[$connection] ?? [] as $write) {
+			FakeServer::$committed[] = $write;
+		}
+		unset(FakeServer::$open[$connection]);
+	}
+
+	public static function implicitCommitDeadlocks()
+	{
+		$cases = [];
+		foreach ([
+			'lock()' => ['lock'],
+			"query('LOCK TABLES')" => ['LOCK TABLES t WRITE'],
+			"query('ALTER TABLE')" => ['ALTER TABLE t ADD INDEX i (c)'],
+			"query('TRUNCATE TABLE')" => ['TRUNCATE TABLE t'],
+			"query('CREATE TABLE')" => ['CREATE TABLE x (a int)'],
+			"query('DROP TABLE')" => ['DROP TABLE x'],
+		] as $name => $case) {
+			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+				$cases[$name.', '.$mode] = [$case[0], $strict];
+			}
+		}
+		return $cases;
+	}
+
 	/**
-	* Round 5 #3: LOCK TABLES runs the implicit commit of the open transaction first, then takes its table and metadata
-	* locks, and a deadlock (1213) in that second step comes after the commit went through. So a 1213 from lock() inside
-	* a transaction leaves the outcome unknown: the transaction is lost with 2006, not 1213, and a caller that retries a
+	* Round 5 #3 + round 6 A (the reviewer's s1): LOCK TABLES and every other statement that commits implicitly (DDL)
+	* runs the implicit commit of the open transaction first, then takes its table and metadata locks, and a deadlock
+	* (1213) in that second step comes after the commit went through. So a 1213 from it inside a transaction leaves the
+	* outcome unknown: the transaction is lost with 2006, not 1213, whether it came through lock() (Errno, and under
+	* MYSQLI_REPORT_STRICT the code of the exception it throws) or query() (Errno), and a caller that retries a
 	* transaction only on 1213/3101 (the documented contract: NativeDb, CcMeta, Session) stops instead of running it
-	* again, so its writes land once. Before, it was lost with 1213 and such a caller applied them twice.
+	* again, so its writes land once. Before: lock() under strict mode threw the server's 1213, and query() gave the
+	* transaction up with 1213 (its COMMIT refused with 1213): such a caller applied the writes twice.
+	*
+	* @dataProvider implicitCommitDeadlocks
+	* @param string $how 'lock' or the statement sent through query()
+	* @param bool $strict
 	*/
-	public function testALockDeadlockAfterTheImplicitCommitIsNotRetriedIntoADuplicate()
+	#[DataProvider('implicitCommitDeadlocks')]
+	public function testADeadlockAfterAnImplicitCommitIsNotRetriedIntoADuplicate($how, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$attempts = 0;
+		$errno = 0;
+		for ($attempt = 1; $attempt <= 3; $attempt++) {
+			$attempts++;
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+			if ($attempt === 1) {
+				// the implicit commit goes through, then the metadata lock deadlocks
+				self::implicitCommit();
+				FakeServer::failNext($how === 'lock' ? '/^lock tables/i' : '/^'.preg_quote(strtok($how, ' '), '/').'\\b/', 1213);
+			}
+			try {
+				$ok = $how === 'lock' ? $db->lock('t') : $this->q($db, $how);
+				$errno = (int) $db->Errno;
+			} catch (\mysqli_sql_exception $e) {
+				$this->assertTrue($strict && $how === 'lock', 'only lock() throws');
+				$ok = false;
+				$errno = (int) $e->getCode();
+			}
+			if ($ok && $db->transactionCommit()) {
+				break;
+			}
+			if ($ok) {
+				$errno = (int) $db->Errno;
+			}
+			if (!in_array($errno, [1213, 3101], true)) {
+				break;
+			}
+			// the caller rolls back before it runs the transaction again
+			$db->transactionAbort();
+		}
+
+		$this->assertSame(1, $attempts, 'not retried: whether the transaction committed is not known');
+		$this->assertSame(2006, $errno, 'the statement\'s own failure says so');
+		$this->assertStringContainsString('failed (SQL error 1213) after the implicit commit of the open transaction may have run', $db->Error);
+		$this->assertNotContains('Got SQL error 1213 inside a transaction; the server has rolled it back, so failing rather than retrying the statement alone.', array_map(static function ($line) {
+			return substr($line, 0, 115);
+		}, FakeServer::$log), 'the log never says the server rolled it back');
+		$this->assertFalse($db->transactionCommit(), 'the COMMIT is refused');
+		$this->assertSame(2006, (int) $db->Errno, 'with 2006 too');
+		$this->assertSame(['INSERT INTO t VALUES (1)'], self::writes(), 'once, not twice');
+	}
+
+	public static function implicitCommitFailures()
+	{
+		$cases = [];
+		foreach ([
+			'3101 at the implicit commit (rolled back)' => [3101, 3101],
+			'1213 (outcome unknown: a metadata lock deadlock comes after the implicit commit)' => [1213, 2006],
+			'1180 (rolled back)' => [1180, 1180],
+			'2013 the connection went (outcome unknown)' => [2013, 2013],
+			'3100 a refusal of the implicit commit (outcome unknown here)' => [3100, 2006],
+			'1060 duplicate column, after the implicit commit (outcome unknown here)' => [1060, 2006],
+		] as $name => $case) {
+			foreach (['LOCK TABLES t WRITE', 'ALTER TABLE t ADD COLUMN c INT'] as $sql) {
+				foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+					$cases[strtok($sql, ' ').', '.$name.', '.$mode] = [$sql, $case[0], $case[1], $strict];
+				}
+			}
+		}
+		foreach (['TRUNCATE TABLE t', 'CREATE TABLE x (a int)', 'DROP TABLE x', 'RENAME TABLE t TO t2', "GRANT SELECT ON db.* TO 'u'@'h'", 'SET autocommit=1', 'OPTIMIZE TABLE t'] as $sql) {
+			$cases[strtok($sql, ' ').', 1213'] = [$sql, 1213, 2006, false];
+		}
+		return $cases;
+	}
+
+	/**
+	* Round 6 A(b): a statement that commits implicitly (DDL, LOCK TABLES sent through query(), SET autocommit...) and
+	* fails inside a transaction after the server ran it is given up as lock() gives a failed LOCK TABLES up
+	* (lockFailed()): rolled back for 3101/1180 (the commit step's own errors), the connection's errno for a lost
+	* connection, and lost with 2006 (outcome unknown) for anything else, 1213 included; statements are refused, the
+	* COMMIT is refused with that errno, a quiet ROLLBACK makes sure nothing is left open, and the log line never claims
+	* the server rolled the transaction back unless the commit was. Before, a 1213 gave it up as "rolled back" (1213)
+	* and any other error (1060, 3100) left it open although the commit had gone through.
+	*
+	* @dataProvider implicitCommitFailures
+	* @param string $sql
+	* @param int $errno
+	* @param int $lostWith
+	* @param bool $strict
+	*/
+	#[DataProvider('implicitCommitFailures')]
+	public function testAStatementThatCommitsImplicitlyAndFailsInsideATransactionGivesItUp($sql, $errno, $lostWith, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		FakeServer::failNext('/^'.preg_quote(strtok($sql, ' '), '/').'\\b/', $errno);
+
+		$this->assertFalse($this->q($db, $sql));
+
+		$this->assertSame($lostWith, (int) $db->Errno);
+		if ($lostWith !== $errno) {
+			$this->assertSame('Transaction lost: '.strtok($sql, ' ').' failed (SQL error '.$errno.') after the implicit commit of the open transaction may have run, so whether its writes were committed is not known', $db->Error);
+		}
+		$this->assertFalse($db->inTransaction());
+		$this->assertTrue($db->lost());
+		$this->assertTrue($db->lostTransactionPending(), 'the caller still takes it to be open: statements are refused');
+		$this->assertSame([], FakeServer::$open, 'nothing of it is left open on the server');
+		if ($errno !== 2013) {
+			$this->assertSame(1, FakeServer::sent('ROLLBACK'), 'a quiet ROLLBACK on its usable link');
+		}
+		$log = implode("\n", FakeServer::$log);
+		$this->assertStringContainsString(strtok($sql, ' ').' inside a transaction failed (SQL error '.$errno.'); it commits the open transaction first, ', $log);
+		$this->assertStringContainsString('(lost, #'.$lostWith.')', $log);
+		$this->assertStringNotContainsString('the server has rolled it back', $log);
+		$this->assertStringContainsString(in_array($errno, [3101, 1180], true) ? 'and that commit was rolled back' : 'whether its writes were committed is not known', $log);
+		$this->assertLostAndRefused($db, $lostWith);
+		$this->assertSame([], self::writes(), 'nothing reported as saved');
+	}
+
+	public static function implicitCommitsNeverRun()
+	{
+		$cases = [];
+		foreach (['LOCK TABLES t WRITE' => 1064, 'ALTER TABLE t ADD (' => 1064, 'CREATE TABLE x (a int)' => 2014] as $sql => $errno) {
+			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+				$cases[strtok($sql, ' ').' '.$errno.', '.$mode] = [$sql, $errno, $strict];
+			}
+		}
+		return $cases;
+	}
+
+	/**
+	* Round 6 A(b): a statement that commits implicitly which the server never ran (it did not parse, or it was never
+	* sent: NOT_RUN_ERRORS) committed nothing: only the statement failed, the transaction is still open (not replayable)
+	* and commits whole, once, as with lock() (testALockInsideATransactionThatTheServerNeverRanLeavesItOpen).
+	*
+	* @dataProvider implicitCommitsNeverRun
+	* @param string $sql
+	* @param int $errno
+	* @param bool $strict
+	*/
+	#[DataProvider('implicitCommitsNeverRun')]
+	public function testAStatementThatCommitsImplicitlyThatTheServerNeverRanLeavesTheTransactionOpen($sql, $errno, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		FakeServer::failNext('/^'.preg_quote(strtok($sql, ' '), '/').'\\b/', $errno);
+
+		$this->assertFalse($this->q($db, $sql));
+
+		$this->assertSame($errno, (int) $db->Errno, 'the statement\'s own error');
+		$this->assertTrue($db->inTransaction(), 'still open');
+		$this->assertFalse($db->lost());
+		$this->assertSame(['INSERT INTO t VALUES (1)'], FakeServer::$open[1] ?? null);
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (2)'));
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(['INSERT INTO t VALUES (1)', 'INSERT INTO t VALUES (2)'], self::writes());
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'));
+	}
+
+	public static function implicitCommitsThatWork()
+	{
+		$cases = [];
+		foreach (['ALTER TABLE t ADD COLUMN c INT', 'CREATE TABLE x (a int)', 'DROP TABLE x', 'TRUNCATE TABLE x', 'RENAME TABLE x TO x2', 'LOCK TABLES t WRITE', "GRANT SELECT ON db.* TO 'u'@'h'", 'ANALYZE TABLE t', 'FLUSH PRIVILEGES'] as $sql) {
+			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+				$cases[strtok($sql, ' ').', '.$mode] = [$sql, $strict];
+			}
+		}
+		return $cases;
+	}
+
+	/**
+	* Round 6 A(c), the reviewer's s4: a statement that commits implicitly and works inside a transaction ended it, as a
+	* lock() that works does (testALockThatWorksEndsTheTransactionAndOneOutsideATransactionLosesNothing): the writes
+	* before it were committed, inTransaction() is false, nothing is recorded, and what runs next autocommits, so a 1213
+	* on the next statement is retried on its own (autocommit, as the server runs it) instead of being handed to the
+	* caller as the rollback of a transaction that is gone; the caller's COMMIT (nothing open) succeeds and the INSERT
+	* lands once. Before, the tracker kept the transaction open: the 1213 gave it up as "rolled back, retry" and a
+	* caller retrying on 1213/3101 applied the committed INSERT twice.
+	*
+	* @dataProvider implicitCommitsThatWork
+	* @param string $sql
+	* @param bool $strict
+	*/
+	#[DataProvider('implicitCommitsThatWork')]
+	public function testAStatementThatCommitsImplicitlyEndsTheTransaction($sql, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$attempts = 0;
+		for ($attempt = 1; $attempt <= 3; $attempt++) {
+			$attempts++;
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+			if ($attempt === 1) {
+				// MySQL commits the open transaction before it runs the statement
+				self::implicitCommit();
+			}
+			$this->assertNotFalse($this->q($db, $sql));
+			$this->assertFalse($db->inTransaction(), 'the transaction is over');
+			$this->assertFalse($db->lost());
+			$this->assertSame([], $db->steps());
+			if ($attempt === 1) {
+				FakeServer::failNext('/^UPDATE t/', 1213);
+			}
+			if ($this->q($db, 'UPDATE t SET x=1') && $db->transactionCommit()) {
+				break;
+			}
+			if (!in_array((int) $db->Errno, [1213, 3101], true)) {
+				break;
+			}
+			$db->transactionAbort();
+		}
+
+		$this->assertSame(1, $attempts);
+		$this->assertSame([250000], FakeServer::$sleeps, 'the UPDATE was retried on its own, as every statement outside a transaction');
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'));
+		$this->assertSame(['INSERT INTO t VALUES (1)', 'UPDATE t SET x=1'], self::writes(), 'once each');
+		$this->assertSame([], $db->reported);
+	}
+
+	/**
+	* Round 6 A(c): SET autocommit is taken for the end of a transaction when another handle sends it (a doubtful form
+	* counts as an end: endsTransaction()), but sent by the transaction's own handle and working, it does not end it:
+	* inside START TRANSACTION the session's autocommit is on, so SET autocommit=1 commits nothing (nor does
+	* SET autocommit=0), and the transaction goes on. Ended there, a 1213 on the next statement would be retried on its
+	* own while the server rolled the INSERT back, and the COMMIT would report the rest as saved.
+	*/
+	public function testSetAutocommitInsideATransactionDoesNotEndIt()
 	{
 		FakeServer::$strict = false;
 		$db = $this->db();
@@ -2463,27 +2902,20 @@ class TransactionSafetyTest extends TestCase
 			$attempts++;
 			$this->assertTrue($this->q($db, 'START TRANSACTION'));
 			$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+			$this->assertTrue($this->q($db, 'SET autocommit=1'));
+			$this->assertTrue($db->inTransaction(), 'still open');
 			if ($attempt === 1) {
-				// the implicit commit goes through, then the metadata lock deadlocks
-				foreach (FakeServer::$open[1] as $write) {
-					FakeServer::$committed[] = $write;
-				}
-				FakeServer::$open[1] = [];
-				FakeServer::failNext('/^lock tables/', 1213);
+				FakeServer::failNext('/^UPDATE u/', 1213);
 			}
-			$db->lock('t');
-			if ($db->transactionCommit()) {
+			if ($this->q($db, 'UPDATE u SET x=1') && $db->transactionCommit()) {
 				break;
 			}
-			if (!in_array((int) $db->Errno, [1213, 3101], true)) {
-				break;
-			}
+			$this->assertSame(1213, (int) $db->Errno, 'the server rolled the transaction back (not replayable: SET)');
+			$db->transactionAbort();
 		}
 
-		$this->assertSame(1, $attempts, 'not retried: whether the transaction committed is not known');
-		$this->assertSame(2006, (int) $db->Errno, 'the refused COMMIT says so');
-		$this->assertStringContainsString('LOCK TABLES failed (SQL error 1213) after the implicit commit of the open transaction may have run', $db->Error);
-		$this->assertSame(['INSERT INTO t VALUES (1)'], self::writes(), 'once, not twice');
+		$this->assertSame(2, $attempts, 'retried once, as a rolled-back transaction is');
+		$this->assertSame(['INSERT INTO t VALUES (1)', 'UPDATE u SET x=1'], self::writes(), 'nothing lost, nothing twice');
 	}
 
 	public static function apartStarts()
