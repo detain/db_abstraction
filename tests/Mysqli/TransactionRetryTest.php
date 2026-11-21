@@ -11,7 +11,10 @@ use PHPUnit\Framework\TestCase;
 * Db::query() retries a statement that failed with 1213/2006/3101/1180, reconnecting if it has to.
 * Inside a transaction that retry is the bug it must never commit: the server has already rolled
 * the transaction back, so the statement would run on its own with autocommit while every call
-* still reported success. Once such a statement fails inside a transaction it fails, once.
+* still reported success. Inside a transaction the whole transaction is replayed instead (see
+* TransactionReplayTest for the replay itself); when a replay cannot recover it the statement gives up,
+* once, and a later COMMIT is refused. The tests here script a conflict that comes back on every replay
+* (ALWAYS) when what they are about is that give-up.
 *
 * No server is involved: fake_mysqli.php replaces the mysqli functions the driver calls, which only
 * works in a fresh process, hence the process isolation. The connection is to 127.0.0.1 port 1 so
@@ -45,6 +48,12 @@ class TransactionRetryTest extends TestCase
 		FakeServer::reset();
 	}
 
+	/** a scripted failure that also fails every replay, so the replays run out and the statement gives up */
+	const ALWAYS = 1000;
+
+	/** the waits before the replays of a transaction ($transactionReplays = 3) */
+	const REPLAY_SLEEPS = [10000, 20000, 40000];
+
 	/**
 	* @return ScriptedDb
 	*/
@@ -52,14 +61,37 @@ class TransactionRetryTest extends TestCase
 	{
 		$db = new ScriptedDb('fake_db', 'fake_user', '', '127.0.0.1', '', '1');
 		$db->haltOnError = 'no';
+		// these tests pin what a replay does and gives up on, not how long it keeps trying: the library's default
+		// (25 replays within 10 s, see TransactionReplayTest) would only make each give-up slower to script
+		$db->transactionReplays = 3;
 		return $db;
 	}
 
 	private function q(ScriptedDb $db, $sql)
 	{
 		$result = $db->query($sql, __LINE__, __FILE__);
-		$this->assertInstanceOf(FakeLink::class, $db->linkId, 'the driver is talking to the fake');
+		// a dead connection is let go of (linkId 0) after a statement that lost it
+		$this->assertGreaterThan(0, FakeServer::$connections, 'the driver is talking to the fake');
+		if ($db->linkId !== 0) {
+			$this->assertInstanceOf(FakeLink::class, $db->linkId, 'the driver is talking to the fake');
+		}
 		return $result;
+	}
+
+	/**
+	* proves the transaction is tracked: a deadlock on a statement in it is recovered by one replay of the
+	* transaction, never by the retry outside transactions (250 ms waits, the statement autocommitted alone)
+	*/
+	private function assertTransactionProtected(ScriptedDb $db)
+	{
+		$sleeps = count(FakeServer::$sleeps);
+		$rollbacks = FakeServer::sent('ROLLBACK');
+		FakeServer::failNext('/debit/', 1213);
+		$this->assertTrue($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'), 'recovered by a replay');
+		$this->assertSame([10000], array_slice(FakeServer::$sleeps, $sleeps), 'one replay, no 250 ms statement retry');
+		$this->assertSame($rollbacks + 1, FakeServer::sent('ROLLBACK'), 'the replay rolled the transaction back first');
+		$this->assertTrue($db->inTransaction(), 'and it is still open');
+		$this->assertNotContains('UPDATE wallet SET debit=debit+10 WHERE id=2', FakeServer::$committed, 'not autocommitted');
 	}
 
 	public static function reportModes()
@@ -75,26 +107,29 @@ class TransactionRetryTest extends TestCase
 	* @param bool $strict
 	*/
 	#[DataProvider('reportModes')]
-	public function testDeadlockInsideATransactionFailsTheStatementWithoutRetry($strict)
+	public function testADeadlockThatComesBackOnEveryReplayGivesUpWithoutRunningTheStatementAlone($strict)
 	{
 		FakeServer::$strict = $strict;
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
-		FakeServer::failNext('/debit/', 1213);
+		FakeServer::failNext('/debit/', 1213, self::ALWAYS);
 
 		$result = $this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2');
 
 		$this->assertFalse($result);
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'), 'attempted exactly once');
+		$this->assertSame(4, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'), 'once, then once in each of 3 replays of the transaction');
+		$this->assertSame(4, FakeServer::sent('UPDATE wallet SET credit=credit+10 WHERE id=1'), 'every replay re-ran the transaction from its start');
 		$this->assertSame(1, FakeServer::$connections, 'no reconnect');
 		$this->assertSame(0, FakeServer::closes());
-		$this->assertSame([], FakeServer::$sleeps);
+		$this->assertSame(self::REPLAY_SLEEPS, FakeServer::$sleeps, 'the replay waits, never the 250 ms statement retry');
 		$this->assertFalse($db->inTransaction(), 'the server rolled the transaction back');
 		$this->assertSame(1213, (int) $db->Errno);
 		$this->assertCount(1, $db->reported, 'reported through emailError() like any failed statement');
 		$this->assertCount(1, FakeServer::$log, 'one line, saying why: '.json_encode(FakeServer::$log));
 		$this->assertStringContainsString('inside a transaction; the server has rolled it back', FakeServer::$log[0]);
+		$this->assertStringContainsString('Not recovered: it was rolled back again on each of 3 replay(s)', FakeServer::$log[0]);
+		$this->assertSame([], FakeServer::$open, 'the abandoned replay was rolled back: no transaction is left open on the server');
 
 		$sent = FakeServer::sent('COMMIT');
 		$this->assertFalse($this->q($db, 'COMMIT'), 'the transaction is gone, so a COMMIT must not report success');
@@ -114,15 +149,24 @@ class TransactionRetryTest extends TestCase
 	{
 		FakeServer::$strict = $strict;
 		$db = $this->db();
+		$this->assertTrue(FakeServer::$implicitBegin, 'MySQL keeps the session in a transaction after a deadlock');
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', 1213);
+		FakeServer::failNext('/debit/', 1213, self::ALWAYS);
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
 
-		$this->assertTrue($this->q($db, 'INSERT INTO audit VALUES (1)'), 'unrelated statements keep running, with autocommit');
-		$this->assertSame(['INSERT INTO audit VALUES (1)'], FakeServer::$committed);
+		// the caller still takes the transaction to be open: a statement it sends now would commit on its own
+		$this->assertFalse($this->q($db, 'INSERT INTO audit VALUES (1)'), 'refused, not autocommitted');
+		$this->assertSame(0, FakeServer::sent('INSERT INTO audit VALUES (1)'), 'never sent');
+		$this->assertSame(1213, (int) $db->Errno, 'with the error the transaction was lost with');
+		$this->assertStringContainsString('Statement refused', $db->Error);
+		$this->assertSame([], FakeServer::$committed);
 		$this->assertFalse($this->q($db, 'COMMIT'));
 		$this->assertFalse($this->q($db, 'commit'), 'still refused: only ROLLBACK or a new transaction clears it');
 		$this->assertSame(0, FakeServer::sent('COMMIT') + FakeServer::sent('commit'));
+		// the caller's COMMIT ended the transaction for it: what it sends next is its own, with autocommit
+		$this->assertTrue($this->q($db, 'INSERT INTO audit VALUES (2)'), 'after the COMMIT, a statement runs again');
+		$this->assertSame(['INSERT INTO audit VALUES (2)'], FakeServer::$committed, 'autocommitted: the give-up rolled the server\'s transaction back, so the session is out of it');
+		$this->assertFalse($this->q($db, 'COMMIT'), 'a COMMIT is still refused until a ROLLBACK or a new transaction');
 	}
 
 	public static function clearingStatements()
@@ -144,8 +188,9 @@ class TransactionRetryTest extends TestCase
 	{
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', 1213);
+		FakeServer::failNext('/debit/', 1213, self::ALWAYS);
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
+		$sentCommits = FakeServer::sent('COMMIT');
 		foreach ($statements as $statement) {
 			$this->assertTrue($this->q($db, $statement));
 		}
@@ -153,7 +198,7 @@ class TransactionRetryTest extends TestCase
 
 		$this->assertTrue($this->q($db, 'COMMIT'));
 
-		$this->assertSame(1, FakeServer::sent('COMMIT'));
+		$this->assertSame($sentCommits + 1, FakeServer::sent('COMMIT'));
 		$this->assertSame(['UPDATE wallet SET credit=credit+10 WHERE id=1'], FakeServer::$committed);
 	}
 
@@ -162,7 +207,7 @@ class TransactionRetryTest extends TestCase
 		$db = $this->db();
 		$db->haltOnError = 'report';
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', 1213);
+		FakeServer::failNext('/debit/', 1213, self::ALWAYS);
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
 		$this->assertFalse($this->q($db, 'COMMIT'));
 		$this->assertSame('report', $db->haltOnError, 'restored');
@@ -193,15 +238,20 @@ class TransactionRetryTest extends TestCase
 		FakeServer::$strict = $strict;
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', $code, 5);
+		FakeServer::failNext('/debit/', $code, self::ALWAYS);
 
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
 
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertSame(1, FakeServer::$connections);
-		$this->assertSame([], FakeServer::$sleeps);
+		// 1213/3101 and a lost connection are replayed (a lost connection on a new connection each time);
+		// 1180 is not: it gives up at once. None of them is retried on its own.
+		$replayed = $code !== 1180;
+		$this->assertSame($replayed ? 4 : 1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'));
+		$this->assertSame($code === 2006 ? 4 : 1, FakeServer::$connections);
+		$this->assertSame($replayed ? self::REPLAY_SLEEPS : [], FakeServer::$sleeps);
 		$this->assertFalse($db->inTransaction());
+		$this->assertTrue($db->lost());
 		$this->assertSame($code, (int) $db->Errno);
+		$this->assertSame([], FakeServer::$committed, 'never autocommitted on its own');
 	}
 
 	/**
@@ -225,89 +275,163 @@ class TransactionRetryTest extends TestCase
 	}
 
 	/**
-	* A lost connection kills the link. halt() runs unlock(false) on it even with haltOnError 'no',
-	* which throws under MYSQLI_REPORT_STRICT, so query() throws (after reporting) instead of
-	* returning false; with failures returned it returns false. Nothing is re-run either way.
+	* A lost connection kills the link and the server rolls the transaction back with it. The dead link is
+	* closed and let go of, and the transaction is replayed on a new connection: the statement is never run
+	* on its own, and every write lands exactly once when the transaction commits.
 	*
 	* @dataProvider reportModes
 	* @param bool $strict
 	*/
 	#[DataProvider('reportModes')]
-	public function testLostConnectionInsideATransactionIsNotReRun($strict)
+	public function testLostConnectionInsideATransactionIsReplayedOnANewConnection($strict)
 	{
 		FakeServer::$strict = $strict;
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
 		FakeServer::failNext('/debit/', 2006);
-		$thrown = null;
-		$result = null;
-		try {
-			$result = $db->query('UPDATE wallet SET debit=debit+10 WHERE id=2', __LINE__, __FILE__);
-		} catch (\mysqli_sql_exception $e) {
-			$thrown = $e;
-		}
 
-		if ($strict) {
-			$this->assertNotNull($thrown, 'halt() -> unlock(false) throws on the dead link');
-			$this->assertSame(2006, $thrown->getCode());
-		} else {
-			$this->assertNull($thrown);
-			$this->assertFalse($result);
-		}
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertSame(1, FakeServer::$connections, 'no reconnect');
-		$this->assertSame(0, FakeServer::closes());
-		$this->assertFalse($db->inTransaction());
-		$this->assertSame(2006, (int) $db->Errno);
-		$this->assertCount(1, $db->reported, 'reported before halt() ran');
+		$result = $db->query('UPDATE wallet SET debit=debit+10 WHERE id=2', __LINE__, __FILE__);
+
+		$this->assertTrue($result, 'no exception, no false: the replay recovered it');
+		$this->assertSame(2, FakeServer::$connections, 'replayed on a new connection');
+		$this->assertSame(1, FakeServer::closes(), 'the dead link was closed');
+		$this->assertSame(
+			['START TRANSACTION', 'UPDATE wallet SET credit=credit+10 WHERE id=1', 'UPDATE wallet SET debit=debit+10 WHERE id=2'],
+			array_values(array_map(static function ($event) {
+				return $event[2];
+			}, array_filter(FakeServer::$wire, static function ($event) {
+				return $event[0] === 'query' && $event[1] === 2;
+			}))),
+			'the new connection got the whole transaction'
+		);
+		$this->assertTrue($db->inTransaction());
+		$this->assertFalse($db->lost());
+		$this->assertSame(0, (int) $db->Errno);
+		$this->assertSame([], $db->reported);
 		$this->assertSame([], FakeServer::$committed);
 
-		// the COMMIT is refused without touching the dead link
-		$dead = count(array_filter(FakeServer::$wire, static function ($event) {
-			return $event[0] === 'dead';
-		}));
-		$commit = null;
-		try {
-			$commit = $db->query('COMMIT', __LINE__, __FILE__);
-		} catch (\mysqli_sql_exception $e) {
-			$commit = 'thrown';
-		}
-		$this->assertContains($commit, [false, 'thrown']);
-		$this->assertNotSame(true, $commit);
+		$this->assertTrue($this->q($db, 'COMMIT'));
+		$this->assertSame(['UPDATE wallet SET credit=credit+10 WHERE id=1', 'UPDATE wallet SET debit=debit+10 WHERE id=2'], FakeServer::$committed, 'each write once');
+	}
+
+	/**
+	* When a lost connection cannot be replayed the statement gives up. The dead link is let go of, so halt()
+	* does not throw out of its UNLOCK TABLES (under any haltOnError) and the next statement, outside any
+	* transaction, opens a new connection at once instead of failing on the dead one.
+	*
+	* @dataProvider reportModes
+	* @param bool $strict
+	*/
+	#[DataProvider('reportModes')]
+	public function testALostConnectionThatCannotBeReplayedGivesUpAndLetsGoOfTheDeadLink($strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$db->haltOnError = 'report';
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'SET @tag = 1'), 'SET cannot be replayed');
+		FakeServer::failNext('/debit/', 2006);
+
+		$result = $db->query('UPDATE wallet SET debit=debit+10 WHERE id=2', __LINE__, __FILE__);
+
+		$this->assertFalse($result, 'no exception out of halt()');
+		$this->assertSame('report', $db->haltOnError);
+		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'));
+		$this->assertSame(1, FakeServer::$connections, 'no reconnect, not even for halt()\'s UNLOCK TABLES');
+		$this->assertSame(1, FakeServer::closes(), 'the dead link was closed');
+		$this->assertSame(0, $db->linkId);
+		$this->assertTrue($db->lost());
+		$this->assertSame(2006, (int) $db->Errno);
+		$this->assertCount(1, $db->reported);
+		$this->assertStringContainsString('Not replayed: it ran a statement a replay cannot repeat (SET)', FakeServer::$log[0]);
+
+		$this->assertFalse($this->q($db, 'COMMIT'), 'refused');
 		$this->assertSame(0, FakeServer::sent('COMMIT'));
-		// ... and a later unrelated statement reconnects, since it is outside any transaction
 		$this->assertTrue($this->q($db, 'INSERT INTO audit VALUES (1)'));
-		$this->assertSame(2, FakeServer::$connections);
+		$this->assertSame(2, FakeServer::$connections, 'a new connection, with no retry on the dead one first');
+		$this->assertSame([], FakeServer::$sleeps);
 		$this->assertSame(['INSERT INTO audit VALUES (1)'], FakeServer::$committed);
-		$this->assertGreaterThanOrEqual($dead, count(array_filter(FakeServer::$wire, static function ($event) {
-			return $event[0] === 'dead';
-		})));
 	}
 
 	public static function haltingModes()
 	{
 		return [
+			'no' => ['no'],
 			'report' => ['report'],
 		];
 	}
 
 	/**
+	* halt() runs unlock(false) after every failed statement. On a dead link that UNLOCK TABLES throws under
+	* MYSQLI_REPORT_STRICT; it used to escape halt() (so query() threw instead of returning false).
+	*
 	* @dataProvider haltingModes
 	* @param string $mode
 	*/
 	#[DataProvider('haltingModes')]
-	public function testStrictModeThrowsOutOfHaltWhenTheLinkIsDead($mode)
+	public function testHaltNeverThrowsOutOfItsUnlockOnADeadLink($mode)
 	{
 		FakeServer::$strict = true;
 		$db = $this->db();
+		$db->connect();
+		$db->linkId->dead = true;
 		$db->haltOnError = $mode;
-		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', 2006);
 
-		$this->expectException(\mysqli_sql_exception::class);
-		$this->expectExceptionCode(2006);
-		$db->query('UPDATE wallet SET debit=debit+10 WHERE id=2', __LINE__, __FILE__);
+		$this->assertTrue($db->halt(''), 'returned instead of throwing');
+		$this->assertSame(1, count(array_filter(FakeServer::$wire, static function ($event) {
+			return $event[0] === 'dead' && $event[2] === 'unlock tables';
+		})), 'the UNLOCK TABLES was tried');
+	}
+
+	/**
+	* With haltOnError 'yes' halt() still lets the strict-mode mysqli_sql_exception of its UNLOCK TABLES on a dead
+	* link escape, as it always did, instead of reaching its echo + die(): callers under 'yes' that catch it (a cron's
+	* retry loop, a failure path that must not end the request) rely on that.
+	*/
+	public function testHaltUnderYesStillThrowsTheUnlockFailureOnADeadLink()
+	{
+		FakeServer::$strict = true;
+		$db = $this->db();
+		$db->connect();
+		$db->linkId->dead = true;
+		$db->haltOnError = 'yes';
+
+		try {
+			$db->halt('');
+			$this->fail('no exception');
+		} catch (\mysqli_sql_exception $e) {
+			$this->assertSame(2006, $e->getCode());
+		}
+		$this->assertSame(1, count(array_filter(FakeServer::$wire, static function ($event) {
+			return $event[0] === 'dead' && $event[2] === 'unlock tables';
+		})), 'the UNLOCK TABLES was tried');
+	}
+
+	/**
+	* halt() swallows only the strict-mode mysqli_sql_exception of its UNLOCK TABLES. The \Error mysqli throws
+	* on a half-open link (a connect that failed with reporting off leaves the mysqli_init() object behind)
+	* still escapes, as it did before: MyAdmin's opt-out StoreDb relies on it to fail instead of reaching
+	* halt()'s echo + die(). A closed fake link that the driver still counts as half-open stands in for it.
+	*/
+	public function testHaltLetsTheErrorOfAHalfOpenLinkThrough()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$db->haltOnError = 'yes';
+		$db->connect();
+		$established = new \ReflectionProperty(\MyDb\Mysqli\Db::class, 'linkEstablished');
+		$established->setAccessible(true);
+		$established->setValue($db, false);
+		$db->linkId->close();
+
+		try {
+			$db->halt('connect failed');
+			$this->fail('halt() returned (or reached its die())');
+		} catch (\Error $e) {
+			$this->assertSame('mysqli object is already closed', $e->getMessage());
+		}
+		$this->assertSame([], $db->reported);
 	}
 
 	/**
@@ -351,10 +475,13 @@ class TransactionRetryTest extends TestCase
 		$this->assertTrue($this->q($db, $statement));
 
 		$this->assertTrue($db->inTransaction());
-		FakeServer::failNext('/debit/', 1213);
-		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'), 'still protected');
-		$this->assertFalse($db->inTransaction());
+		$before = count(FakeServer::statements());
+		$this->assertTransactionProtected($db);
+		$this->assertSame(
+			['UPDATE wallet SET debit=debit+10 WHERE id=2', 'ROLLBACK', 'START TRANSACTION', 'SAVEPOINT sp1', 'UPDATE wallet SET credit=credit+10 WHERE id=1', $statement, 'UPDATE wallet SET debit=debit+10 WHERE id=2'],
+			array_slice(FakeServer::statements(), $before),
+			'the savepoint statements are replayed in order with the rest'
+		);
 	}
 
 	public function testPlainRollbackStillEndsTheTransactionAfterSavepoints()
@@ -400,20 +527,23 @@ class TransactionRetryTest extends TestCase
 	public static function endingFailures()
 	{
 		return [
-			'COMMIT 3101, thrown' => ['COMMIT', 3101, true],
-			'COMMIT 3101, returned' => ['COMMIT', 3101, false],
-			'lowercase commit 3101' => ['commit', 3101, true],
-			'COMMIT 1213' => ['COMMIT', 1213, true],
 			'COMMIT 1180, thrown' => ['COMMIT', 1180, true],
 			'COMMIT 1180, returned' => ['COMMIT', 1180, false],
 			'COMMIT 2006, returned' => ['COMMIT', 2006, false],
+			'COMMIT 2006, thrown' => ['COMMIT', 2006, true],
+			'lowercase commit 2006' => ['commit', 2006, false],
+			'COMMIT 3100 (GR hook), thrown' => ['COMMIT', 3100, true],
+			'COMMIT 3100 (GR hook), returned' => ['COMMIT', 3100, false],
 		];
 	}
 
 	/**
 	* A COMMIT on a connection with no transaction succeeds as a no-op, so retrying one the server
-	* refused would report the rolled-back transaction as committed. (A ROLLBACK is the opposite: it is
-	* retried, see testAFailedRollbackIsRetriedAndAnswersTheTruth.)
+	* refused would report the rolled-back transaction as committed. Only a COMMIT the server rolled back
+	* with 1213/3101 is replayed (testACommitTheServerRolledBackIsReplayed); one that lost the connection may
+	* have committed, and any other failure ends the transaction too: none of them is retried or replayed,
+	* and each ends the transaction as lost. (A ROLLBACK is the opposite: it is retried, see
+	* testAFailedRollbackIsRetriedAndAnswersTheTruth.)
 	*
 	* @dataProvider endingFailures
 	* @param string $statement
@@ -434,12 +564,18 @@ class TransactionRetryTest extends TestCase
 		$this->assertFalse($result);
 		$this->assertSame(1, FakeServer::sent($statement), 'attempted exactly once');
 		$this->assertSame(1, FakeServer::$connections, 'no reconnect');
-		$this->assertSame(0, FakeServer::closes());
+		$this->assertSame($code === 2006 ? 1 : 0, FakeServer::closes(), 'a dead link is let go of');
+		$this->assertSame([], FakeServer::$sleeps, 'no replay');
 		$this->assertFalse($db->inTransaction());
+		$this->assertTrue($db->lost(), 'a later COMMIT is refused');
 		$this->assertSame($code, (int) $db->Errno);
 		$this->assertCount(1, $db->reported);
 		$this->assertCount(1, FakeServer::$log, json_encode(FakeServer::$log));
 		$this->assertSame([], FakeServer::$committed);
+		// every give-up on a usable link is followed by a ROLLBACK (a dead one is let go of instead)
+		$this->assertSame($code === 2006 ? 0 : 1, FakeServer::sent('ROLLBACK'));
+		$this->assertFalse($this->q($db, 'COMMIT'));
+		$this->assertSame($statement === 'COMMIT' ? 1 : 0, FakeServer::sent('COMMIT'), 'the retried COMMIT was refused');
 	}
 
 	public static function statementsAfterTheLinkIsLost()
@@ -451,9 +587,9 @@ class TransactionRetryTest extends TestCase
 	}
 
 	/**
-	* Clones share one link, and a clone's retry outside a transaction closes it for every holder.
-	* The holder inside the transaction must not quietly open a new connection, where its statement
-	* (or its COMMIT) would run with no transaction at all.
+	* Clones share one link, and a clone's retry outside a transaction after a connection error closes it for every
+	* holder. The holder inside the transaction must not quietly open a new connection, where its statement (or its
+	* COMMIT) would run with no transaction at all.
 	*
 	* @dataProvider statementsAfterTheLinkIsLost
 	* @param string $statement
@@ -466,7 +602,7 @@ class TransactionRetryTest extends TestCase
 		$other = clone $db;
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
-		FakeServer::failNext('/audit/', 1213, 31);
+		FakeServer::failNext('/audit/', 2006, 1);
 		$this->assertTrue($this->q($other, 'INSERT INTO audit VALUES (1)'), 'retried on a new connection, outside any transaction');
 		$this->assertSame(1, FakeServer::closes(), 'which closed the shared link');
 		$this->assertSame(2, FakeServer::$connections);
@@ -519,7 +655,7 @@ class TransactionRetryTest extends TestCase
 	* @param bool $strict
 	*/
 	#[DataProvider('reportModes')]
-	public function testCertificationFailureOutsideATransactionRetriesAndReconnectsThenGivesUp($strict)
+	public function testCertificationFailureOutsideATransactionIsRetriedOnTheSameConnectionThenGivesUp($strict)
 	{
 		FakeServer::$strict = $strict;
 		$db = $this->db();
@@ -527,10 +663,11 @@ class TransactionRetryTest extends TestCase
 
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
 
-		$this->assertSame(93, FakeServer::sent('UPDATE wallet SET credit=credit+10 WHERE id=1'), '31 attempts on each of 3 connections');
+		$this->assertSame(93, FakeServer::sent('UPDATE wallet SET credit=credit+10 WHERE id=1'), '31 attempts in each of 3 rounds');
 		$this->assertCount(93, FakeServer::$sleeps);
-		$this->assertSame(3, FakeServer::$connections);
-		$this->assertSame(2, FakeServer::closes());
+		// the connection is alive: closing it would take a transaction another handle has open on it (a clone) along
+		$this->assertSame(1, FakeServer::$connections);
+		$this->assertSame(0, FakeServer::closes());
 		$this->assertCount(1, $db->reported);
 		$this->assertCount(1, FakeServer::$log);
 		$this->assertStringContainsString('Got MySQLi 3101 Rollback Error 30 Times, Giving Up on UPDATE wallet', FakeServer::$log[0]);
@@ -606,10 +743,12 @@ class TransactionRetryTest extends TestCase
 			$this->assertStringNotContainsString('inside a transaction', $line);
 		}
 
+		// the replay re-runs the INSERT, which now succeeds: the caller saw it fail, so the replay gives up
 		FakeServer::failNext('/debit/', 1213);
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
 		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'));
 		$this->assertFalse($db->inTransaction());
+		$this->assertStringContainsString('a statement that failed now succeeds', end(FakeServer::$log));
 		$this->assertSame([], FakeServer::$committed);
 	}
 
@@ -628,9 +767,8 @@ class TransactionRetryTest extends TestCase
 		$this->assertTrue($db->inTransaction());
 		$this->assertSame([], $db->reported);
 
-		FakeServer::failNext('/debit/', 1213);
-		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'), 'the transaction it opened is protected');
+		// the transaction it opened is protected
+		$this->assertTransactionProtected($db);
 		$this->assertSame([], FakeServer::$committed);
 	}
 
@@ -646,9 +784,16 @@ class TransactionRetryTest extends TestCase
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		FakeServer::failNext('/uniq/', 1062);
 		$this->assertFalse($this->q($db, "INSERT INTO uniq (account_passwd) VALUES ('hunter2')"));
+		// replay abandoned: the INSERT that failed now succeeds
 		FakeServer::failNext('/account_id=2/', 1213);
 		$this->assertFalse($this->q($db, "UPDATE accounts SET account_passwd='hunter2' WHERE account_id=2"));
+		// replayed
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		FakeServer::failNext('/account_id=4/', 1213);
+		$this->assertTrue($this->q($db, "UPDATE accounts SET account_passwd='hunter2' WHERE account_id=4"));
+		// a closed link in a transaction that cannot be replayed
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "SET @secret = 'hunter2'"));
 		\MyDb\Mysqli\mysqli_close($db->linkId);
 		$this->assertFalse($db->query("UPDATE accounts SET account_passwd='hunter2' WHERE account_id=3", __LINE__, __FILE__));
 
@@ -656,7 +801,7 @@ class TransactionRetryTest extends TestCase
 		$this->assertSame([], array_values(array_filter(FakeServer::$log, static function ($line) {
 			return strpos($line, 'Refusing to reconnect') !== false;
 		})), 'a plain statement error leaves the loop without that line');
-		foreach (['inside a transaction; the server has rolled it back', 'Connection lost mid-transaction'] as $expected) {
+		foreach (['inside a transaction; the server has rolled it back', 'Connection lost mid-transaction', 'Replayed a transaction'] as $expected) {
 			$matching = array_filter(FakeServer::$log, static function ($line) use ($expected) {
 				return strpos($line, $expected) !== false;
 			});
@@ -677,9 +822,11 @@ class TransactionRetryTest extends TestCase
 	{
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', 1213);
+		FakeServer::failNext('/debit/', 1213, self::ALWAYS);
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
 		$this->assertTrue($db->lost());
+		// the conflict is over: what the test runs next is not scripted to fail
+		FakeServer::$failures = [];
 		return $db;
 	}
 
@@ -794,7 +941,7 @@ class TransactionRetryTest extends TestCase
 		FakeServer::$strict = false;
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', $code);
+		FakeServer::failNext('/debit/', $code, self::ALWAYS);
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
 		$this->assertSame($code, (int) $db->Errno);
 
@@ -820,7 +967,7 @@ class TransactionRetryTest extends TestCase
 		FakeServer::$strict = false;
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/^COMMIT$/', $code);
+		FakeServer::failNext('/^COMMIT$/', $code, self::ALWAYS);
 		$this->assertFalse($db->transactionCommit());
 
 		$this->assertFalse($db->transactionCommit());
@@ -841,6 +988,25 @@ class TransactionRetryTest extends TestCase
 		$this->assertSame(1, FakeServer::sent('COMMIT'));
 	}
 
+	/**
+	* detach() lets go of the connection and with it of the transaction: inTransaction is cleared, so a
+	* statement on the new connection is not taken for one inside a transaction (it is retried, not replayed).
+	*/
+	public function testDetachForgetsAnOpenTransaction()
+	{
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($db->inTransaction());
+
+		$db->detach();
+
+		$this->assertFalse($db->inTransaction());
+		FakeServer::failNext('/debit/', 1213, 1);
+		$this->assertTrue($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
+		$this->assertSame([250000], FakeServer::$sleeps, 'the retry outside transactions, not a replay');
+		$this->assertSame(['UPDATE wallet SET debit=debit+10 WHERE id=2'], FakeServer::$committed);
+	}
+
 	public function testTransactionAbortClearsTheLostFlagWithoutALink()
 	{
 		$db = $this->db();
@@ -856,7 +1022,7 @@ class TransactionRetryTest extends TestCase
 		$this->assertTrue($db->transactionBegin());
 		$this->assertFalse($db->lost());
 		$this->assertTrue($db->inTransaction());
-		$this->assertSame(1, FakeServer::sent('START TRANSACTION') - 1, 'sent through mysqli_begin_transaction');
+		$this->assertSame('START TRANSACTION', end(FakeServer::$wire)[2], 'sent through mysqli_begin_transaction');
 		$this->assertTrue($this->q($db, 'COMMIT'), 'a COMMIT is no longer refused');
 	}
 
@@ -886,31 +1052,19 @@ class TransactionRetryTest extends TestCase
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'UPDATE accounts SET a=1 WHERE id=1'));
-		FakeServer::failNext('/^COMMIT$/', $code);
-		// halt()'s unlock() on a dead link throws under strict mode (accepted), after the flags were set
-		$attempt = function ($call) use ($code, $strict) {
-			try {
-				return $call();
-			} catch (\mysqli_sql_exception $e) {
-				$this->assertSame(2006, $code);
-				$this->assertTrue($strict);
-				return false;
-			}
-		};
-		$this->assertFalse($attempt(function () use ($db) {
-			return $this->q($db, 'COMMIT');
-		}));
+		FakeServer::failNext('/^COMMIT$/', $code, self::ALWAYS);
+		// nothing throws: halt() swallows its UNLOCK TABLES on a dead link
+		$this->assertFalse($this->q($db, 'COMMIT'));
 		$this->assertTrue($db->lost());
 		$this->assertFalse($db->inTransaction());
+		$sent = FakeServer::sent('COMMIT');
+		// 1213/3101 were replayed (the COMMIT ran once in each replay) before giving up; 1180 and 2006 were not
+		$this->assertSame(in_array($code, [1213, 3101], true) ? 4 : 1, $sent);
 
-		$this->assertFalse($attempt(function () use ($db) {
-			return $this->q($db, 'COMMIT');
-		}), 'the retry is refused');
-		$this->assertFalse($attempt(function () use ($db) {
-			return $db->transactionCommit();
-		}));
+		$this->assertFalse($this->q($db, 'COMMIT'), 'the retry is refused');
+		$this->assertFalse($db->transactionCommit());
 
-		$this->assertSame(1, FakeServer::sent('COMMIT'), 'only the first COMMIT reached a server');
+		$this->assertSame($sent, FakeServer::sent('COMMIT'), 'neither retry reached a server');
 		$this->assertSame(1, FakeServer::$connections, 'no new connection for the retry');
 		$this->assertSame([], FakeServer::$committed);
 	}
@@ -998,18 +1152,21 @@ class TransactionRetryTest extends TestCase
 	}
 
 	/**
-	* ROLLBACK TO SAVEPOINT stays inside the transaction: a give-up, never a retry or a new connection.
+	* ROLLBACK TO SAVEPOINT stays inside the transaction: replayed with it, never retried on its own or on a
+	* new connection, and a give-up once the replays run out.
 	*/
 	public function testRollbackToSavepointIsStillNeverRetried()
 	{
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'SAVEPOINT sp1'));
-		FakeServer::failNext('/^ROLLBACK TO/', 1213, 5);
+		FakeServer::failNext('/^ROLLBACK TO/', 1213, self::ALWAYS);
 
 		$this->assertFalse($this->q($db, 'ROLLBACK TO SAVEPOINT sp1'));
 
-		$this->assertSame(1, FakeServer::sent('ROLLBACK TO SAVEPOINT sp1'));
+		$this->assertSame(4, FakeServer::sent('ROLLBACK TO SAVEPOINT sp1'), 'once, then in each of 3 replays');
+		$this->assertSame(4, FakeServer::sent('SAVEPOINT sp1'), 'each replay re-created the savepoint first');
+		$this->assertSame(self::REPLAY_SLEEPS, FakeServer::$sleeps);
 		$this->assertSame(1, FakeServer::$connections);
 		$this->assertTrue($db->lost());
 	}
@@ -1038,10 +1195,9 @@ class TransactionRetryTest extends TestCase
 		$db = $this->db();
 		$this->assertTrue($this->q($db, $start));
 		$this->assertTrue($db->inTransaction(), 'recognised: '.json_encode($start));
-		FakeServer::failNext('/debit/', 1213);
-		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'), 'protected, not retried');
-		$this->assertTrue($db->lost());
+		$this->assertTransactionProtected($db);
+		$this->assertContains($start, FakeServer::statements(), 'the replay opened the transaction with the same statement');
+		$this->assertSame(2, count(array_keys(FakeServer::statements(), $start)));
 	}
 
 	public static function commentedCommits()
@@ -1151,10 +1307,7 @@ class TransactionRetryTest extends TestCase
 		$this->assertTrue($this->q($db, $statement));
 
 		$this->assertTrue($db->inTransaction(), 'the chained transaction is open');
-		FakeServer::failNext('/debit/', 1213);
-		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'), 'so it is protected');
-		$this->assertFalse($db->inTransaction());
+		$this->assertTransactionProtected($db);
 	}
 
 	public static function noChainStatements()
@@ -1274,9 +1427,8 @@ class TransactionRetryTest extends TestCase
 		$this->assertSame([], $db->reported);
 		$this->assertCount(1, FakeServer::$log, 'the one line the original flow logged');
 		$this->assertStringContainsString('2006 inside a transaction', FakeServer::$log[0]);
-		FakeServer::failNext('/debit/', 1213);
-		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertSame(1, FakeServer::sent('UPDATE wallet SET debit=debit+10 WHERE id=2'), 'and the transaction is protected');
+		// and the transaction is protected
+		$this->assertTransactionProtected($db);
 	}
 
 	public static function linkLostStatements()
@@ -1302,7 +1454,7 @@ class TransactionRetryTest extends TestCase
 		$db->connect();
 		$other = clone $db;
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/audit/', 1213, 31);
+		FakeServer::failNext('/audit/', 2006, 1);
 		$this->assertTrue($this->q($other, 'INSERT INTO audit VALUES (1)'), 'closes the shared link');
 		$this->assertSame(!$lost, (bool) $db->query($statement, __LINE__, __FILE__));
 		$this->assertSame($lost, $db->lost());
@@ -1328,7 +1480,7 @@ class TransactionRetryTest extends TestCase
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'UPDATE accounts SET a=1 WHERE id=1'));
-		FakeServer::failNext('/^COMMIT$/', $code);
+		FakeServer::failNext('/^COMMIT$/', $code, self::ALWAYS);
 
 		$thrown = false;
 		$result = null;
@@ -1376,7 +1528,7 @@ class TransactionRetryTest extends TestCase
 		$db->connect();
 		$other = clone $db;
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/audit/', 1213, 31);
+		FakeServer::failNext('/audit/', 2006, 1);
 		$this->assertTrue($this->q($other, 'INSERT INTO audit VALUES (1)'), 'closes the shared link');
 
 		$this->assertFalse($db->transactionCommit(), 'fails like a failed commit instead of reaching mysqli with a closed link');
@@ -1397,14 +1549,115 @@ class TransactionRetryTest extends TestCase
 		$this->assertFalse($db->inTransaction());
 	}
 
-	public function testTransactionCommitFailingWithAnotherErrorIsNotLost()
+	/**
+	* A COMMIT that fails on the server with any other error (here 3100, a Group Replication hook error, which
+	* is not replayed) ended the transaction: it is lost, a ROLLBACK makes sure the server is out of it, and
+	* a retried COMMIT is refused instead of "succeeding" with nothing to commit. mysqli_commit() cannot
+	* fail with a syntax error; 1064 was a stand-in that hid this.
+	*
+	* @dataProvider reportModes
+	* @param bool $strict
+	*/
+	#[DataProvider('reportModes')]
+	public function testTransactionCommitFailingWithAnyOtherServerErrorEndsTheTransaction($strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'UPDATE accounts SET a=1 WHERE id=1'));
+		FakeServer::failNext('/^COMMIT$/', 3100);
+
+		$this->assertFalse($this->attempt(function () use ($db) {
+			return $db->transactionCommit();
+		}));
+
+		$this->assertTrue($db->lost());
+		$this->assertFalse($db->inTransaction());
+		$this->assertSame(3100, (int) $db->Errno);
+		$this->assertSame(1, FakeServer::sent('COMMIT'), 'not replayed');
+		$this->assertSame(1, FakeServer::sent('ROLLBACK'), 'the server is told the transaction is over');
+		$this->assertSame([], FakeServer::$sleeps);
+		$this->assertFalse($db->transactionCommit(), 'a retried COMMIT is refused');
+		$this->assertFalse($this->q($db, 'COMMIT'));
+		$this->assertSame(1, FakeServer::sent('COMMIT'));
+		$this->assertSame([], FakeServer::$committed);
+	}
+
+	public static function neverSentCommits()
+	{
+		return [
+			'transactionCommit(), returned' => ['api', false],
+			'transactionCommit(), thrown' => ['api', true],
+			'query(COMMIT), returned' => ['query', false],
+			'query(COMMIT), thrown' => ['query', true],
+		];
+	}
+
+	/**
+	* 2014 (commands out of sync) is a COMMIT that never reached the server: the transaction is still open there.
+	* It is given up (a retried COMMIT, or a replay, must never send it mid-transaction) and its connection closed,
+	* which ends the transaction on the server, so nothing is committed and the caller can run it again: the
+	* CcMeta shape (a failed COMMIT, then transactionBegin() for the next attempt) must not commit the first
+	* attempt's INSERT through the next START's implicit commit.
+	*
+	* @dataProvider neverSentCommits
+	* @param string $how
+	* @param bool $strict
+	*/
+	#[DataProvider('neverSentCommits')]
+	public function testACommitThatNeverReachedTheServerIsGivenUpAndItsConnectionClosed($how, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$this->assertTrue(FakeServer::$implicitBegin);
+		$this->assertTrue($db->transactionBegin());
+		$this->assertTrue($this->q($db, 'INSERT INTO cards VALUES (NULL)'));
+		FakeServer::failNext('/^COMMIT$/', 2014);
+
+		$this->assertFalse($this->attempt(function () use ($db, $how) {
+			return $how === 'api' ? $db->transactionCommit() : $this->q($db, 'COMMIT');
+		}));
+
+		$this->assertSame(2014, (int) $db->Errno);
+		$this->assertTrue($db->lost(), 'a later COMMIT is refused');
+		$this->assertFalse($db->inTransaction());
+		$this->assertSame(1, FakeServer::closes(), 'the connection is closed: the server ends the transaction with it');
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'), 'a ROLLBACK would be out of sync too');
+		$this->assertSame([], FakeServer::$open);
+		$this->assertSame([], FakeServer::$committed);
+		$this->assertSame([], FakeServer::$sleeps, 'no replay');
+		$this->assertSame($how === 'api' ? [] : [['COMMIT', 'Error #2014: '.$db->Error]], $db->reported, 'query() reports it like any failed COMMIT');
+
+		// the caller's next attempt
+		$this->assertTrue($db->transactionBegin(), 'a new connection, a new transaction');
+		$this->assertSame(2, FakeServer::$connections);
+		$this->assertTrue($this->q($db, 'INSERT INTO cards VALUES (NULL)'));
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(['INSERT INTO cards VALUES (NULL)'], FakeServer::$committed, 'one card, not two');
+	}
+
+	/**
+	* A COMMIT that never reached the server (2014) is never recorded as a statement of the transaction: a later
+	* replay must not send a COMMIT mid-transaction (it would commit half of the replayed transaction).
+	*/
+	public function testACommitThatNeverReachedTheServerIsNeverReplayed()
 	{
 		FakeServer::$strict = false;
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/^COMMIT$/', 1064);
-		$this->assertFalse($db->transactionCommit());
-		$this->assertFalse($db->lost());
+		$this->assertTrue($this->q($db, 'INSERT INTO a VALUES (1)'));
+		FakeServer::failNext('/^COMMIT$/', 2014);
+		$this->assertFalse($this->q($db, 'COMMIT'));
+		$this->assertTrue($this->q($db, 'ROLLBACK'), 'clears the lost record');
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO x VALUES (1)'));
+		FakeServer::failNext('/INTO y/', 1213);
+
+		$this->assertTrue($this->q($db, 'INSERT INTO y VALUES (1)'), 'replayed');
+		$this->assertTrue($this->q($db, 'COMMIT'));
+
+		$this->assertSame(['INSERT INTO x VALUES (1)', 'INSERT INTO y VALUES (1)'], FakeServer::$committed);
+		$this->assertSame(2, FakeServer::sent('COMMIT'), 'the failed one and the last one: none mid-replay');
 	}
 
 	/**
@@ -1522,7 +1775,7 @@ class TransactionRetryTest extends TestCase
 		FakeServer::$strict = false;
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/debit/', 2006);
+		FakeServer::failNext('/debit/', 2006, self::ALWAYS);
 		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
 		$this->assertTrue($db->lost());
 		$db->detach();
@@ -1593,7 +1846,7 @@ class TransactionRetryTest extends TestCase
 		$db->connect();
 		$other = clone $db;
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/audit/', 1213, 31);
+		FakeServer::failNext('/audit/', 2006, 1);
 		$this->assertTrue($this->q($other, 'INSERT INTO audit VALUES (1)'), 'closes the shared link');
 		return [$db, $other];
 	}
@@ -1687,7 +1940,7 @@ class TransactionRetryTest extends TestCase
 		$db = $this->db();
 		$db->connect();
 		$other = clone $db;
-		FakeServer::failNext('/audit/', 1213, 31);
+		FakeServer::failNext('/audit/', 2006, 1);
 		$this->assertTrue($this->q($other, 'INSERT INTO audit VALUES (1)'));
 		$connections = FakeServer::$connections;
 
@@ -1727,32 +1980,35 @@ class TransactionRetryTest extends TestCase
 
 	public static function inTransactionRollbackForms()
 	{
+		// [statement, whether a replay can repeat it (only a ROLLBACK TO it can read without a comment in the way)]
 		return [
-			'comment between the words' => ['ROLLBACK /*c*/ TO SAVEPOINT s1'],
-			'comments, no spaces' => ['ROLLBACK/**/WORK/**/TO s1'],
-			'dash comment' => ["ROLLBACK -- c\n TO SAVEPOINT s1"],
-			'hash comment' => ["ROLLBACK # c\n TO SAVEPOINT s1"],
-			'executable comment' => ['ROLLBACK /*!50000 TO SAVEPOINT s1*/'],
-			'leading and inner comment' => ['/* a */ ROLLBACK /* b */ WORK /* c */ TO s1'],
-			'quoted' => ["ROLLBACK TO SAVEPOINT `s1`"],
-			'unknown form' => ['ROLLBACK FOO'],
+			'comment between the words' => ['ROLLBACK /*c*/ TO SAVEPOINT s1', false],
+			'comments, no spaces' => ['ROLLBACK/**/WORK/**/TO s1', false],
+			'dash comment' => ["ROLLBACK -- c\n TO SAVEPOINT s1", false],
+			'hash comment' => ["ROLLBACK # c\n TO SAVEPOINT s1", false],
+			'executable comment' => ['ROLLBACK /*!50000 TO SAVEPOINT s1*/', false],
+			'leading and inner comment' => ['/* a */ ROLLBACK /* b */ WORK /* c */ TO s1', false],
+			'quoted' => ["ROLLBACK TO SAVEPOINT `s1`", true],
+			'unknown form' => ['ROLLBACK FOO', false],
 		];
 	}
 
 	/**
 	* @dataProvider inTransactionRollbackForms
 	* @param string $statement
+	* @param bool $replayable
 	*/
 	#[DataProvider('inTransactionRollbackForms')]
-	public function testAnyRollbackFormButAPlainOneIsGuardedAndNeverRetried($statement)
+	public function testAnyRollbackFormButAPlainOneIsGuardedAndNeverRetried($statement, $replayable)
 	{
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
-		FakeServer::failNext('/rollback/i', 1213);
+		FakeServer::failNext('/^'.preg_quote($statement, '/').'$/', 1213, self::ALWAYS);
 
 		$this->assertFalse($this->q($db, $statement));
 
-		$this->assertSame(1, FakeServer::sent($statement), 'sent once');
+		$this->assertSame($replayable ? 4 : 1, FakeServer::sent($statement), 'sent once, or once more in each replay; never retried on its own');
+		$this->assertSame($replayable ? self::REPLAY_SLEEPS : [], FakeServer::$sleeps);
 		$this->assertSame(1, FakeServer::$connections);
 		$this->assertTrue($db->lost(), 'the transaction is lost');
 	}
@@ -1877,12 +2133,15 @@ class TransactionRetryTest extends TestCase
 		$db = $this->db();
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=1 WHERE id=1'));
-		FakeServer::failNext('/^(start|begin)/i', $code, 5);
+		FakeServer::failNext('/^(start|begin)/i', $code, self::ALWAYS);
 		$before = FakeServer::sent($statement);
 
 		$this->assertFalse($this->q($db, $statement));
 
-		$this->assertSame($before + 1, FakeServer::sent($statement), 'not retried');
+		// a START that commits the open transaction is replayed like a COMMIT on 1213 (each replay fails on its
+		// START TRANSACTION here), never after a lost connection; it is not retried on its own either way
+		$this->assertSame($before + 1 + ($code === 1213 && $statement === 'START TRANSACTION' ? 3 : 0), FakeServer::sent($statement), 'not retried');
+		$this->assertSame($code === 1213 ? self::REPLAY_SLEEPS : [], FakeServer::$sleeps);
 		$this->assertSame(1, FakeServer::$connections, 'no reconnect');
 		$this->assertTrue($db->lost());
 		$this->assertFalse($db->inTransaction());
@@ -1912,8 +2171,206 @@ class TransactionRetryTest extends TestCase
 		$db = $this->db();
 		$this->assertTrue($db->transactionBegin());
 		$this->assertTrue($db->inTransaction());
-		FakeServer::failNext('/debit/', 1213);
-		$this->assertFalse($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'));
-		$this->assertTrue($db->lost());
+		$this->assertTransactionProtected($db);
+		$this->assertSame(2, FakeServer::sent('START TRANSACTION'), 'the replay began it again through mysqli_begin_transaction()');
+	}
+
+	public static function noRetryErrors()
+	{
+		$cases = [];
+		foreach ([1062, 1054, 1146, 1064, 1142] as $code) {
+			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+				$cases[$code.' '.$mode] = [$code, $strict];
+			}
+		}
+		return $cases;
+	}
+
+	/**
+	* F5: outside a transaction a statement that would fail the same way again (a duplicate key, a syntax error, an
+	* unknown column or table, a missing privilege: NO_RETRY_ERRORS) is sent once: no retry, no reconnect. It fails,
+	* and is reported, as it always did. Before, it was sent three times, the connection closed and reopened twice.
+	*
+	* @dataProvider noRetryErrors
+	* @param int $code
+	* @param bool $strict
+	*/
+	#[DataProvider('noRetryErrors')]
+	public function testAnErrorTheStatementWouldHitAgainIsNotRetriedOutsideATransaction($code, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		FakeServer::failNext('/^INSERT INTO uniq/', $code, self::ALWAYS);
+
+		$this->assertFalse($this->attempt(function () use ($db) {
+			return $this->q($db, 'INSERT INTO uniq VALUES (1)');
+		}));
+
+		$this->assertSame(1, FakeServer::sent('INSERT INTO uniq VALUES (1)'));
+		$this->assertSame(1, FakeServer::$connections);
+		$this->assertSame(0, FakeServer::closes());
+		$this->assertSame([], FakeServer::$sleeps);
+		$this->assertSame($code, (int) $db->Errno);
+		$this->assertCount(1, $db->reported);
+	}
+
+	/**
+	* F5: any other error may go away (a lock wait timeout, a read-only member...): it is retried for the three rounds
+	* it always had, with the same result, but on the same connection, which is never closed for it.
+	*
+	* @dataProvider reportModes
+	* @param bool $strict
+	*/
+	#[DataProvider('reportModes')]
+	public function testAnyOtherErrorOutsideATransactionIsRetriedOnTheSameConnection($strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		FakeServer::failNext('/^UPDATE wallet/', 1205, 2);
+
+		$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
+
+		$this->assertSame(3, FakeServer::sent('UPDATE wallet SET credit=credit+10 WHERE id=1'), 'it went through on the third round, as before');
+		$this->assertSame(1, FakeServer::$connections);
+		$this->assertSame(0, FakeServer::closes());
+		$this->assertSame([], $db->reported);
+		$this->assertSame(['UPDATE wallet SET credit=credit+10 WHERE id=1'], FakeServer::$committed);
+	}
+
+	/**
+	* @dataProvider reportModes
+	* @param bool $strict
+	*/
+	#[DataProvider('reportModes')]
+	public function testAnyOtherErrorThatPersistsOutsideATransactionFailsAfterThreeRoundsOnTheSameConnection($strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		FakeServer::failNext('/^UPDATE wallet/', 1205, self::ALWAYS);
+
+		$this->assertFalse($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
+
+		$this->assertSame(3, FakeServer::sent('UPDATE wallet SET credit=credit+10 WHERE id=1'));
+		$this->assertSame(1, FakeServer::$connections);
+		$this->assertSame(0, FakeServer::closes());
+		$this->assertSame(1205, (int) $db->Errno);
+		$this->assertCount(1, $db->reported);
+		$this->assertSame([], FakeServer::$committed);
+	}
+
+	public static function connectionErrors()
+	{
+		$cases = [];
+		foreach ([2006, 2013, 2055, 4031] as $code) {
+			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+				$cases[$code.' '.$mode] = [$code, $strict];
+			}
+		}
+		return $cases;
+	}
+
+	/**
+	* F5: a statement outside a transaction that lost the connection (RECONNECT_ERRORS) is still retried on a new
+	* connection, the dead one closed first, as always.
+	*
+	* @dataProvider connectionErrors
+	* @param int $code
+	* @param bool $strict
+	*/
+	#[DataProvider('connectionErrors')]
+	public function testAConnectionErrorOutsideATransactionIsRetriedOnANewConnection($code, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		FakeServer::failNext('/^UPDATE wallet/', $code, 1);
+
+		$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
+
+		$this->assertSame(2, FakeServer::sent('UPDATE wallet SET credit=credit+10 WHERE id=1'));
+		$this->assertSame(2, FakeServer::$connections);
+		$this->assertSame(1, FakeServer::closes());
+		$this->assertSame(['UPDATE wallet SET credit=credit+10 WHERE id=1'], FakeServer::$committed);
+	}
+
+	public static function failuresBesideAnOpenTransaction()
+	{
+		return [
+			'1062 duplicate key (not retried)' => [1062, 1],
+			'1054 unknown column (not retried)' => [1054, 1],
+			'1205 lock wait timeout (retried on the same connection)' => [1205, 3],
+		];
+	}
+
+	/**
+	* F5: a statement another handle sharing the connection (a get_module_db() clone) runs outside a transaction of its
+	* own fails: its retry must never close the connection, which holds this handle's open transaction (closing it
+	* rolls that back). Before, the second round closed it and this transaction was lost.
+	*
+	* @dataProvider failuresBesideAnOpenTransaction
+	* @param int $code
+	* @param int $sent
+	*/
+	#[DataProvider('failuresBesideAnOpenTransaction')]
+	public function testAnotherHandlesFailureOutsideATransactionNeverClosesTheConnectionUnderAnOpenOne($code, $sent)
+	{
+		$db = $this->db();
+		$db->connect();
+		$other = clone $db;
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
+		FakeServer::failNext('/^INSERT INTO uniq/', $code, self::ALWAYS);
+
+		$this->assertFalse($this->attempt(function () use ($other) {
+			return $this->q($other, 'INSERT INTO uniq VALUES (1)');
+		}));
+
+		$this->assertSame($sent, FakeServer::sent('INSERT INTO uniq VALUES (1)'));
+		$this->assertSame(0, FakeServer::closes(), 'the connection holding the transaction was not closed');
+		$this->assertSame(1, FakeServer::$connections);
+		$this->assertTrue($this->q($db, 'UPDATE wallet SET debit=debit+10 WHERE id=2'), 'the transaction is still open');
+		$this->assertTrue($this->q($db, 'COMMIT'));
+		$this->assertFalse($db->lost());
+		$this->assertSame(['UPDATE wallet SET credit=credit+10 WHERE id=1', 'UPDATE wallet SET debit=debit+10 WHERE id=2'], FakeServer::$committed);
+	}
+
+	public static function outOfSync()
+	{
+		return [
+			'nothing open on the connection' => [false],
+			'another handle has a transaction open on it' => [true],
+		];
+	}
+
+	/**
+	* F5: commands out of sync (2014) leaves a live connection with results pending, which a new connection clears:
+	* the retry closes it and opens a new one as before, unless another handle sharing it has a transaction open
+	* there (closing it would roll that back); then it stays on it.
+	*
+	* @dataProvider outOfSync
+	* @param bool $open
+	*/
+	#[DataProvider('outOfSync')]
+	public function testCommandsOutOfSyncReconnectsOnlyWhenNoOtherHandleHasATransactionOpen($open)
+	{
+		$db = $this->db();
+		$db->connect();
+		$other = clone $db;
+		if ($open) {
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, 'UPDATE wallet SET credit=credit+10 WHERE id=1'));
+		}
+		FakeServer::failNext('/^INSERT INTO log/', 2014, 1);
+
+		$this->assertTrue($this->attempt(function () use ($other) {
+			return $this->q($other, 'INSERT INTO log VALUES (1)');
+		}));
+
+		$this->assertSame($open ? 0 : 1, FakeServer::closes());
+		$this->assertSame($open ? 1 : 2, FakeServer::$connections);
+		if ($open) {
+			$this->assertTrue($this->q($db, 'COMMIT'));
+			$this->assertFalse($db->lost());
+			$this->assertContains('UPDATE wallet SET credit=credit+10 WHERE id=1', FakeServer::$committed);
+		}
 	}
 }

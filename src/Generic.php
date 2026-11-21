@@ -103,6 +103,43 @@ abstract class Generic
     protected $transactionLostError = '';
 
     /**
+     * Whether a transaction conflict that could not be recovered is reported (MySQLi driver).
+     *
+     * A statement or COMMIT inside a transaction that the server rolled back with a deadlock (1213) or a
+     * Group Replication certification failure (3101) is replayed by the MySQLi driver (see Mysqli\Db::query()).
+     * When the replay cannot recover it, the statement fails through emailError() and halt() like any other.
+     * With this set to false that failure, and the refusal of the COMMIT that follows it, is handed to the
+     * caller instead: query() returns false with Errno/Error set and one error_log() line, and neither
+     * emailError() nor halt() runs. Meant for a caller that retries the whole transaction itself and reports
+     * only its final failure (MyAdmin's Session::deleteSessionRows()). Every other failure is reported as
+     * always.
+     *
+     * @var bool
+     */
+    public $reportConflicts = true;
+
+    /**
+     * Whether a statement that finally fails is reported through emailError() (MySQLi driver).
+     *
+     * With this set to false no failure of this handle is mailed: the statement fails as always (query()
+     * returns false with Errno/Error set, and halt() runs as haltOnError says, so 'yes' still ends the process),
+     * and one error_log() line says the report was left to the caller. Meant for a caller that reports a failure
+     * itself, once, with what it was doing, and not through a database handle: MyAdmin's Session on a connection
+     * of its own, while the request's connection has a transaction open (emailError() can write a `log` row
+     * through the application's handle, which would join that transaction).
+     *
+     * @var bool
+     */
+    public $reportFailures = true;
+
+    /**
+     * Set while halt() runs unlock(false), so unlock() can tell that call from one the caller made.
+     *
+     * @var bool
+     */
+    protected $haltUnlocking = false;
+
+    /**
      * Report whether a transaction is currently open on this connection.
      *
      * @return bool
@@ -282,21 +319,26 @@ abstract class Generic
      * AUTOCOMMIT=0 (an implicit transaction) is not tracked.
      *
      * @param string $queryString
-     * @return void
+     * @return string|null what the statement did to the transaction: 'start' (START TRANSACTION/BEGIN), 'end'
+     *                     (COMMIT/ROLLBACK), 'chain' (COMMIT/ROLLBACK AND CHAIN), or null (anything else)
      */
     protected function trackTransactionState($queryString)
     {
         $normalized = static::leadingKeywordSql($queryString);
         if (preg_match('/^(start\s+transaction|begin\s+work|begin)\b/i', $normalized)) {
             $this->inTransaction = true;
-        } elseif (preg_match('/^(commit|rollback)\b/i', $normalized)) {
+            return 'start';
+        }
+        if (preg_match('/^(commit|rollback)\b/i', $normalized)) {
             // a comment between the words (ROLLBACK, comment, TO SAVEPOINT) must not hide the form
             $clean = static::withoutComments($normalized);
             if (preg_match('/^(commit|rollback)\b(?!\s+(?:work\s+)?to\b)/i', $clean)) {
                 // AND CHAIN starts the next transaction at once, unless the session is released (AND CHAIN RELEASE)
                 $this->inTransaction = preg_match('/^(?:commit|rollback)\b(?:\s+work)?\s+and\s+chain\b(?!\s+release\b)/i', $clean) === 1;
+                return $this->inTransaction ? 'chain' : 'end';
             }
         }
+        return null;
     }
 
     /**
@@ -487,8 +529,28 @@ abstract class Generic
      */
     public function halt($msg, $line = '', $file = '')
     {
-        $this->unlock(false);
-        /* Just in case there is a table currently locked */
+        /*
+         * Just in case there is a table currently locked. On a connection that is gone the UNLOCK TABLES throws
+         * mysqli_sql_exception under MYSQLI_REPORT_STRICT. With haltOnError 'no' or 'report' that exception is
+         * swallowed here (nothing is locked on a connection that is gone), so the failed statement returns false
+         * as those modes promise instead of throwing. With 'yes' it still escapes, as it always has, instead of
+         * reaching the echo + die() below: callers that catch it rely on that (a cron's retry loop, a failure
+         * path that must not end the request, a script's failure exit code). The \Error mysqli throws on a
+         * half-open link (a connect that failed with reporting off leaves the mysqli_init() object behind, "not
+         * fully initialized") escapes in every mode, as it always has (MyAdmin's opt-out StoreDb relies on it).
+         */
+        // put back as it was, not cleared: a halt() inside that unlock() must not end the outer one's flag early
+        $unlocking = $this->haltUnlocking;
+        $this->haltUnlocking = true;
+        try {
+            $this->unlock(false);
+        } catch (\mysqli_sql_exception $e) {
+            if ($this->haltOnError != 'no' && $this->haltOnError != 'report') {
+                throw $e;
+            }
+        } finally {
+            $this->haltUnlocking = $unlocking;
+        }
 
         //$this->Error = @$this->linkId->error;
         //$this->Errno = @$this->linkId->errno;
@@ -549,7 +611,9 @@ abstract class Generic
     /**
      * Returns $queryString safe to put in a log line or an error email. A
      * query that names a secret-looking column (password, token, api key,
-     * card data, ...) has every quoted string literal replaced, so legacy
+     * card data, a session id: session ids are bearer tokens, so sessions,
+     * appsession and access_log statements are covered too, ...) has every
+     * quoted string literal replaced, so legacy
      * SQL like "account_passwd=md5('...')" or an INSERT carrying a root
      * password never leaves the database layer in clear text. Queries that
      * name no such column are returned unchanged so ordinary SQL errors stay
@@ -564,7 +628,7 @@ abstract class Generic
     {
         $queryString = (string) $queryString;
         $context = $context === null ? $queryString : (string) $context;
-        if (preg_match('/pass|pwd|secret|token|cvv|ccv|api_?key|cc_?num|card|salt/i', $context) !== 1) {
+        if (preg_match('/pass|pwd|secret|token|cvv|ccv|api_?key|cc_?num|card|salt|session_?id|as_sid|access_sid|history_sid|referrer_sid|appsession/i', $context) !== 1) {
             return $queryString;
         }
         return (string) preg_replace(
@@ -682,6 +746,16 @@ abstract class Generic
      * @var bool
      */
     private static $inEmailError = false;
+
+    /**
+     * Whether an SQL error is being reported right now (emailError() is running, on any instance).
+     *
+     * @return bool
+     */
+    protected static function reportingError()
+    {
+        return self::$inEmailError;
+    }
 
     public function emailError($queryString, $error, $line, $file)
     {

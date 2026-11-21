@@ -12,20 +12,37 @@
  * FakeServer keeps one server-side transaction per connection, so a test can see what would really
  * have been committed: a deadlock (1213), a certification failure (3101) or a lost connection (2006)
  * throws the connection's whole transaction away, as MySQL does; other errors fail the statement only.
+ * With $implicitBegin (the default, as MySQL's trans_rollback_implicit() does) a 1213/3101 on a statement
+ * inside START TRANSACTION leaves the connection in a new, empty transaction, so later statements are not
+ * autocommitted until a ROLLBACK/COMMIT/START; a COMMIT that fails, with any code, ends the transaction, and so
+ * does a START/BEGIN (its implicit commit) unless it did not parse. A 2014 (commands out of sync) never reached
+ * the server and changes nothing there.
+ *
+ * Results: FakeServer::rows() scripts the rows a matching statement returns (a FakeResult the driver
+ * reads through mysqli_fetch_*()/mysqli_data_seek()), FakeServer::affected() its affected rows; every
+ * INSERT/REPLACE takes the next insert id, and, as with InnoDB, an id is never handed out twice.
  */
 
 namespace MyDb\Mysqli {
 
 	use MyDb\Tests\Mysqli\FakeLink;
 	use MyDb\Tests\Mysqli\FakeServer;
+	use MyDb\Tests\Mysqli\FakeStmt;
 
 	function mysqli_init()
 	{
 		return new FakeLink();
 	}
 
+	function mysqli_real_escape_string($link, $string)
+	{
+		FakeServer::live($link, 'mysqli_real_escape_string');
+		return addslashes((string) $string);
+	}
+
 	function mysqli_begin_transaction($link, $flags = 0, $name = null)
 	{
+		FakeServer::$begins++;
 		return FakeServer::query($link, 'START TRANSACTION') === true;
 	}
 
@@ -60,6 +77,80 @@ namespace MyDb\Mysqli {
 		return true;
 	}
 
+	function mysqli_select_db($link, $database)
+	{
+		FakeServer::live($link, 'mysqli_select_db');
+		return true;
+	}
+
+	function mysqli_prepare($link, $query)
+	{
+		$link = FakeServer::live($link, 'mysqli_prepare');
+		FakeServer::$wire[] = ['prepare', $link->id(), $query];
+		return new FakeStmt($link, $query);
+	}
+
+	function mysqli_stmt_execute($statement)
+	{
+		return FakeServer::query($statement->link, $statement->sql) !== false;
+	}
+
+	function mysqli_stmt_errno($statement)
+	{
+		return $statement->link->errno;
+	}
+
+	function mysqli_stmt_error($statement)
+	{
+		return $statement->link->error;
+	}
+
+	function mysqli_affected_rows($link)
+	{
+		return FakeServer::live($link, 'mysqli_affected_rows')->affected_rows;
+	}
+
+	function mysqli_insert_id($link)
+	{
+		return FakeServer::live($link, 'mysqli_insert_id')->insert_id;
+	}
+
+	function mysqli_fetch_row($result)
+	{
+		return FakeServer::result($result, 'mysqli_fetch_row')->fetch(MYSQLI_NUM);
+	}
+
+	function mysqli_fetch_array($result, $mode = MYSQLI_BOTH)
+	{
+		return FakeServer::result($result, 'mysqli_fetch_array')->fetch($mode);
+	}
+
+	function mysqli_fetch_object($result)
+	{
+		$row = FakeServer::result($result, 'mysqli_fetch_object')->fetch(MYSQLI_ASSOC);
+		return $row === null ? null : (object) $row;
+	}
+
+	function mysqli_data_seek($result, $offset)
+	{
+		return FakeServer::result($result, 'mysqli_data_seek')->seek($offset);
+	}
+
+	function mysqli_num_rows($result)
+	{
+		return count(FakeServer::result($result, 'mysqli_num_rows')->rows);
+	}
+
+	function mysqli_num_fields($result)
+	{
+		return FakeServer::result($result, 'mysqli_num_fields')->fields;
+	}
+
+	function mysqli_free_result($result)
+	{
+		FakeServer::result($result, 'mysqli_free_result');
+	}
+
 	function usleep($microseconds)
 	{
 		FakeServer::$sleeps[] = $microseconds;
@@ -86,6 +177,10 @@ namespace MyDb\Tests\Mysqli {
 		public $errno = 0;
 		public $error = '';
 		public $dead = false;
+		/** real_connect() failed the way real ext-mysqli does: the object is half-open and every later call on it throws \Error */
+		public $halfOpen = false;
+		public $affected_rows = 0;
+		public $insert_id = 0;
 		private $id;
 		private $closed = false;
 
@@ -102,6 +197,17 @@ namespace MyDb\Tests\Mysqli {
 
 		public function real_connect($host = null, $user = null, $password = null, $database = null, $port = null)
 		{
+			if (FakeServer::$connectFailsReal > 0) {
+				// probed against a refused port: strict throws, off returns false; either way the object is left half-open
+				FakeServer::$connectFailsReal--;
+				$this->halfOpen = true;
+				$this->connect_errno = 2002;
+				$this->connect_error = 'Connection refused';
+				if (FakeServer::$strict) {
+					throw new \mysqli_sql_exception('Connection refused', 2002);
+				}
+				return false;
+			}
 			if (FakeServer::$connectFails > 0) {
 				FakeServer::$connectFails--;
 				if (FakeServer::$strict) {
@@ -155,9 +261,69 @@ namespace MyDb\Tests\Mysqli {
 				throw new \Error('mysqli object is already closed');
 			}
 			if ($name === 'thread_id') {
+				if ($this->halfOpen) {
+					throw new \Error('Property access is not allowed yet');
+				}
 				return $this->id;
 			}
 			throw new \Error('Undefined property: mysqli::$'.$name);
+		}
+	}
+
+	/**
+	* a buffered result set (MYSQLI_STORE_RESULT): it can be read to the end and rewound
+	*/
+	class FakeResult
+	{
+		/** @var array[] rows as column => value */
+		public $rows;
+		public $fields;
+		private $position = 0;
+
+		public function __construct(array $rows)
+		{
+			$this->rows = array_values($rows);
+			$this->fields = $this->rows === [] ? 1 : count($this->rows[0]);
+		}
+
+		public function fetch($mode)
+		{
+			if ($this->position >= count($this->rows)) {
+				return null;
+			}
+			FakeServer::$fetches++;
+			$row = $this->rows[$this->position++];
+			if ($mode === MYSQLI_ASSOC) {
+				return $row;
+			}
+			if ($mode === MYSQLI_NUM) {
+				return array_values($row);
+			}
+			return array_merge(array_values($row), $row);
+		}
+
+		public function seek($offset)
+		{
+			if ($offset < 0 || $offset >= count($this->rows)) {
+				return false;
+			}
+			$this->position = $offset;
+			return true;
+		}
+	}
+
+	/**
+	* a prepared statement: execute() runs its SQL on the connection that prepared it
+	*/
+	class FakeStmt
+	{
+		public $link;
+		public $sql;
+
+		public function __construct(FakeLink $link, $sql)
+		{
+			$this->link = $link;
+			$this->sql = $sql;
 		}
 	}
 
@@ -165,10 +331,24 @@ namespace MyDb\Tests\Mysqli {
 	{
 		/** @var bool true: failures throw mysqli_sql_exception (MYSQLI_REPORT_STRICT, PHP 8.1+ default); false: mysqli_query() returns false */
 		public static $strict = true;
+		/** @var int next N real_connect() calls fail the way real mysqli does (half-open object left behind) */
+		public static $connectFailsReal = 0;
+		/** @var string[] the functions called on a half-open object (each threw \Error), in order */
+		public static $halfOpenCalls = [];
 		/** @var bool every real_connect() is refused (2002) */
 		public static $connectRefused = false;
 		/** @var int next N real_connect() calls fail (r6 harness addition) */
 		public static $connectFails = 0;
+		/** @var bool model MySQL's OPTION_BEGIN after an implicit rollback, and a failed COMMIT ending the transaction */
+		public static $implicitBegin = true;
+		/** @var array[] scripted result sets: [pattern, row sets (each run takes the next; the last one repeats)] */
+		public static $results = [];
+		/** @var array[] scripted affected rows: [pattern, counts (each run takes the next; the last one repeats)] */
+		public static $affected = [];
+		/** @var int the last insert id handed out (never reused, as with InnoDB's auto-increment) */
+		public static $autoIncrement = 0;
+		/** @var int mysqli_begin_transaction() calls (each also sends a START TRANSACTION) */
+		public static $begins = 0;
 		/** @var int connections opened so far, which is also the last connection's id */
 		public static $connections = 0;
 		/** @var array[] [event ('connect'|'close'|'query'), connection id, statement] in order */
@@ -183,9 +363,12 @@ namespace MyDb\Tests\Mysqli {
 		public static $sleeps = [];
 		/** @var string[] error_log() lines from the driver */
 		public static $log = [];
+		/** @var int rows fetched from any result set */
+		public static $fetches = 0;
 
 		private static $messages = [
 			1062 => "Duplicate entry '1' for key 'PRIMARY'",
+			2014 => "Commands out of sync; you can't run this command now",
 			1064 => 'You have an error in your SQL syntax',
 			1213 => 'Deadlock found when trying to get lock; try restarting transaction',
 			2013 => 'Lost connection to MySQL server during query',
@@ -199,6 +382,13 @@ namespace MyDb\Tests\Mysqli {
 			self::$strict = true;
 			self::$connectRefused = false;
 			self::$connectFails = 0;
+			self::$connectFailsReal = 0;
+			self::$halfOpenCalls = [];
+			self::$implicitBegin = true;
+			self::$results = [];
+			self::$affected = [];
+			self::$autoIncrement = 0;
+			self::$begins = 0;
 			self::$connections = 0;
 			self::$wire = [];
 			self::$open = [];
@@ -206,6 +396,7 @@ namespace MyDb\Tests\Mysqli {
 			self::$failures = [];
 			self::$sleeps = [];
 			self::$log = [];
+			self::$fetches = 0;
 		}
 
 		/**
@@ -214,6 +405,73 @@ namespace MyDb\Tests\Mysqli {
 		public static function failNext($pattern, $code, $times = 1)
 		{
 			self::$failures[] = [$pattern, $code, $times];
+		}
+
+		/**
+		* a statement matching $pattern returns the first row set the first time it succeeds, the second the
+		* second time, and so on; the last one repeats
+		*
+		* @param string $pattern
+		* @param array[] ...$rowSets each a list of rows (column => value)
+		*/
+		public static function rows($pattern, ...$rowSets)
+		{
+			self::$results[] = [$pattern, $rowSets];
+		}
+
+		/**
+		* a write matching $pattern reports these affected rows, run after run (the last one repeats)
+		*
+		* @param string $pattern
+		* @param int ...$counts
+		*/
+		public static function affected($pattern, ...$counts)
+		{
+			self::$affected[] = [$pattern, $counts];
+		}
+
+		/**
+		* the result, if it is one mysqli would accept; otherwise what mysqli would throw
+		*/
+		public static function result($result, $function)
+		{
+			if (!$result instanceof FakeResult) {
+				throw new \TypeError($function.'(): Argument #1 ($result) must be of type mysqli_result, '.gettype($result).' given');
+			}
+			return $result;
+		}
+
+		/**
+		* the statements sent on any connection, in order (attempts on a dead link left out)
+		*
+		* @return string[]
+		*/
+		public static function statements()
+		{
+			$out = [];
+			foreach (self::$wire as $event) {
+				if ($event[0] === 'query') {
+					$out[] = $event[2];
+				}
+			}
+			return $out;
+		}
+
+		/**
+		* the next scripted value for $sql from $script ([pattern, values] pairs), or null when none matches
+		*/
+		private static function scripted(array &$script, $sql)
+		{
+			foreach ($script as $index => $entry) {
+				if (preg_match($entry[0], $sql) === 1) {
+					$value = $entry[1][0];
+					if (count($entry[1]) > 1) {
+						array_shift($script[$index][1]);
+					}
+					return [$value];
+				}
+			}
+			return null;
 		}
 
 		/**
@@ -248,6 +506,10 @@ namespace MyDb\Tests\Mysqli {
 			if ($link->isClosed()) {
 				throw new \Error('mysqli object is already closed');
 			}
+			if ($link->halfOpen) {
+				self::$halfOpenCalls[] = $function;
+				throw new \Error('mysqli object is not fully initialized');
+			}
 			return $link;
 		}
 
@@ -264,10 +526,13 @@ namespace MyDb\Tests\Mysqli {
 			self::$wire[] = ['query', $connection, $sql];
 			$link->errno = 0;
 			$link->error = '';
+			$link->affected_rows = 0;
+			$link->insert_id = 0;
+			$original = $sql;
 			foreach (self::$failures as $index => $failure) {
 				if ($failure[2] > 0 && preg_match($failure[0], $sql) === 1) {
 					self::$failures[$index][2]--;
-					return self::fail($link, $failure[1]);
+					return self::fail($link, $failure[1], $sql);
 				}
 			}
 			// the server ignores leading comments
@@ -302,13 +567,47 @@ namespace MyDb\Tests\Mysqli {
 			} else {
 				self::$committed[] = $sql; // autocommit
 			}
+			$rows = self::scripted(self::$results, $original);
+			if ($rows !== null) {
+				$result = new FakeResult($rows[0]);
+				$link->affected_rows = count($result->rows);
+				return $result;
+			}
+			if (preg_match('/^\s*(insert|replace|update|delete)\b/i', $sql, $write) === 1) {
+				$count = self::scripted(self::$affected, $original);
+				$link->affected_rows = $count === null ? 1 : $count[0];
+				if (in_array(strtolower($write[1]), ['insert', 'replace'], true)) {
+					$link->insert_id = ++self::$autoIncrement;
+				}
+			}
 			return true;
 		}
 
-		private static function fail(FakeLink $link, $code)
+		private static function fail(FakeLink $link, $code, $sql = '')
 		{
-			if (in_array($code, [1213, 2006, 2013, 3101, 1180], true)) {
+			$bare = preg_replace('/^(?:[\s(]|\/\*.*?\*\/|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', (string) $sql);
+			$isCommit = preg_match('/^\s*commit\b/i', $bare) === 1;
+			if (preg_match('/^\s*(start\s+transaction|begin)\b/i', $bare) === 1 && !in_array($code, [1064, 1065, 1149], true)) {
+				// a START/BEGIN with a transaction open commits it first: when that commit fails the transaction is
+				// over (rolled back, the connection back in autocommit), like any failed COMMIT. One that does not parse
+				// never runs, so the transaction stays open
+				$isCommit = true;
+			}
+			$link->affected_rows = -1;
+			if ($code === 2014) {
+				// commands out of sync: the client never sent the statement, so the server's state is untouched
+				$isCommit = false;
+			} elseif (in_array($code, [1213, 2006, 2013, 3101, 1180], true)) {
 				// the server rolls the connection's whole transaction back
+				$wasOpen = isset(self::$open[$link->id()]);
+				unset(self::$open[$link->id()]);
+				// trans_rollback_implicit() keeps OPTION_BEGIN after a deadlock or a rollback request on a statement
+				// inside START TRANSACTION: the statements that follow join a new transaction, not autocommit
+				if (self::$implicitBegin && $wasOpen && !$isCommit && in_array($code, [1213, 3101], true)) {
+					self::$open[$link->id()] = [];
+				}
+			} elseif (self::$implicitBegin && $isCommit) {
+				// trans_commit() ends the transaction whatever its outcome
 				unset(self::$open[$link->id()]);
 			}
 			if ($code === 2006 || $code === 2013) {
@@ -329,6 +628,27 @@ namespace MyDb\Tests\Mysqli {
 	class ScriptedDb extends \MyDb\Mysqli\Db
 	{
 		public $reported = [];
+
+		/** @var int calls of isPlainRollback(), the whole-statement scan query() runs only on a ROLLBACK */
+		public static $plainChecks = 0;
+
+		protected static function isPlainRollback($queryString)
+		{
+			self::$plainChecks++;
+			return parent::isPlainRollback($queryString);
+		}
+
+		/** the recorded statements of the open transaction */
+		public function steps()
+		{
+			return $this->txSteps;
+		}
+
+		/** whether the open transaction can be replayed, and if not why */
+		public function replayable()
+		{
+			return $this->txReplayable ? true : $this->txNotReplayableWhy;
+		}
 
 		/** the lost-transaction flag, as the driver holds it */
 		public function lost($value = null)
@@ -356,8 +676,45 @@ namespace MyDb\Tests\Mysqli {
 			$this->reported[] = [$queryString, $error];
 		}
 
+		/** @var int|null the random part of every replay wait, in microseconds; null: all of it (so a wait is its full base) */
+		public $jitterUs = null;
+
+		/** @var float virtual seconds: replay waits advance it, so the replay budget is deterministic */
+		public $virtualClock = 0.0;
+
+		protected function replayJitterUs($max)
+		{
+			return $this->jitterUs === null ? $max : min($max, $this->jitterUs);
+		}
+
+		protected function replayClock()
+		{
+			return $this->virtualClock;
+		}
+
+		protected function replaySleep($microseconds)
+		{
+			$this->virtualClock += $microseconds / 1000000;
+			parent::replaySleep($microseconds);
+		}
+
+		/** the state a new connection would not have: whether a statement marked the link */
+		public function sessionDirtyFlag()
+		{
+			return $this->sessionStateChanged();
+		}
+
 		public function haltmsg($msg, $line = '', $file = '')
 		{
+		}
+
+		/** @var int halt() calls, counted before it acts (with haltOnError 'yes' it ends the process) */
+		public $halts = 0;
+
+		public function halt($msg, $line = '', $file = '')
+		{
+			$this->halts++;
+			return parent::halt($msg, $line, $file);
 		}
 	}
 }

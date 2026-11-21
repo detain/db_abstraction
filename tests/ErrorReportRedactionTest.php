@@ -60,6 +60,27 @@ class ErrorReportRedactionTest extends TestCase
         }
     }
 
+    /**
+     * A session id is a bearer token: the literals of a statement that names one are redacted like a password's.
+     */
+    public function testSessionIdsAreRedacted()
+    {
+        $token = 's3ss10nt0k3n';
+        foreach ([
+            "delete from sessions where session_id='{$token}'",
+            "select as_id from appsession where as_sid='{$token}' for update",
+            "update history_log set history_sid='{$token}' where history_id=3",
+            "update access_log set access_sid='{$token}'",
+            "insert into referrer_log (referrer_sid) values ('{$token}')",
+            "select * from foo where sessionid=\"{$token}\"",
+            "insert into appsession values ('{$token}', 1)",
+        ] as $query) {
+            $this->assertStringNotContainsString($token, Generic::redactQueryForLog($query), $query);
+            $this->assertStringNotContainsString($token, Generic::redactQueryForLog("Duplicate entry '{$token}' for key 'PRIMARY'", $query), $query);
+        }
+        $this->assertSame("select * from sessions where session_id='[redacted]'", Generic::redactQueryForLog("select * from sessions where session_id='{$token}'"));
+    }
+
     public function testUrlWithoutSecretsIsUntouched()
     {
         $this->assertSame('/view.php?id=3&x=y', Generic::redactUrlQuery('/view.php?id=3&x=y'));

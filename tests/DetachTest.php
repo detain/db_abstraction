@@ -88,7 +88,7 @@ class DetachTest extends TestCase
 		$this->assertNotNull($db->statement, 'the original keeps its own');
 	}
 
-	public function testDetachClearsAnInheritedTransactionFlag()
+	public function testACloneDoesNotInheritTheTransactionFlagAndDetachClearsItsOwn()
 	{
 		$db = new MysqliDb();
 		$db->linkId = new FakeLink();
@@ -97,10 +97,12 @@ class DetachTest extends TestCase
 		$reflection->setValue($db, true);
 
 		$clone = clone $db;
-		$this->assertTrue($clone->inTransaction(), 'while sharing the connection it shares the transaction');
+		$this->assertSame($db->linkId, $clone->linkId, 'a clone shares the connection');
+		$this->assertFalse($clone->inTransaction(), 'but not the transaction: it is the original\'s (__clone())');
 
+		$reflection->setValue($clone, true);
 		$clone->detach();
-		$this->assertFalse($clone->inTransaction(), 'once detached that transaction is not ours');
+		$this->assertFalse($clone->inTransaction(), 'once detached a transaction of its own is not carried along');
 		$this->assertTrue($db->inTransaction(), 'the original is still in it');
 	}
 
