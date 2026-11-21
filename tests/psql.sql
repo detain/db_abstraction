@@ -13,7 +13,6 @@ SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
 SET check_function_bodies = false;
 SET client_min_messages = warning;
-SET row_security = off;
 
 --
 -- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
@@ -45,7 +44,7 @@ CREATE TABLE public.service_types (
 );
 
 
-ALTER TABLE public.service_types OWNER TO my;
+ALTER TABLE public.service_types OWNER TO postgres;
 
 --
 -- Name: COLUMN service_types.st_id; Type: COMMENT; Schema: public; Owner: my
@@ -80,7 +79,7 @@ CREATE SEQUENCE public.service_types_st_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.service_types_st_id_seq OWNER TO my;
+ALTER TABLE public.service_types_st_id_seq OWNER TO postgres;
 
 --
 -- Name: service_types_st_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: my

@@ -38,13 +38,11 @@
 		"adodb/adodb-php": "^5.20"
 	},
 	"require-dev": {
-		"php-coveralls/php-coveralls": "*",
-		"codacy/coverage": "*",
-		"phpunit/phpunit": "*",
-		"phpunit/phpunit-mock-objects": "*"
+		"phpunit/phpunit": "^10.5"
 	},
-	"suggests": {
-		"codeclimate/php-test-reporter": "*"
+	"suggest": {
+		"ext-pgsql": "Required by the MyDb\\Pgsql driver",
+		"ext-pdo": "Required by the MyDb\\Pdo driver"
 	},
 	"extra": {
 		"branch-alias": {

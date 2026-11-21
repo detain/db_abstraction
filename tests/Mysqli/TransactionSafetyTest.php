@@ -3115,11 +3115,15 @@ class TransactionSafetyTest extends TestCase
 		$this->assertSame(['INSERT INTO t VALUES (2)', 'INSERT INTO t VALUES (1)'], self::writes());
 	}
 
-	/** a stand-in for MyAdmin's TFSmarty, so emailError() builds its report (no template is rendered) */
+	/** stand-ins for MyAdmin's TFSmarty, so emailError() builds its report (no template is rendered),
+	* and for \MyAdmin\App, whose presence emailErrorInner() asks about for an account_id (has(): never) */
 	private static function smartyStub()
 	{
 		if (!class_exists('TFSmarty', false)) {
 			eval('class TFSmarty { public function assign($key, $value = null) {} public function fetch($template) { return "<p>report</p>"; } }');
+		}
+		if (!class_exists('MyAdmin\\App', false)) {
+			eval('namespace MyAdmin; class App { public static function has($class) { return false; } public static function session() { throw new \\RuntimeException("no session in the test double"); } public static function output() { throw new \\RuntimeException("no output in the test double"); } }');
 		}
 	}
 

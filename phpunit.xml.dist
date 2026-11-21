@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		 xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/7.1/phpunit.xsd"
-		 bootstrap="vendor/autoload.php" 
-		 cacheTokens="true"
-		 colors="true"
-		 verbose="false">
+		 xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
+		 bootstrap="vendor/autoload.php"
+		 colors="true">
 	<php>
 		<ini name="date.timezone" value="America/New_York" />
 	</php>
-	<logging>
-		<log type="coverage-clover" target="coverage.xml"/>
-	</logging>    
-	<filter>
-		<whitelist processUncoveredFilesFromWhitelist="true" addUncoveredFilesFromWhitelist="true">
+	<source>
+		<include>
 			<directory suffix=".php">src</directory>
-		</whitelist>
-	</filter>
+		</include>
+	</source>
+	<coverage>
+		<report>
+			<clover outputFile="coverage.xml"/>
+		</report>
+	</coverage>
 	<testsuites>
 		<testsuite name="generic tests">
 			<file>tests/GenericTest.php</file>

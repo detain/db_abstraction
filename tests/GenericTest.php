@@ -15,8 +15,9 @@ class TestGeneric extends Generic
 {
     public function connect()
     {
-        // Mock connection logic for testing
-        return true;
+        // Mock connection logic for testing: there is no server behind a plain Generic,
+        // so connecting fails and real_escape() takes its documented fallback path.
+        return false;
     }
 
     public function query($query, $line = '', $file = '')
@@ -24,6 +25,24 @@ class TestGeneric extends Generic
         // Mock query execution logic for testing
         $this->Record = ['test_field' => 'test_value'];
         return $this->Record;
+    }
+
+    public function queryReturn($query, $line = '', $file = '')
+    {
+        // Generic::qr() delegates to the driver's queryReturn(); the mock returns the row
+        return $this->query($query, $line, $file);
+    }
+
+    public function unlock($tables = true)
+    {
+        // Generic::halt() always tries an UNLOCK TABLES first; there is nothing to unlock
+        return true;
+    }
+
+    public function log($message, $line = '', $file = '', $level = 'info')
+    {
+        // Generic::log() writes through error_log(); echo it so the test can capture it
+        echo $message;
     }
 
     public function error()
@@ -60,7 +79,8 @@ class TestGenericTest extends TestCase
 
     public function testRealEscape()
     {
-        $this->assertEquals("O'Reilly", $this->db->real_escape("O'Reilly"));
+        // with no server to escape through (connect() fails), real_escape() falls back to escape()
+        $this->assertEquals("O\\'Reilly", $this->db->real_escape("O'Reilly"));
     }
 
     public function testEscape()
@@ -83,9 +103,10 @@ class TestGenericTest extends TestCase
 
     public function testFromTimestamp()
     {
-        $this->assertEquals(1696490096, $this->db->fromTimestamp('2023-10-05 12:34:56'));
-        $this->assertEquals(1696490096, $this->db->fromTimestamp('20231005123456'));
-        $this->assertEquals(1696486861, $this->db->fromTimestamp('20231005'));
+        // the pins below are epoch seconds for America/New_York, the timezone phpunit.xml.dist sets
+        $this->assertEquals(1696523696, $this->db->fromTimestamp('2023-10-05 12:34:56'));
+        $this->assertEquals(1696523696, $this->db->fromTimestamp('20231005123456'));
+        $this->assertEquals(1696482061, $this->db->fromTimestamp('20231005'));
         $this->assertEquals(1696490096, $this->db->fromTimestamp('1696490096'));
     }
 
@@ -117,10 +138,29 @@ class TestGenericTest extends TestCase
 
         $this->db->haltOnError = 'report';
         $this->assertTrue($this->db->halt('Test error'));
+    }
 
-        $this->db->haltOnError = 'yes';
-        $this->expectOutputString('<p><b>Session halted.</b>');
-        $this->db->halt('Test error');
+    /**
+     * With haltOnError 'yes' halt() echoes and dies. A dying halt() cannot be caught by
+     * the test process itself (PHPUnit's isolated child reports the die as an abnormal
+     * end), so it runs as a child PHP process whose output and exit status are asserted.
+     */
+    public function testHaltUnderYesEndsTheSession()
+    {
+        if (!$this->mailIsDouble()) {
+            $this->markTestSkipped('the real \\MyAdmin\\Mail is loaded; refusing to risk sending email');
+        }
+        $script = 'require ' . var_export(dirname(__DIR__) . '/vendor/autoload.php', true) . ';'
+            . 'require_once ' . var_export(dirname(__DIR__) . '/tests/MailDouble.php', true) . ';'
+            . 'require_once ' . var_export(__DIR__ . '/GenericTest.php', true) . ';'
+            . '$db = new MyDb\\Tests\\TestGeneric();'
+            . '$db->haltOnError = "yes";'
+            . '$db->halt("Test error");';
+        $output = [];
+        $status = -1;
+        exec(escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($script) . ' 2>/dev/null', $output, $status);
+        $this->assertSame(0, $status, 'halt() ended the process');
+        $this->assertSame('<p><b>Session halted.</b>', implode('', $output));
     }
 
     public function testLogBackTrace()

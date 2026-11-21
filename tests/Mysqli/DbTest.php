@@ -4,193 +4,157 @@ namespace MyDb\Tests\Mysqli;
 
 use MyDb\Mysqli\Db;
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\MockObject\MockObject;
 
+/**
+ * The MySQLi driver against the real server the mysql tests suite runs with.
+ *
+ * (This file used to drive a MockDb class that never existed anywhere in the repo.
+ * The deep statement/transaction semantics — retries, replays, shared links — are
+ * covered script-by-script by TransactionRetryTest/TransactionReplayTest/
+ * TransactionSafetyTest on fake mysqli; this is the integration basics on a live
+ * connection: constructor, connect, escaping, result navigation, the queryReturn
+ * shapes, the transaction wrapper, and tableNames. Each test runs inside a
+ * transaction that tearDown rolls back, the same isolation the Mdb2/Pdo tests use.)
+ */
 class DbTest extends TestCase
 {
+    /**
+     * @var Db
+     */
     protected $db;
 
     protected function setUp(): void
     {
-        $this->db = new MockDb();
-        $this->db->host = 'localhost';
-        $this->db->user = 'test_user';
-        $this->db->password = 'test_password';
-        $this->db->database = 'test_db';
-        $this->db->port = '3306';
+        $this->db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+        $this->db->transactionBegin();
     }
 
-    public function testConstructor()
+    protected function tearDown(): void
     {
-        $this->assertEquals('localhost', $this->db->host);
-        $this->assertEquals('test_user', $this->db->user);
-        $this->assertEquals('test_password', $this->db->password);
-        $this->assertEquals('test_db', $this->db->database);
-        $this->assertEquals('3306', $this->db->port);
-        $this->assertEquals(0, $this->db->connectionAttempt);
+        $this->db->transactionAbort();
     }
 
-    public function testConnect()
+    public function testConstructorStoresTheConnectionParameters()
     {
-        $this->db->setMockMethodReturn('mysqli_init', $this->db);
-        $this->db->setMockMethodReturn('mysqli_real_connect', true);
-        $this->db->setMockMethodReturn('mysqli_select_db', true);
-        $this->db->setMockMethodReturn('mysqli_set_charset', true);
-
-        $this->assertTrue($this->db->connect());
-        $this->assertInstanceOf(MockDb::class, $this->db->linkId);
+        $db = new Db('test_db', 'test_user', 'test_password', 'localhost', '', '3306');
+        $this->assertSame('test_db', $db->database);
+        $this->assertSame('localhost', $db->host);
+        $this->assertSame('test_user', $db->user);
+        $this->assertSame('test_password', $db->password);
+        $this->assertSame('3306', $db->port);
+        $this->assertSame(0, $db->connectionAttempt);
+        $this->assertSame('mysqli', $db->type);
     }
 
-    public function testDisconnect()
+    public function testConnectReturnsAUsableHandle()
     {
-        $this->db->linkId = $this->db;
-        $this->db->setMockMethodReturn('mysqli_close', true);
-
-        $this->assertTrue($this->db->disconnect());
-        $this->assertEquals(0, $this->db->linkId);
+        $this->assertNotFalse($this->db->connect());
+        $this->assertTrue($this->db->linkIsUsable());
+        $this->assertInstanceOf(\mysqli::class, $this->db->linkId);
     }
 
-    public function testRealEscape()
+    public function testDisconnectLetsGoOfTheLink()
     {
-        $this->db->linkId = $this->db;
-        $this->db->setMockMethodReturn('mysqli_real_escape_string', "O\\'Reilly");
-
-        $this->assertEquals("O\\'Reilly", $this->db->real_escape("O'Reilly"));
+        $db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+        $db->connect();
+        $this->assertTrue($db->linkIsUsable());
+        $db->disconnect();
+        $this->assertSame(0, $db->linkId);
+        $this->assertFalse($db->linkIsUsable());
     }
 
-    public function testFree()
+    public function testRealEscapeEscapesQuotesThroughTheLiveLink()
     {
-        $this->db->queryId = $this->db;
-        $this->db->setMockMethodReturn('mysqli_free_result', true);
-
-        $this->db->free();
-        $this->assertEquals(0, $this->db->queryId);
+        $this->assertSame('plain', $this->db->real_escape('plain'));
+        $this->assertStringContainsString("\\'", $this->db->real_escape("O'Reilly"));
+        $this->assertStringContainsString('\\"', $this->db->real_escape('say "hi"'));
     }
 
-    public function testQueryReturn()
+    public function testQueryAndNextRecordReadTheFixtureTable()
     {
-        $this->db->setMockMethodReturn('mysqli_query', $this->db);
-        $this->db->setMockMethodReturn('mysqli_fetch_array', ['test_field' => 'test_value']);
-        $this->db->setMockMethodReturn('mysqli_num_rows', 1);
-
-        $result = $this->db->queryReturn('SELECT * FROM test_table');
-        $this->assertEquals(['test_field' => 'test_value'], $result);
+        $this->assertNotFalse($this->db->query('select st_id, st_name from service_types order by st_id'));
+        $this->assertGreaterThan(0, $this->db->num_rows());
+        $this->assertTrue((bool) $this->db->next_record());
+        $this->assertArrayHasKey('st_name', $this->db->Record);
+        $this->assertSame($this->db->Record['st_id'], $this->db->f('st_id'));
+        $this->assertSame(2, $this->db->num_fields());
     }
 
-    public function testPrepare()
+    public function testSeekRewindsTheResult()
     {
-        $this->db->setMockMethodReturn('mysqli_prepare', $this->db);
-
-        $result = $this->db->prepare('SELECT * FROM test_table');
-        $this->assertInstanceOf(MockDb::class, $result);
+        $this->db->query('select st_id, st_name from service_types order by st_id');
+        $this->assertTrue((bool) $this->db->next_record());
+        $first = $this->db->Record['st_id'];
+        $this->assertTrue((bool) $this->db->seek(0));
+        $this->assertTrue((bool) $this->db->next_record());
+        $this->assertSame($first, $this->db->Record['st_id']);
     }
 
-    public function testQuery()
+    public function testQueryReturnShapesSingleRowAndNoRow()
     {
-        $this->db->setMockMethodReturn('mysqli_init', $this->db);
-        $this->db->setMockMethodReturn('mysqli_real_connect', true);
-        $this->db->setMockMethodReturn('mysqli_query', $this->db);
-        $this->db->setMockMethodReturn('mysqli_num_rows', 1);
-
-        $this->db->query('SELECT * FROM test_table');
-        $this->assertInstanceOf(MockDb::class, $this->db->queryId);
+        $row = $this->db->queryReturn('select 7 as lucky');
+        $this->assertIsArray($row);
+        $this->assertSame('7', $row['lucky']);
+        $this->assertFalse($this->db->queryReturn('select st_id from service_types where st_id = -1'));
     }
 
-    public function testFetchObject()
+    public function testQrIsQueryReturn()
     {
-        $this->db->setMockMethodReturn('mysqli_fetch_object', (object) ['test_field' => 'test_value']);
-
-        $result = $this->db->fetchObject();
-        $this->assertEquals((object) ['test_field' => 'test_value'], $result);
+        $rows = $this->db->qr('select st_id from service_types order by st_id limit 2');
+        $this->assertIsArray($rows);
+        $this->assertArrayHasKey('st_id', $rows[0]);
     }
 
-    public function testNextRecord()
+    public function testFetchObjectReadsTheCurrentRow()
     {
-        $this->db->setMockMethodReturn('mysqli_fetch_array', ['test_field' => 'test_value']);
-        $this->db->setMockMethodReturn('mysqli_num_rows', 1);
-
-        $this->assertTrue($this->db->next_record());
-        $this->assertEquals(['test_field' => 'test_value'], $this->db->Record);
+        $this->db->query('select st_id, st_name from service_types order by st_id');
+        $object = $this->db->fetchObject();
+        $this->assertIsObject($object);
+        $this->assertObjectHasProperty('st_name', $object);
     }
 
-    public function testSeek()
+    public function testInsertAffectedRowsAndLastInsertId()
     {
-        $this->db->setMockMethodReturn('mysqli_data_seek', true);
-
-        $this->assertTrue($this->db->seek(0));
-        $this->assertEquals(0, $this->db->Row);
+        $this->assertNotFalse($this->db->query("insert into service_types values (NULL, 'CI Integration', 250, 'ci')"));
+        $this->assertSame(1, $this->db->affectedRows());
+        $id = $this->db->getLastInsertId('service_types', 'st_id');
+        $this->assertIsInt($id);
+        $this->assertGreaterThan(0, $id);
+        $this->assertSame($id, (int) $this->db->queryReturn("select st_id from service_types where st_name = 'CI Integration'")['st_id']);
     }
 
-    public function testTransactionBegin()
+    public function testLimitQueryAppendsTheLimit()
     {
-        $this->db->setMockMethodReturn('mysqli_begin_transaction', true);
-
-        $this->assertTrue($this->db->transactionBegin());
+        $this->assertNotFalse($this->db->limitQuery('select * from service_types order by st_id', 1));
+        $this->assertSame(1, $this->db->num_rows());
     }
 
-    public function testTransactionCommit()
+    public function testPrepareReturnsAStatement()
     {
-        $this->db->setMockMethodReturn('mysqli_commit', true);
-
-        $this->assertTrue($this->db->transactionCommit());
+        $statement = $this->db->prepare('select st_id, st_name from service_types where st_name = ?');
+        $this->assertNotFalse($statement);
+        $this->assertInstanceOf(\mysqli_stmt::class, $statement);
     }
 
-    public function testTransactionAbort()
+    public function testTableNamesIncludeTheFixture()
     {
-        $this->db->setMockMethodReturn('mysqli_rollback', true);
-
-        $this->assertTrue($this->db->transactionAbort());
+        $names = array_column($this->db->tableNames(), 'table_name');
+        $this->assertContains('service_types', $names);
     }
 
-    public function testGetLastInsertId()
+    public function testTransactionApiTracksTheOpenTransaction()
     {
-        $this->db->setMockMethodReturn('mysqli_insert_id', 123);
-
-        $this->assertEquals(123, $this->db->getLastInsertId('test_table', 'test_field'));
-    }
-
-    public function testLock()
-    {
-        $this->db->setMockMethodReturn('mysqli_query', true);
-
-        $this->assertTrue($this->db->lock('test_table', 'write'));
-    }
-
-    public function testUnlock()
-    {
-        $this->db->setMockMethodReturn('mysqli_query', true);
-
-        $this->assertTrue($this->db->unlock());
-    }
-
-    public function testAffectedRows()
-    {
-        $this->db->setMockMethodReturn('mysqli_affected_rows', 1);
-
-        $this->assertEquals(1, $this->db->affectedRows());
-    }
-
-    public function testNumRows()
-    {
-        $this->db->setMockMethodReturn('mysqli_num_rows', 1);
-
-        $this->assertEquals(1, $this->db->num_rows());
-    }
-
-    public function testNumFields()
-    {
-        $this->db->setMockMethodReturn('mysqli_num_fields', 1);
-
-        $this->assertEquals(1, $this->db->num_fields());
-    }
-
-    public function testTableNames()
-    {
-        $this->db->setMockMethodReturn('mysqli_query', $this->db);
-        $this->db->setMockMethodReturn('fetch_row', ['test_table']);
-        $this->db->setMockMethodReturn('mysqli_num_rows', 1);
-
-        $result = $this->db->tableNames();
-        $this->assertEquals([['table_name' => 'test_table', 'tablespace_name' => 'test_db', 'database' => 'test_db']], $result);
+        $db = new Db(getenv('DBNAME'), getenv('DBUSER'), getenv('DBPASS'), getenv('DBHOST'));
+        $this->assertFalse($db->inTransaction());
+        $this->assertTrue($db->transactionBegin());
+        $this->assertTrue($db->inTransaction());
+        $this->assertTrue($db->query('select 1') !== false);
+        $this->assertTrue($db->transactionCommit());
+        $this->assertFalse($db->inTransaction());
+        $this->assertTrue($db->transactionAbort());
+        $db->transactionBegin();
+        $db->query("insert into service_types values (NULL, 'CI Rolled Back', 250, 'ci')");
+        $this->assertTrue($db->transactionAbort());
+        $this->assertFalse((bool) $db->query("select st_id from service_types where st_name = 'CI Rolled Back'"));
     }
 }

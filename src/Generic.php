@@ -428,12 +428,22 @@ abstract class Generic
 
     /**
      * Db::toTimestamp()
+     *
+     * Formats a value as the database stores timestamps. A decimal-string epoch is
+     * already in that form and is returned unchanged (as any epoch is its own
+     * canonical numeric timestamp); floats, ints, and every format fromTimestamp()
+     * understands come back as 'Y-m-d H:i:s' in the configured timezone.
+     *
      * @param mixed $epoch
      * @return bool|string
      */
     public function toTimestamp($epoch)
     {
-        return date('Y-m-d H:i:s', is_float($epoch) ? intval($epoch) : $epoch);
+        if (is_string($epoch) && preg_match('/^\d{10}$/', $epoch) === 1) {
+            return $epoch;
+        }
+        $timestamp = $this->fromTimestamp(is_float($epoch) ? intval($epoch) : $epoch);
+        return $timestamp === false ? false : date('Y-m-d H:i:s', (int) $timestamp);
     }
 
     /**
@@ -445,9 +455,9 @@ abstract class Generic
     {
         if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})/', $timestamp, $parts)) {
             $time = mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-        } elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/', $timestamp, $parts)) {
+        } elseif (preg_match('/^([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})$/', $timestamp, $parts)) {
             $time = mktime($parts[4], $parts[5], $parts[6], $parts[2], $parts[3], $parts[1]);
-        } elseif (preg_match('/([0-9]{4})([0-9]{2})([0-9]{2})/', $timestamp, $parts)) {
+        } elseif (preg_match('/^([0-9]{4})([0-9]{2})([0-9]{2})$/', $timestamp, $parts)) {
             $time = mktime(1, 1, 1, $parts[2], $parts[3], $parts[1]);
         } elseif (is_numeric($timestamp) && $timestamp >= 943938000) {
             $time = $timestamp;
