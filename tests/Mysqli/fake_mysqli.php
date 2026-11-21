@@ -10,7 +10,7 @@
  * real functions for every other test in the run.
  *
  * FakeServer keeps one server-side transaction per connection, so a test can see what would really
- * have been committed: a deadlock (1213), a certification failure (3101) or a lost connection (2006)
+ * have been committed: a deadlock (1213), a certification failure (3101) or a lost connection (2006, 2013, 2055, 4031)
  * throws the connection's whole transaction away, as MySQL does; other errors fail the statement only.
  * With $implicitBegin (the default, as MySQL's trans_rollback_implicit() does) a 1213/3101 on a statement
  * inside START TRANSACTION leaves the connection in a new, empty transaction, so later statements are not
@@ -374,6 +374,8 @@ namespace MyDb\Tests\Mysqli {
 			2013 => 'Lost connection to MySQL server during query',
 			1180 => 'Got error 35 - \'Transaction was rolled back\' during COMMIT',
 			2006 => 'MySQL server has gone away',
+			2055 => "Lost connection to MySQL server at 'reading initial communication packet'",
+			4031 => 'The client was disconnected by the server because of inactivity.',
 			3101 => 'Plugin instructed the server to rollback the current transaction.',
 		];
 
@@ -597,8 +599,8 @@ namespace MyDb\Tests\Mysqli {
 			if ($code === 2014) {
 				// commands out of sync: the client never sent the statement, so the server's state is untouched
 				$isCommit = false;
-			} elseif (in_array($code, [1213, 2006, 2013, 3101, 1180], true)) {
-				// the server rolls the connection's whole transaction back
+			} elseif (in_array($code, [1213, 2006, 2013, 2055, 4031, 3101, 1180], true)) {
+				// the server rolls the connection's whole transaction back (a lost connection takes it with it)
 				$wasOpen = isset(self::$open[$link->id()]);
 				unset(self::$open[$link->id()]);
 				// trans_rollback_implicit() keeps OPTION_BEGIN after a deadlock or a rollback request on a statement
@@ -610,7 +612,7 @@ namespace MyDb\Tests\Mysqli {
 				// trans_commit() ends the transaction whatever its outcome
 				unset(self::$open[$link->id()]);
 			}
-			if ($code === 2006 || $code === 2013) {
+			if (in_array($code, [2006, 2013, 2055, 4031], true)) {
 				$link->dead = true;
 			}
 			$link->errno = $code;

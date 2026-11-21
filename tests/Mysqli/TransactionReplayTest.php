@@ -336,6 +336,31 @@ class TransactionReplayTest extends TestCase
 		}
 	}
 
+	/**
+	* Haiku 8 (the documented limit of getLastInsertId()): only the reading instance's own recording is marked. A clone
+	* sharing the connection reads the same insert id off it, but its read marks nothing in the recording of the handle
+	* that ran the INSERT: that handle's replay hands out another id and goes on (the COMMIT succeeds), while the clone's
+	* caller keeps the old id. Read the id through the handle that ran the INSERT (see the test above).
+	*/
+	public function testAnInsertIdReadThroughAnotherHandleDoesNotStopTheReplay()
+	{
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$clone = clone $db;
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO orders (a) VALUES (1)'));
+		$this->assertSame(1, (int) $clone->getLastInsertId('orders', 'order_id'), 'the clone reads the id off the shared connection');
+		FakeServer::failNext('/^UPDATE stock/', 1213);
+
+		$this->assertTrue($this->q($db, 'UPDATE stock SET n=n-1 WHERE id=1'), 'the replay goes on: nothing in its own recording was read');
+
+		$this->assertRecoveredQuietly($db, 'no');
+		$this->assertSame(2, FakeServer::sent('INSERT INTO orders (a) VALUES (1)'));
+		$this->assertSame(2, FakeServer::$autoIncrement, 'the replayed INSERT got id 2, the clone still holds 1');
+		$this->assertTrue($this->q($db, 'COMMIT'));
+		$this->assertSame(1, self::committed('INSERT INTO orders (a) VALUES (1)'), 'committed once, with id 2');
+	}
+
 	public static function affectedRowsSeen()
 	{
 		return [
@@ -395,7 +420,36 @@ class TransactionReplayTest extends TestCase
 		return [
 			'2006 gone away' => [2006],
 			'2013 lost during query' => [2013],
+			'2055 lost (extended)' => [2055],
+			'4031 disconnected by the server for inactivity' => [4031],
 		];
+	}
+
+	/**
+	* F-C: a statement inside a transaction that loses the connection with any of LINK_ERRORS (2055 and 4031 as well as
+	* 2006 and 2013, the connection errors RECONNECT_ERRORS already knew) replays the transaction on a new connection,
+	* silently. Before, a 2055/4031 failed the statement on its own (reported), and the transaction went on over the
+	* dead connection.
+	*
+	* @dataProvider linkLossCodes
+	* @param int $code
+	*/
+	#[DataProvider('linkLossCodes')]
+	public function testAStatementThatLosesTheConnectionIsReplayedOnANewConnection($code)
+	{
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		FakeServer::failNext('/^UPDATE u/', $code);
+
+		$this->assertTrue($this->q($db, 'UPDATE u SET y=1'));
+
+		$this->assertRecoveredQuietly($db, 'no');
+		$this->assertSame(2, FakeServer::$connections, 'replayed on a new connection');
+		$this->assertSame(1, FakeServer::closes(), 'the dead one let go of');
+		$this->assertTrue($this->q($db, 'COMMIT'));
+		$this->assertSame(1, self::committed('INSERT INTO t VALUES (1)'));
+		$this->assertSame(1, self::committed('UPDATE u SET y=1'));
 	}
 
 	/**

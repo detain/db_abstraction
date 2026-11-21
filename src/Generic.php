@@ -818,10 +818,44 @@ abstract class Generic
                 $smarty->assign('account_id', \MyAdmin\App::session()->account_id);
             }
             $email = $smarty->fetch('email/admin/sql_error.tpl');
-            (new \MyAdmin\Mail())->adminMail($subject, $email, 'john@interserver.net', '');
-            (new \MyAdmin\Mail())->adminMail($subject, $email, 'detain@interserver.net', '');
+            $this->mailErrorReport($subject, $email);
         }
         $this->haltmsg('Invalid SQL: '.$queryString, $line, $file);
+    }
+
+    /**
+     * Mails the report emailError() built to john@ and detain@. As a rule through \MyAdmin\Mail::adminMail(), one mail
+     * each. While a transaction is open in the process (reportWithoutDatabase()) through
+     * \MyAdmin\Mail::failsafeMail() instead (SMTP only, no database access; one mail to both): adminMail() can write
+     * through the application's database handle (its own failure is logged by myadmin_log(), whose Monolog handler
+     * INSERTs a `log` row on MyAdmin's App::db()), and on a connection with a transaction open that row would join it:
+     * committed or rolled back with the caller's work, and a deadlock on it rolling the caller's transaction back.
+     * haltmsg() already uses failsafeMail().
+     *
+     * @param string $subject
+     * @param string $email
+     * @return void
+     */
+    protected function mailErrorReport($subject, $email)
+    {
+        if ($this->reportWithoutDatabase()) {
+            \MyAdmin\Mail::failsafeMail($subject, $email, ['john@interserver.net', 'detain@interserver.net']);
+            return;
+        }
+        (new \MyAdmin\Mail())->adminMail($subject, $email, 'john@interserver.net', '');
+        (new \MyAdmin\Mail())->adminMail($subject, $email, 'detain@interserver.net', '');
+    }
+
+    /**
+     * Whether an error report must not touch any database: a transaction is open in the process, which a write of the
+     * report (a log row) could join (see mailErrorReport()). This driver-neutral class tracks only its own
+     * inTransaction; the MySQLi driver asks every handle it knows of.
+     *
+     * @return bool
+     */
+    protected function reportWithoutDatabase()
+    {
+        return $this->inTransaction === true;
     }
 
     /**
