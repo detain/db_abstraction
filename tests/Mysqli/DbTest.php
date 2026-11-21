@@ -155,6 +155,7 @@ class DbTest extends TestCase
         $db->transactionBegin();
         $db->query("insert into service_types values (NULL, 'CI Rolled Back', 250, 'ci')");
         $this->assertTrue($db->transactionAbort());
-        $this->assertFalse((bool) $db->query("select st_id from service_types where st_name = 'CI Rolled Back'"));
+        // the 0-row contract lives in queryReturn()/qr(); query() returns the (truthy, empty) result object
+        $this->assertFalse($db->queryReturn("select st_id from service_types where st_name = 'CI Rolled Back'"));
     }
 }
