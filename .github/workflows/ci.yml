@@ -48,11 +48,14 @@ jobs:
     env:
       DBUSER: tests
       DBPASS: tests
-      DBHOST: localhost
+      # 127.0.0.1, not localhost: the PHP mysqli/pdo_mysql drivers resolve localhost to a unix
+      # socket, and GH service containers expose TCP only. libpq/pg_connect uses TCP for localhost,
+      # but stay explicit on the postgres side too.
+      DBHOST: 127.0.0.1
       DBNAME: tests
       PGDBUSER: postgres
       PGDBPASS: postgres
-      PGDBHOST: localhost
+      PGDBHOST: 127.0.0.1
       PGDBNAME: tests
     steps:
       - uses: actions/checkout@v7
