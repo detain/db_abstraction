@@ -81,6 +81,28 @@ abstract class Generic
     protected $inTransaction = false;
 
     /**
+     * Set by the MySQLi driver when a statement inside a transaction gave up
+     * (the server rolled the transaction back); a COMMIT is refused while set.
+     *
+     * @var bool
+     */
+    protected $transactionLost = false;
+
+    /**
+     * The error number the transaction was lost with (0 when not recorded), reported when a COMMIT is refused.
+     *
+     * @var int
+     */
+    protected $transactionLostErrno = 0;
+
+    /**
+     * The error message the transaction was lost with ('' when not recorded).
+     *
+     * @var string
+     */
+    protected $transactionLostError = '';
+
+    /**
      * Report whether a transaction is currently open on this connection.
      *
      * @return bool
@@ -112,8 +134,11 @@ abstract class Generic
     {
         $this->linkId = 0;
         $this->queryId = 0;
-        // an open transaction belonged to the connection we just let go of
+        // an open transaction belonged to the connection we just let go of, and so did the record that it was lost
         $this->inTransaction = false;
+        $this->transactionLost = false;
+        $this->transactionLostErrno = 0;
+        $this->transactionLostError = '';
     }
 
     /**
@@ -142,21 +167,135 @@ abstract class Generic
     }
 
     /**
-     * Update transaction state from a raw SQL statement about to be run.
+     * The statement with leading whitespace, "(" and SQL comments removed, so its first keyword can be matched.
+     *
+     * Strips any sequence of leading block comments, "-- " comments (MySQL needs whitespace, a control
+     * character or the end of the statement after the dashes) and "#" comments. A block comment between the words of
+     * the keyword (START, comment, TRANSACTION) is not recognised, and executable comments
+     * (slash-star-bang) are treated as plain comments.
+     *
+     * @param string $queryString
+     * @return string
+     */
+    protected static function leadingKeywordSql($queryString)
+    {
+        $sql = (string) $queryString;
+        $length = strlen($sql);
+        $offset = 0;
+        while (true) {
+            // MySQL's lexer treats \f and \v as space too
+            $offset += strspn($sql, " \t\n\r\f\x0B(", $offset);
+            if ($offset >= $length) {
+                return '';
+            }
+            if (substr_compare($sql, '/*', $offset, 2) === 0) {
+                $end = strpos($sql, '*/', $offset + 2);
+                if ($end === false) {
+                    return '';
+                }
+                $offset = $end + 2;
+            } elseif ($sql[$offset] === '#' || preg_match('/--(?=[\x00-\x20\x7F]|$)/A', $sql, $m, 0, $offset) === 1) {
+                $newline = strpos($sql, "\n", $offset);
+                if ($newline === false) {
+                    return '';
+                }
+                $offset = $newline + 1;
+            } else {
+                return $offset === 0 ? $sql : substr($sql, $offset);
+            }
+        }
+    }
+
+    /**
+     * The statement with every SQL comment replaced by a space (one linear pass), for matching the words of a statement.
+     *
+     * Returns '' when the statement cannot be read that way: an unterminated block comment, or an
+     * executable comment (slash-star-bang, slash-star-M-bang), whose content the server runs.
+     * Quotes are not tracked: use it on statements that carry no string literals (COMMIT, ROLLBACK).
+     *
+     * @param string $queryString
+     * @return string
+     */
+    protected static function withoutComments($queryString)
+    {
+        $sql = (string) $queryString;
+        $length = strlen($sql);
+        $out = '';
+        $offset = 0;
+        while ($offset < $length) {
+            $special = strcspn($sql, '/#-', $offset);
+            $out .= substr($sql, $offset, $special);
+            $offset += $special;
+            if ($offset >= $length) {
+                break;
+            }
+            if (substr_compare($sql, '/*', $offset, 2) === 0) {
+                if (substr_compare($sql, '/*!', $offset, 3) === 0 || substr_compare($sql, '/*M!', $offset, 4) === 0) {
+                    return '';
+                }
+                $end = strpos($sql, '*/', $offset + 2);
+                if ($end === false) {
+                    return '';
+                }
+                $out .= ' ';
+                $offset = $end + 2;
+            } elseif ($sql[$offset] === '#' || preg_match('/--(?=[\x00-\x20\x7F]|$)/A', $sql, $m, 0, $offset) === 1) {
+                $newline = strpos($sql, "\n", $offset);
+                $out .= ' ';
+                if ($newline === false) {
+                    break;
+                }
+                $offset = $newline + 1;
+            } else {
+                $out .= $sql[$offset];
+                $offset++;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Whether the statement is a plain ROLLBACK: nothing but ROLLBACK [WORK] [AND [NO] CHAIN] [[NO] RELEASE],
+     * once every comment (not only leading ones) is gone. Every other form (ROLLBACK TO SAVEPOINT, with
+     * or without a comment between its words; a statement holding a quote; anything unreadable) is not.
+     *
+     * @param string $queryString
+     * @return bool
+     */
+    protected static function isPlainRollback($queryString)
+    {
+        $sql = (string) $queryString;
+        if (strpbrk($sql, '\'"`') !== false) {
+            return false;
+        }
+        return preg_match('/^\s*(?:\(\s*)*rollback(?:\s+work)?(?:\s+and\s+(?:no\s+)?chain)?(?:\s+(?:no\s+)?release)?[\s;]*$/i', static::withoutComments($sql)) === 1;
+    }
+
+    /**
+     * Update transaction state from a raw SQL statement (call it once the statement has succeeded).
      *
      * Recognises the statements callers actually use to drive transactions
-     * without going through transactionBegin()/Commit()/Abort().
+     * without going through transactionBegin()/Commit()/Abort(), ignoring leading comments.
+     * ROLLBACK TO [SAVEPOINT] and RELEASE SAVEPOINT leave the transaction open, and so do
+     * COMMIT/ROLLBACK [WORK] AND CHAIN, which end it and start the next one at once (not AND CHAIN RELEASE,
+     * which closes the session). SET
+     * AUTOCOMMIT=0 (an implicit transaction) is not tracked.
      *
      * @param string $queryString
      * @return void
      */
     protected function trackTransactionState($queryString)
     {
-        $normalized = ltrim($queryString, " \t\n\r(");
+        $normalized = static::leadingKeywordSql($queryString);
         if (preg_match('/^(start\s+transaction|begin\s+work|begin)\b/i', $normalized)) {
             $this->inTransaction = true;
         } elseif (preg_match('/^(commit|rollback)\b/i', $normalized)) {
-            $this->inTransaction = false;
+            // a comment between the words (ROLLBACK, comment, TO SAVEPOINT) must not hide the form
+            $clean = static::withoutComments($normalized);
+            if (preg_match('/^(commit|rollback)\b(?!\s+(?:work\s+)?to\b)/i', $clean)) {
+                // AND CHAIN starts the next transaction at once, unless the session is released (AND CHAIN RELEASE)
+                $this->inTransaction = preg_match('/^(?:commit|rollback)\b(?:\s+work)?\s+and\s+chain\b(?!\s+release\b)/i', $clean) === 1;
+            }
         }
     }
 

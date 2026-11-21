@@ -21,12 +21,14 @@
 			<file>tests/GenericTest.php</file>
 			<file>tests/DetachTest.php</file>
 			<file>tests/LogBackTraceRedactionTest.php</file>
+			<file>tests/Mysqli/TransactionRetryTest.php</file>
 		</testsuite>
 		<testsuite name="mysql tests">
 			<file>tests/GenericTest.php</file>
 			<file>tests/Mysqli/DbTest.php</file>
 			<file>tests/DetachTest.php</file>
 			<file>tests/LogBackTraceRedactionTest.php</file>
+			<file>tests/Mysqli/TransactionRetryTest.php</file>
 			<file>tests/Mdb2/DbTest.php</file>
 			<file>tests/Pdo/DbTest.php</file>
 		</testsuite>
@@ -38,6 +40,7 @@
 			<file>tests/Mysqli/DbTest.php</file>
 			<file>tests/DetachTest.php</file>
 			<file>tests/LogBackTraceRedactionTest.php</file>
+			<file>tests/Mysqli/TransactionRetryTest.php</file>
 			<file>tests/Mdb2/DbTest.php</file>
 			<file>tests/Pdo/DbTest.php</file>
 			<file>tests/Pgsql/DbTest.php</file>

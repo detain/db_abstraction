@@ -6,6 +6,10 @@ use MyDb\Generic;
 use MyDb\Mysqli\Db;
 use PHPUnit\Framework\TestCase;
 
+// Under the core application's autoloader emailError()/haltmsg() would load the real \MyAdmin\Mail and
+// send email; declare the recording double first (it never replaces a class that is already loaded).
+require_once __DIR__.'/MailDouble.php';
+
 // Create a concrete subclass of Generic for testing
 class TestGeneric extends Generic
 {
@@ -105,6 +109,9 @@ class TestGenericTest extends TestCase
 
     public function testHalt()
     {
+        if (!$this->mailIsDouble()) {
+            $this->markTestSkipped('the real \\MyAdmin\\Mail is loaded; refusing to risk sending email');
+        }
         $this->db->haltOnError = 'no';
         $this->assertTrue($this->db->halt('Test error'));
 
@@ -124,20 +131,47 @@ class TestGenericTest extends TestCase
         $this->assertNotEmpty($output);
     }
 
+    /**
+     * Whether \MyAdmin\Mail is the recording double. When a real one was loaded first, the test that
+     * would reach it is skipped rather than allowed to send email.
+     */
+    private function mailIsDouble()
+    {
+        return class_exists('\\MyAdmin\\Mail', false) && defined('\\MyAdmin\\Mail::IS_TEST_DOUBLE');
+    }
+
     public function testEmailError()
     {
+        if (!$this->mailIsDouble()) {
+            $this->markTestSkipped('the real \\MyAdmin\\Mail is loaded; refusing to risk sending email');
+        }
+        \MyAdmin\Mail::$sent = [];
         ob_start();
         $this->db->emailError('SELECT * FROM test_table', 'Test error', __LINE__, __FILE__);
         $output = ob_get_clean();
-        $this->assertNotEmpty($output);
+        // the error is reported through the mailer (the double), ending in haltmsg()'s failsafeMail
+        $calls = array_column(\MyAdmin\Mail::$sent, 0);
+        $this->assertContains('failsafeMail', $calls);
+        $subjects = array_column(\MyAdmin\Mail::$sent, 1);
+        $this->assertNotEmpty(array_filter($subjects, static function ($subject) {
+            return strpos($subject, 'Invalid SQL: SELECT * FROM test_table') !== false;
+        }));
+        $this->assertSame('', $output);
     }
 
     public function testHaltmsg()
     {
+        if (!$this->mailIsDouble()) {
+            $this->markTestSkipped('the real \\MyAdmin\\Mail is loaded; refusing to risk sending email');
+        }
+        \MyAdmin\Mail::$sent = [];
         ob_start();
         $this->db->haltmsg('Test error', __LINE__, __FILE__);
         $output = ob_get_clean();
-        $this->assertNotEmpty($output);
+        $this->assertSame('', $output);
+        $this->assertCount(1, \MyAdmin\Mail::$sent);
+        $this->assertSame('failsafeMail', \MyAdmin\Mail::$sent[0][0]);
+        $this->assertStringContainsString('DB Error Test error', \MyAdmin\Mail::$sent[0][1]);
     }
 
     public function testIndexNames()
