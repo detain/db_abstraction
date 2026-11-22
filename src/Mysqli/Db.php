@@ -225,6 +225,14 @@ class Db extends Generic implements Db_Interface
     private static $linkEnds = null;
 
     /**
+    * The work wordGapReaches() has done in this process (places read, bytes looked at), for the tests that check it
+    * stays linear in the statement's length whatever the statement holds; the library itself never reads it.
+    *
+    * @var int
+    */
+    protected static $sweepWork = 0;
+
+    /**
     * The instances that have sent a statement on each link (\WeakMap link => \WeakMap instance => true, PHP 8):
     * clones share a link, and linkHasOpenTransaction() asks each one that still holds it whether it has a
     * transaction open there. An entry goes with its link or its instance.
@@ -3762,15 +3770,14 @@ class Db extends Generic implements Db_Interface
         $sql = (string) $sql;
         // whitespace (and a star-slash) holds no word, so walks over nothing but those never meet and a pattern walks
         // each place of them once: first, a target after nothing but those (a match), then the words with a comment
-        // after nothing but those (none: no walk ever takes a comment, and there is no other match)
+        // after nothing but those (none: no walk ever takes a comment, and there is no other match). One search over
+        // the statement: it is run once, so PCRE's search for its first letter (both cases) is made once
         if ($into) {
             $plain = preg_match('~\binto(?:\s|\*/)*+(?:@|/\*M?!\d*+\s*+@)~i', $sql);
-            $entry = '~\binto(?:\s|\*/)*+(?=/\*|\#|--[\x00-\x20\x7F])~i';
             // a walk at a place after the last @ reaches no target
             $last = strrpos($sql, '@');
         } else {
             $plain = preg_match('~\bstart\s++transaction\b~i', $sql);
-            $entry = '~\bstart\s*+(?=/\*(?!M?!)|\#|--[\x00-\x20\x7F])~i';
             $last = strripos($sql, 'transaction');
         }
         if ($plain !== 0) {
@@ -3781,33 +3788,40 @@ class Db extends Generic implements Db_Interface
             return false;
         }
         $length = strlen($sql);
-        // where the next word's walk takes its first comment (null: not looked for yet; false: none at or before $last)
-        $next = null;
+        // the words are looked for in a lowercase copy with strpos(), each from where the last one ended: what is read
+        // of the statement to find them is read once (a caseless search from each word, PCRE's without its JIT or
+        // stripos()'s, looks for both cases of the first letter to the end of the statement each time when one of them
+        // is not there: the length times the number of words)
+        $lower = strtolower($sql);
+        $wordLength = strlen($word);
+        // the work done (places read, bytes looked at), added to $sweepWork at the end
+        $work = 0;
         $from = 0;
+        $next = static::wordGapEntry($sql, $lower, $word, $wordLength, $into, $from, $last, $length, $work);
+        if ($next === false) {
+            // no word has a comment after it at or before the last target: no walk
+            self::$sweepWork += $work;
+            return false;
+        }
         // places some walk reached and has not read yet, the smallest first, and the same as a set; the smallest of
         // them (null: none)
         $waiting = new \SplMinHeap();
         $queued = [];
         $top = null;
+        // the ends of the steps some walk took (a comment's or a line's): another walk that takes a step to one of them
+        // would skip what follows it again and reach the same place, so it ends there (k walks whose comments close at
+        // one star-slash would each skip the run after it: k times its length)
+        $stepped = [];
         // the last lookups of a star-slash and of a newline: from where, and what they found (false: none from there on)
         $closeFrom = -1;
         $closeAt = false;
         $lineFrom = -1;
         $lineAt = false;
         $at = null;
+        $result = false;
         while (true) {
             if ($next === null) {
-                $found = preg_match($entry, $sql, $match, PREG_OFFSET_CAPTURE, $from);
-                if ($found === false) {
-                    return true;
-                }
-                $next = false;
-                if ($found === 1) {
-                    $from = $match[0][1] + strlen($match[0][0]);
-                    if ($from <= $last) {
-                        $next = $from;
-                    }
-                }
+                $next = static::wordGapEntry($sql, $lower, $word, $wordLength, $into, $from, $last, $length, $work);
             }
             if ($at === null) {
                 // the next place to read: the smallest of the next word's and the waiting ones
@@ -3823,12 +3837,13 @@ class Db extends Generic implements Db_Interface
                     continue;
                 }
                 if ($top === null) {
-                    return false;
+                    break;
                 }
                 $at = $waiting->extract();
                 unset($queued[$at]);
                 $top = $waiting->isEmpty() ? null : $waiting->top();
             }
+            $work++;
             // (no pattern is run at a place: with PCRE's JIT, a match anchored there first looks for the pattern's last
             // fixed character through the rest of the statement, which would cost its length at every place)
             $char = $sql[$at];
@@ -3846,19 +3861,24 @@ class Db extends Generic implements Db_Interface
             // a target (not where a word's walk takes its first comment: the plain look above found none there)
             if ($into) {
                 if ($char === '@') {
-                    return true;
+                    $result = true;
+                    break;
                 }
                 if ($bang > 0) {
-                    // its digits, its whitespace, then the user variable
+                    // its digits, its whitespace, then the user variable (a place is read once, and what this reads
+                    // belongs to its comment alone)
                     $after = $bang + strspn($sql, '0123456789', $bang);
                     $after += strspn($sql, " \t\n\r\x0B\f", $after);
+                    $work += $after - $bang;
                     if ($after < $length && $sql[$after] === '@') {
-                        return true;
+                        $result = true;
+                        break;
                     }
                 }
             } elseif (($char === 't' || $char === 'T') && $at + 11 <= $length && substr_compare($sql, 'transaction', $at, 11, true) === 0
                 && strspn($sql, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_', $at + 11, 1) === 0) {
-                return true;
+                $result = true;
+                break;
             }
             // one step of the gap, a comment (a place is either one, whitespace or a star-slash, or where a gap ends)
             if ($comment) {
@@ -3871,6 +3891,7 @@ class Db extends Generic implements Db_Interface
                 if ($closeFrom < 0 || $at + 2 < $closeFrom || ($closeAt !== false && $at + 2 > $closeAt)) {
                     $closeFrom = $at + 2;
                     $closeAt = strpos($sql, '*/', $closeFrom);
+                    $work += ($closeAt === false ? $length : $closeAt) - $closeFrom;
                 }
                 if ($closeAt === false) {
                     // never closed: no step
@@ -3882,18 +3903,32 @@ class Db extends Generic implements Db_Interface
                 if ($lineFrom < 0 || $at + 1 < $lineFrom || ($lineAt !== false && $at + 1 > $lineAt)) {
                     $lineFrom = $at + 1;
                     $lineAt = strpos($sql, "\n", $lineFrom);
+                    $work += ($lineAt === false ? $length : $lineAt) - $lineFrom;
                 }
                 $to = $lineAt === false ? $length : $lineAt + 1;
             } else {
                 $to = $at;
             }
-            // then whitespace and (for INTO) star-slashes: steps that hold no word
+            if ($to !== $at) {
+                if (isset($stepped[$to])) {
+                    // another walk's step ended here: it skipped what follows and went on from where that ends (queued
+                    // it, read it or ended there), and so would this one
+                    $at = null;
+                    continue;
+                }
+                $stepped[$to] = true;
+            }
+            // then whitespace and (for INTO) star-slashes: steps that hold no word. A run of them is skipped from at
+            // most three step ends: its start, the end of its first star-slash (a comment opened before the run closes
+            // there at the latest, and none opens inside it) and its first newline (the end of a line comment begun
+            // before it); no walk is at a place inside it
             do {
                 $was = $to;
                 $to += strspn($sql, " \t\n\r\x0B\f", $to);
                 if ($into && $to + 1 < $length && $sql[$to] === '*' && $sql[$to + 1] === '/') {
                     $to += 2;
                 }
+                $work += $to - $was + 1;
             } while ($to !== $was);
             if ($to === $at || $to > $last || isset($queued[$to]) || strpos($into ? '@/#-' : 'tT/#-', $sql[$to]) === false) {
                 // no step (the gap ends here, short of a target), past the last target, a walk waits there already, or
@@ -3911,6 +3946,83 @@ class Db extends Generic implements Db_Interface
                 $at = null;
             }
         }
+        self::$sweepWork += $work;
+        return $result;
+    }
+
+    /**
+    * wordGapReaches(): where the gap after the next $word from $from on begins with a comment ("/*", "#", or "--" with a
+    * control character or a space after it; for START not an executable "/*!" or "/*M!"), exactly where its entry
+    * pattern matched: $word not after a word character (PCRE's \w: letters, digits, underscore; \b), then any run of
+    * whitespace (\s) and, for INTO, star-slashes, then the comment. $from moves past what was read; each byte of
+    * $lower is looked at once over all the calls of one sweep, and the runs after different words do not overlap.
+    *
+    * @param string $sql
+    * @param string $lower strtolower($sql)
+    * @param string $word
+    * @param int $wordLength
+    * @param bool $into
+    * @param int $from where to look from (moved on)
+    * @param int $last no entry is wanted after it
+    * @param int $length
+    * @param int $work the work done (added to)
+    * @return int|false where that comment begins; false: none at or before $last
+    */
+    protected static function wordGapEntry($sql, $lower, $word, $wordLength, $into, &$from, $last, $length, &$work)
+    {
+        while ($from <= $last) {
+            $p = strpos($lower, $word, $from);
+            if ($p === false || $p > $last) {
+                $work += $length - $from;
+                $from = $length;
+                return false;
+            }
+            $work += $p - $from + 1;
+            $from = $p + 1;
+            if ($p > 0 && strspn($sql, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_', $p - 1, 1) === 1) {
+                // after a word character: no \b
+                continue;
+            }
+            $end = $p + $wordLength;
+            do {
+                $was = $end;
+                $end += strspn($sql, " \t\n\r\x0B\f", $end);
+                if ($into && $end + 1 < $length && $sql[$end] === '*' && $sql[$end + 1] === '/') {
+                    $end += 2;
+                }
+            } while ($end !== $was);
+            $work += $end - $p - $wordLength;
+            if ($end >= $length) {
+                continue;
+            }
+            $char = $sql[$end];
+            $second = $end + 1 < $length ? $sql[$end + 1] : '';
+            if ($char === '#'
+                || ($char === '-' && $second === '-' && $end + 2 < $length && (ord($sql[$end + 2]) <= 0x20 || $sql[$end + 2] === "\x7F"))
+                || ($char === '/' && $second === '*' && ($into || !static::executableAt($sql, $end, $length)))) {
+                // what was read up to $end holds no other word's entry (the run after this word has no letters)
+                $from = $end;
+                return $end <= $last ? $end : false;
+            }
+        }
+        return false;
+    }
+
+    /**
+    * Whether the block comment at $at (slash-star) is an executable one: a bang after it, or M (any case) and a bang.
+    *
+    * @param string $sql
+    * @param int $at
+    * @param int $length
+    * @return bool
+    */
+    protected static function executableAt($sql, $at, $length)
+    {
+        if ($at + 2 >= $length) {
+            return false;
+        }
+        $mark = $sql[$at + 2];
+        return $mark === '!' || (($mark === 'M' || $mark === 'm') && $at + 3 < $length && $sql[$at + 3] === '!');
     }
 
     /**

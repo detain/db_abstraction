@@ -1944,6 +1944,177 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertLessThan(3.0, microtime(true) - $start);
 	}
 
+	public static function sweepFamilies()
+	{
+		// [look, the reading]: r11a F1, many INTOs (or STARTs) whose comments all close at one star-slash, then a long
+		// run after it (star-slashes, spaces, tabs and form feeds, the whitespace after a line comment's newline): each
+		// walk skipped the whole run before it found the place already queued, k times its length; the same through
+		// endsTransaction() for a CREATE TEMPORARY TABLE and implicitCommitOutcome(); and the entries of r11a F2 (one
+		// case of the word only, words that are no entry). The statements: sweepStatement()
+		return [
+			'into /*, a star-slash run, @' => ['dirty', true],
+			'into /*, a star-slash run, x @' => ['dirty', false],
+			'into /*, a close, spaces, @' => ['replayable', false],
+			'into /*, a close, tabs and form feeds, @' => ['dirty', true],
+			'into #, a newline, spaces, @' => ['dirty', true],
+			'into --, a newline, a star-slash run, @' => ['dirty', true],
+			'into /*/, star-slash and space runs, @' => ['dirty', true],
+			'into /*, a star-slash run, # then @ on the next line' => ['dirty', true],
+			'start /*, a close, spaces, transaction' => ['startTransaction', true],
+			'start #, a newline, spaces, transaction' => ['outcome', 'chain'],
+			'CREATE TEMPORARY TABLE, start /*, a close, spaces, transaction' => ['ends', true],
+			'into after a word character' => ['dirty', false],
+			'into with no comment after it' => ['dirty', false],
+		];
+	}
+
+	/**
+	* @param string $family a key of sweepFamilies()
+	* @param int $n
+	* @return string
+	*/
+	public static function sweepStatement($family, $n)
+	{
+		$ss = str_repeat('*/', 4 * $n);
+		$sp = str_repeat(' ', 8 * $n);
+		switch ($family) {
+			case 'into /*, a star-slash run, @':
+				return "INSERT INTO t (v) VALUES ('".str_repeat('into /* ', $n).$ss."@')";
+			case 'into /*, a star-slash run, x @':
+				return "INSERT INTO t (v) VALUES ('".str_repeat('into /* ', $n).$ss." x @')";
+			case 'into /*, a close, spaces, @':
+				return "INSERT INTO t (v) VALUES ('".str_repeat('into /* ', $n).'*/'.$sp."@')";
+			case 'into /*, a close, tabs and form feeds, @':
+				return "INSERT INTO t (v) VALUES ('".str_repeat('into /* ', $n).'*/'.str_repeat("\t\x0B\f ", 2 * $n)."@')";
+			case 'into #, a newline, spaces, @':
+				return "SELECT '".str_repeat('into # ', $n)."'\n".$sp.'@x';
+			case 'into --, a newline, a star-slash run, @':
+				return "SELECT '".str_repeat('into -- ', $n)."'\n".$ss.'@x';
+			case 'into /*/, star-slash and space runs, @':
+				return "SELECT '".str_repeat('into /*/ ', $n).str_repeat('*/ ', 4 * $n)."@'";
+			case 'into /*, a star-slash run, # then @ on the next line':
+				return "SELECT '".str_repeat('into /* ', $n).$ss."# x\n@'";
+			case 'start /*, a close, spaces, transaction':
+				return "CREATE TABLE t2 AS SELECT '".str_repeat('start /* ', $n).'*/'.$sp."transaction' AS v";
+			case 'start #, a newline, spaces, transaction':
+				return "CREATE TABLE t2 AS SELECT '".str_repeat('start # ', $n)."'\n".$sp.'transaction';
+			case 'CREATE TEMPORARY TABLE, start /*, a close, spaces, transaction':
+				return "CREATE TEMPORARY TABLE tt AS SELECT '".str_repeat('start /* ', $n).'*/'.$sp."transaction'";
+			case 'into after a word character':
+				return "SELECT '".str_repeat('xinto /* ', $n)."*/ @'";
+			case 'into with no comment after it':
+				return "SELECT '@ ".str_repeat('into   x ', $n)."'";
+		}
+		throw new \LogicException($family);
+	}
+
+	/**
+	* r11a F1/F2: the work of the sweep (places read and bytes looked at, wordGapReaches()) is bounded by the
+	* statement's length and grows with it: four times the statement, at most about four times the work. The count is
+	* the library's own (no clock): on e6006ea's sweep, the star-slash runs cost each walk the whole run (k x m)
+	*
+	* @dataProvider sweepFamilies
+	* @param string $look
+	* @param mixed $reading
+	*/
+	#[DataProvider('sweepFamilies')]
+	public function testTheSweepsWorkGrowsWithTheStatementOnly($look, $reading)
+	{
+		$family = $this->dataName();
+		$work = [];
+		foreach ([1000, 4000] as $n) {
+			$sql = static::sweepStatement($family, $n);
+			$before = LeadProbe::work();
+			$this->assertSame($reading, LeadProbe::$look($sql), 'the reading');
+			$work[$n] = LeadProbe::work() - $before;
+			$this->assertLessThanOrEqual(6 * strlen($sql), $work[$n], 'work per byte, n = '.$n);
+		}
+		$this->assertGreaterThan(0, $work[1000], 'the sweep ran');
+		$this->assertLessThanOrEqual(4.5 * $work[1000], $work[4000], 'four times the statement');
+	}
+
+	/**
+	* r11a F2: the words are found (strpos() on a lowercase copy, the word boundary, the run and the comment after it
+	* checked by hand) exactly where e6006ea's entry patterns found them, on strings of the pieces that matter: both
+	* cases and mixes, word bytes and others before the word, every whitespace byte, star-slashes, plain and executable
+	* comments, '#', '--' with every kind of byte after it, at the end of the string too
+	*/
+	public function testTheWordsAreFoundWhereTheEntryPatternsFoundThem()
+	{
+		$patterns = [
+			'into' => '~\binto(?:\s|\*/)*+(?=/\*|\#|--[\x00-\x20\x7F])~i',
+			'start' => '~\bstart\s*+(?=/\*(?!M?!)|\#|--[\x00-\x20\x7F])~i',
+		];
+		$pieces = ['into', 'INTO', 'iNtO', 'start', 'START', 'StArT', 'x', 'Z', '_', '$', '1', '9', "\xC3\xA9", "\xA0", "\x00",
+			' ', "\t", "\n", "\r", "\x0B", "\f", '*/', '*/*/', '*', '/', '/*', '/*!', '/*!80000', '/*M!', '/*m!', '/*M', '/*m', '/**/',
+			'/*/', '#', '--', '-- ', "--\t", "--\x00", "--\x1F", "--\x20", "--\x21", "--\x7F", "--\x80", '-', '@', 'transaction'];
+		mt_srand(12);
+		$entries = 0;
+		$wrong = [];
+		for ($i = 0; $i < 30000; $i++) {
+			$sql = '';
+			for ($j = mt_rand(1, 16); $j > 0; $j--) {
+				$sql .= $pieces[mt_rand(0, count($pieces) - 1)];
+			}
+			foreach ($patterns as $word => $pattern) {
+				$expected = [];
+				$from = 0;
+				while (preg_match($pattern, $sql, $match, PREG_OFFSET_CAPTURE, $from) === 1) {
+					$from = $match[0][1] + strlen($match[0][0]);
+					$expected[] = $from;
+				}
+				$entries += count($expected);
+				if (LeadProbe::entries($sql, $word, $word === 'into') !== $expected) {
+					$wrong[] = $word.' '.json_encode($sql);
+				}
+			}
+		}
+		$this->assertSame([], array_slice($wrong, 0, 20));
+		$this->assertGreaterThan(5000, $entries, 'the strings hold entries');
+	}
+
+	/**
+	* r11a F2: the words are found without a search from each of them. PCRE's caseless search without its JIT looks for
+	* both cases of the first letter to the end of the statement on every call when one of them is not there: a 2 MB
+	* statement whose INTOs are all lowercase took 6.7 s that way, and takes well under a second. Run in a PHP of its
+	* own with pcre.jit off (a pattern compiled with the JIT stays so in this process)
+	*/
+	public function testTheWordsAreFoundInLinearTimeWithoutPcreJit()
+	{
+		$script = 'require '.var_export(dirname(__DIR__, 2).'/vendor/autoload.php', true).';'
+			.'$probe = new class extends \MyDb\Mysqli\Db { public function __construct($database = \'\', $user = \'\', $password = \'\', $host = \'localhost\', $query = \'\', $port = \'\') {} public static function into($s) { return static::intoUserVariable($s); } public static function work() { return static::$sweepWork; } };'
+			.'$k = 131072; $sql = "INSERT INTO t (v) VALUES (\'".str_repeat("into /* ", $k)."*/".str_repeat(" ", 8 * $k)."@\')";'
+			.'$t = microtime(true); $into = $probe::into($sql); $t = microtime(true) - $t;'
+			.'echo json_encode(["jit" => ini_get("pcre.jit"), "into" => $into, "seconds" => $t, "work" => $probe::work(), "bytes" => strlen($sql)]);';
+		$output = [];
+		$status = -1;
+		exec(escapeshellarg(PHP_BINARY).' -d pcre.jit=0 -r '.escapeshellarg($script).' 2>&1', $output, $status);
+		$this->assertSame(0, $status, implode("\n", $output));
+		$result = json_decode(implode('', $output), true);
+		$this->assertIsArray($result, implode("\n", $output));
+		$this->assertSame('0', $result['jit']);
+		$this->assertTrue($result['into']);
+		$this->assertLessThanOrEqual(6 * $result['bytes'], $result['work']);
+		$this->assertLessThan(3.0, $result['seconds'], 'a 2 MB statement');
+	}
+
+	/**
+	* r11a F1: the read-once case with a long run after the shared star-slash (6000 star-slashes: each of the 6000 walks
+	* skipped them all, 36 million steps, about 11 s on e6006ea), and before the @ a second run (spaces)
+	*/
+	public function testARunAfterAStarSlashManyWalksShareIsSkippedOnce()
+	{
+		foreach ([str_repeat('*/', 6000), str_repeat(' ', 48000), str_repeat("\t", 48000)] as $run) {
+			$sql = "INSERT INTO t (v) VALUES ('".str_repeat('into /* ', 6000).'*/'.$run." x @')";
+			$before = LeadProbe::work();
+			$this->assertFalse(LeadProbe::dirty($sql));
+			$this->assertLessThanOrEqual(6 * strlen($sql), LeadProbe::work() - $before);
+			$before = LeadProbe::work();
+			$this->assertTrue(LeadProbe::dirty(str_replace(' x @', ' @', $sql)));
+			$this->assertLessThanOrEqual(6 * strlen($sql), LeadProbe::work() - $before);
+		}
+	}
+
 	/** r10 F1: the other looks of changesSessionState() and replayableStatement() still read as they did */
 	public function testTheOtherSessionLooksStillRead()
 	{
@@ -2008,5 +2179,24 @@ class LeadProbe extends \MyDb\Mysqli\Db
 	public static function startTransaction($sql)
 	{
 		return static::startTransactionAdjacent($sql);
+	}
+
+	/** every entry wordGapEntry() finds in $sql, in order (where the comment after each word begins) */
+	public static function entries($sql, $word, $into)
+	{
+		$lower = strtolower($sql);
+		$from = 0;
+		$work = 0;
+		$found = [];
+		while (($entry = static::wordGapEntry($sql, $lower, $word, strlen($word), $into, $from, strlen($sql), strlen($sql), $work)) !== false) {
+			$found[] = $entry;
+		}
+		return $found;
+	}
+
+	/** the work wordGapReaches() has done in this process (places read, bytes looked at) */
+	public static function work()
+	{
+		return static::$sweepWork;
 	}
 }
