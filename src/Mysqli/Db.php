@@ -450,12 +450,19 @@ class Db extends Generic implements Db_Interface
         if (!$this->linkIsUsable()) {
             $this->connectionAttempt++;
             if ($this->connectionAttempt >= $this->maxConnectErrors - 1) {
+                // B180 (S53): there were two guards here, an exit at maxConnectErrors - 1 and a
+                // halt + return 0 at maxConnectErrors, but whatever passed the first never reached
+                // the second: the halt was dead. The exit was also silent - no mail, no message,
+                // status 0 - so cron and queue supervisors recorded a DB-outage death as success.
+                // The trip point stays deliberately one failure before the documented
+                // maxConnectErrors (with the default of 5: on the 4th consecutive failure), the
+                // timing every outage path has lived with; what changes is that it is now a real
+                // halt: log, halt() (mail under 'report', message under 'yes', caller-visible
+                // false under 'no'), then leave with a status that says failure. The replay stays
+                // inside this limit without adjustment (see replayReset()).
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
-                exit;
-            }
-            if ($this->connectionAttempt >= $this->maxConnectErrors) {
                 $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
-                return 0;
+                exit(1);
             }
             //error_log("real_connect($host, $user, $password, $database, $port)");
             $this->linkEstablished = false;
@@ -474,8 +481,8 @@ class Db extends Generic implements Db_Interface
             // a new connection starts with no session state of its own
             $this->sessionDirty = false;
             // Counts *consecutive* failures, so clear it once we are connected.
-            // Without this it only ever grew, and since maxConnectErrors trips an
-            // exit() above, a long-lived worker that legitimately reconnects a few
+            // Without this it only ever grew, and since the consecutive-failure limit trips a
+            // halt + exit(1) above, a long-lived worker that legitimately reconnects a few
             // times would eventually be killed off mid-request.
             $this->connectionAttempt = 0;
             if ($this->movedApart) {

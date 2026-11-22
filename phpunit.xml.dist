@@ -24,6 +24,7 @@
 			<file>tests/Mysqli/TransactionRetryTest.php</file>
 			<file>tests/Mysqli/TransactionReplayTest.php</file>
 			<file>tests/Mysqli/TransactionSafetyTest.php</file>
+			<file>tests/Mysqli/ConnectLimitTest.php</file>
 			<file>tests/ErrorReportRedactionTest.php</file>
 		</testsuite>
 		<testsuite name="mysql tests">
@@ -34,6 +35,7 @@
 			<file>tests/Mysqli/TransactionRetryTest.php</file>
 			<file>tests/Mysqli/TransactionReplayTest.php</file>
 			<file>tests/Mysqli/TransactionSafetyTest.php</file>
+			<file>tests/Mysqli/ConnectLimitTest.php</file>
 			<file>tests/ErrorReportRedactionTest.php</file>
 			<file>tests/Mdb2/DbTest.php</file>
 			<file>tests/Pdo/DbTest.php</file>
@@ -49,6 +51,7 @@
 			<file>tests/Mysqli/TransactionRetryTest.php</file>
 			<file>tests/Mysqli/TransactionReplayTest.php</file>
 			<file>tests/Mysqli/TransactionSafetyTest.php</file>
+			<file>tests/Mysqli/ConnectLimitTest.php</file>
 			<file>tests/ErrorReportRedactionTest.php</file>
 			<file>tests/Mdb2/DbTest.php</file>
 			<file>tests/Pdo/DbTest.php</file>
