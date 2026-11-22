@@ -14,6 +14,14 @@ namespace MyDb;
  */
 abstract class Generic
 {
+    /**
+     * An executable comment (slash-star-bang or slash-star-M-bang, with no version or a five-digit one) that holds
+     * nothing but whitespace, matched where it begins: run or skipped by the server, it runs nothing, so it reads as
+     * a space (withoutComments(); the MySQL driver's leadingKeywordSql()). A sixth digit is not part of the version on
+     * MySQL, which runs it, so such a comment is not one of these.
+     */
+    const EMPTY_EXECUTABLE_PATTERN = '~/\*M?!(?:\d{5})?[ \t\n\r\f\x0B]*+\*/~A';
+
     /* public: connection parameters */
     public $host = 'localhost';
     public $database = '';
@@ -247,7 +255,8 @@ abstract class Generic
      * The statement with every SQL comment replaced by a space (one linear pass), for matching the words of a statement.
      *
      * Returns '' when the statement cannot be read that way: an unterminated block comment, or an
-     * executable comment (slash-star-bang, slash-star-M-bang), whose content the server runs.
+     * executable comment (slash-star-bang, slash-star-M-bang), whose content the server runs; one that holds nothing
+     * but whitespace (EMPTY_EXECUTABLE_PATTERN) runs nothing and is a space like any comment.
      * Quotes are not tracked: use it on statements that carry no string literals (COMMIT, ROLLBACK).
      *
      * @param string $queryString
@@ -267,7 +276,7 @@ abstract class Generic
                 break;
             }
             if (substr_compare($sql, '/*', $offset, 2) === 0) {
-                if (substr_compare($sql, '/*!', $offset, 3) === 0 || substr_compare($sql, '/*M!', $offset, 4) === 0) {
+                if ((substr_compare($sql, '/*!', $offset, 3) === 0 || substr_compare($sql, '/*M!', $offset, 4) === 0) && preg_match(self::EMPTY_EXECUTABLE_PATTERN, $sql, $empty, 0, $offset) !== 1) {
                     return '';
                 }
                 $end = strpos($sql, '*/', $offset + 2);

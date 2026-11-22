@@ -3044,8 +3044,10 @@ class TransactionSafetyTest extends TestCase
 			// statement it holds, or the words it holds among the leading ones, commit as their plain forms do
 			'/*!40000 ALTER TABLE t DISABLE KEYS */', 'ALTER TABLE t /*!50100 ENGINE=InnoDB */', '/*!50000 CREATE TABLE x AS */ SELECT 1 AS a',
 			'LOCK /*!50000 TABLES */ t WRITE', 'CHECK /*!50000 TABLE */ t', "SET /*!50000 PASSWORD */ = 'x'", 'CACHE /*!50000 INDEX */ t IN k',
-			// ... and past the leading words of a CREATE TABLE (mysqldump: readExecutableComments())
-			'CREATE TABLE x (a int) /*!50100 PARTITION BY HASH (a) */',
+			// ... and past the leading words of a CREATE TABLE (mysqldump), whatever it holds and whether it is read
+			// (round 9 F4: every CREATE TABLE commits the open transaction; one that may hold START TRANSACTION is 'chain')
+			'CREATE TABLE x (a int) /*!50100 PARTITION BY HASH (a) */', 'CREATE TABLE x (a int) /*!99999 ENGINE=InnoDB */',
+			'CREATE TABLE x (a int) /*M! PAGE_COMPRESSED=1 */',
 		] as $sql) {
 			$cases[$sql.', returned'] = [$sql, false];
 		}
@@ -3237,9 +3239,6 @@ class TransactionSafetyTest extends TestCase
 			'CREATE /*M! TEMPORARY */ TABLE (MariaDB)' => 'CREATE /*M! TEMPORARY */ TABLE tmp (a int)',
 			// ... or one of a later version: on a server that new it is a LOCK TABLES
 			'LOCK /*!99999 TABLES */ t WRITE' => 'LOCK /*!99999 TABLES */ t WRITE',
-			// an executable comment that is not read past the leading words of a CREATE TABLE (it may hold START
-			// TRANSACTION; one whose content runs everywhere is read: implicitCommitsThatWork())
-			'CREATE TABLE ... /*!99999 ... */' => 'CREATE TABLE x (a int) /*!99999 ENGINE=InnoDB */',
 			// SET autocommit=1 commits only when the session's autocommit was off: that is not tracked
 			'SET autocommit=1' => 'SET autocommit=1',
 			'SET SESSION autocommit = ON' => 'SET SESSION autocommit = ON',
@@ -3255,9 +3254,12 @@ class TransactionSafetyTest extends TestCase
 			'SET GLOBAL x=1, SESSION autocommit=1' => 'SET GLOBAL sort_buffer_size=1, SESSION autocommit=1',
 			'SET autocommit=1, GLOBAL x=1' => 'SET autocommit=1, GLOBAL sort_buffer_size=1',
 			'SET GLOBAL autocommit=0, @@autocommit=1 (@@ is the session\'s)' => 'SET GLOBAL autocommit=0, @@autocommit=1',
-			// atomic DDL: CREATE TABLE ... START TRANSACTION commits nothing
+			// round 9 F4, atomic DDL: CREATE TABLE ... START TRANSACTION commits the open transaction (its trans_begin()) and
+			// keeps one of its own open ('chain'): handled as these are, its message says the writes before it are
+			// committed (the model's "kept open" world does not happen on MySQL)
 			'CREATE TABLE ... START TRANSACTION' => 'CREATE TABLE x (a int) START TRANSACTION',
 			'CREATE TABLE ... START /* c */ TRANSACTION' => 'CREATE TABLE x (a int) START /* c */ TRANSACTION',
+			'CREATE TABLE ... /*!99999 START TRANSACTION */' => 'CREATE TABLE x (a int) /*!99999 START TRANSACTION */',
 			// commits only after it ran, and only if it did
 			'STOP GROUP_REPLICATION' => 'STOP GROUP_REPLICATION',
 			'ANALYZE without TABLE' => 'ANALYZE x',
@@ -3267,7 +3269,8 @@ class TransactionSafetyTest extends TestCase
 	/**
 	* Round 8 (F2d; round 7 F1 gave these up): a statement that may commit the open transaction implicitly, sent by the
 	* handle's own transaction and working, when whether it did cannot be told although it rolled nothing back (SET
-	* autocommit=1; CREATE TABLE ... START TRANSACTION; STOP GROUP_REPLICATION; an executable comment that is not read
+	* autocommit=1; CREATE TABLE ... START TRANSACTION, which did commit it and keeps one of its own open, round 9; STOP
+	* GROUP_REPLICATION; an executable comment that is not read
 	* among the leading words of a known first keyword; a form the strict list does not know) keeps the transaction
 	* going, its end not known (keepUnknownEnd()): no refusal, no ROLLBACK, one error_log() line, no mail; its own result
 	* stands. It is not replayable any more, and a failure in it from here on loses it with 2006 (unknownEndLoss()), never
@@ -3326,7 +3329,7 @@ class TransactionSafetyTest extends TestCase
 		$this->assertFalse($saved, 'never reported as saved');
 		$this->assertSame(1, $attempts, 'not retried: whether the transaction committed is not known');
 		$this->assertSame(2006, $errno, 'lost with 2006, never the server\'s 1213');
-		$this->assertStringContainsString('which may have committed it implicitly, so whether its writes were committed is not known', $db->Error);
+		$this->assertStringContainsString(strncmp($sql, 'CREATE TABLE', 12) === 0 ? 'which committed the writes before it' : 'which may have committed it implicitly, so whether its writes were committed is not known', $db->Error);
 		$this->assertSame(1, FakeServer::sent('UPDATE u SET x=1'), 'sent once, never replayed');
 		$this->assertSame($committed ? ['INSERT INTO t VALUES (1)'] : [], self::writes(), $committed ? 'once, never twice' : 'nothing reported as saved');
 		$this->assertLostAndRefused($db, 2006);
