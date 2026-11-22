@@ -343,6 +343,12 @@ namespace MyDb\Tests\Mysqli {
 		public static $connectFails = 0;
 		/** @var bool model MySQL's OPTION_BEGIN after an implicit rollback, and a failed COMMIT ending the transaction */
 		public static $implicitBegin = true;
+		/**
+		 * @var bool model CREATE TEMPORARY TABLE / ALTER TABLE ... START TRANSACTION (off by default): trans_begin()
+		 * (sql_parse.cc) commits the open transaction and begins one, then sql_table.cc refuses the statement (3909)
+		 * without rolling that one back, so the session is left inside an empty transaction
+		 */
+		public static $ddlStartTransaction = false;
 		/** @var array[] scripted result sets: [pattern, row sets (each run takes the next; the last one repeats)] */
 		public static $results = [];
 		/** @var array[] scripted affected rows: [pattern, counts (each run takes the next; the last one repeats)] */
@@ -379,6 +385,7 @@ namespace MyDb\Tests\Mysqli {
 			2055 => "Lost connection to MySQL server at 'reading initial communication packet'",
 			4031 => 'The client was disconnected by the server because of inactivity.',
 			3101 => 'Plugin instructed the server to rollback the current transaction.',
+			3909 => 'START TRANSACTION clause is not supported for this statement',
 		];
 
 		public static function reset()
@@ -389,6 +396,7 @@ namespace MyDb\Tests\Mysqli {
 			self::$connectFailsReal = 0;
 			self::$halfOpenCalls = [];
 			self::$implicitBegin = true;
+			self::$ddlStartTransaction = false;
 			self::$results = [];
 			self::$affected = [];
 			self::$autoIncrement = 0;
@@ -542,6 +550,13 @@ namespace MyDb\Tests\Mysqli {
 			// the server ignores comments, and runs the content of an executable one
 			$sql = self::serverSql($sql);
 			$chain = preg_match('/^(?:commit|rollback)\b(?:\s+work)?\s+and\s+chain\b/i', $sql) === 1;
+			if (self::$ddlStartTransaction && preg_match('/^\s*(?:create\s+temporary\s+table|alter\s+table)\b.*\bstart\s+transaction\b/is', $sql) === 1) {
+				foreach (isset(self::$open[$connection]) ? self::$open[$connection] : [] as $write) {
+					self::$committed[] = $write;
+				}
+				self::$open[$connection] = [];
+				return self::fail($link, 3909, $sql);
+			}
 			if (preg_match('/^\s*(start\s+transaction|begin)\b/i', $sql) === 1) {
 				// START TRANSACTION/BEGIN implicitly commits a transaction that is already open
 				foreach (isset(self::$open[$connection]) ? self::$open[$connection] : [] as $write) {

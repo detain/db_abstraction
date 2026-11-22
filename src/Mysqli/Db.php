@@ -137,6 +137,14 @@ class Db extends Generic implements Db_Interface
     const START_TRANSACTION_ANYWHERE = '\bstart'.self::WORD_GAP.'transaction\b';
 
     /**
+    * setAutocommitOutcome(): an assignment that may be to the session's autocommit, its target:
+    * autocommit followed by = or :=, not after a word character, $, . or @ (a user variable @autocommit, a column
+    * t.autocommit and @@GLOBAL.autocommit are not), alone, quoted, or as @@autocommit, @@SESSION.autocommit or
+    * @@LOCAL.autocommit. Its scope keyword and value are read by setAutocommitOutcome().
+    */
+    const AUTOCOMMIT_TARGET = '(?<![\w$.@])(?:@@(?:`?(?:session|local)`?\.)?)?`?autocommit`?\s*:?=';
+
+    /**
     * changesSessionState(): CREATE/DROP TEMPORARY TABLE.
     */
     const TEMPORARY_TABLE_PATTERN = '~^(?:create|drop)'.self::WORD_GAP.'temporary'.self::WORD_GAP.'tables?\b~is';
@@ -883,6 +891,9 @@ class Db extends Generic implements Db_Interface
             } elseif ($outcome === 'unknown') {
                 $this->giveUpUnknownEnd((string) $this->statement_query, $line, $file, static::firstWord($lead));
             }
+        } elseif ($ends && static::workedEndsNothing($lead)) {
+            // it worked, so it ended nothing: another holder's transaction on the shared link goes on
+            $this->takeBackEnd();
         }
         if (!isset($GLOBALS['disable_db_queries'])) {
             $vars = $this->statement_vars;
@@ -930,6 +941,9 @@ class Db extends Generic implements Db_Interface
     protected function executeFailed($errno, $error, $line, $file, $implicitCommit = false)
     {
         $sql = (string) $this->statement_query;
+        if ($this->inTransaction !== true) {
+            $this->endStrayDdlTransaction($errno, static::leadingKeywordSql($sql));
+        }
         if ($implicitCommit && $this->inTransaction === true && !in_array($errno, self::NOT_RUN_ERRORS, true)) {
             $what = static::firstWord(static::leadingKeywordSql($sql));
             $lostWith = $errno;
@@ -1076,7 +1090,9 @@ class Db extends Generic implements Db_Interface
     * this instance's own, taken for each COMMIT, ROLLBACK or opener its readings may be (unreadLeadMay()): guarded as a
     * COMMIT or ROLLBACK from a handle with no transaction of its own (above), refused as a COMMIT after a lost
     * transaction, run as a START when it may open one (apart beside another handle's transaction; once it worked,
-    * tracked as a transaction whose start is not known: openUnknown()); inside one, see implicitCommitOutcome(). COMMIT/ROLLBACK
+    * tracked as a transaction whose start is not known: openUnknown()), but while a lost transaction is refused it is
+    * refused as what it is read as, a statement that is none of them (its readings never end the refusal); inside one,
+    * see implicitCommitOutcome(). COMMIT/ROLLBACK
     * ... AND CHAIN (not AND CHAIN RELEASE) leave a transaction open, even with none open (MySQL's chain starts one
     * even with autocommit=1). With completion_type=1 (server/session) a plain COMMIT/ROLLBACK chains too; the
     * tracker does not read that variable (deferred). With haltOnError 'no' or 'report' halt() does not throw the
@@ -1155,6 +1171,10 @@ class Db extends Generic implements Db_Interface
         $isCommit = preg_match('/^commit\b/i', $lead) === 1;
         // whether it may open a transaction that it is not read as opening (see below)
         $mayOpen = false;
+        // whether it is read as one of those on its own, before the readings it may have (below) are added: only then may
+        // it get past the refusal after a lost transaction (and so end it, clear the lost record or count as the
+        // caller's COMMIT of it)
+        $known = $isStart || $isRollback || $isCommit;
         if ($unread && !$transactionOpen) {
             /*
              * An executable comment the lexer could not read sits before its first keyword or among its leading words:
@@ -1163,14 +1183,24 @@ class Db extends Generic implements Db_Interface
              * as a COMMIT or ROLLBACK below (not sent while another handle sharing the link has a transaction open there;
              * a COMMIT refused after a lost transaction), and run as a START when it may open one (moved apart beside
              * another handle's open transaction, startApart(); once it worked, tracked as an open transaction whose
-             * start is not known, openUnknown()). Inside one, what it did is told after it worked
-             * (queryInTransaction(): implicitCommitOutcome()).
+             * start is not known, openUnknown()). While a lost transaction is refused (refusing()), one read as none of
+             * them on its own is refused like any other statement: on a server that skips the comment it is the statement
+             * read here (MySQL 8.0 runs /*!99999 ROLLBACK; *\/ INSERT ... as the INSERT), and taken for the ROLLBACK,
+             * START or COMMIT it may be, it would end the refusal and run on its own, the lost writes then reported as
+             * saved by the next COMMIT. Inside one, what it did is told after it worked (queryInTransaction():
+             * implicitCommitOutcome()).
              */
             $may = static::unreadLeadMay($lead);
             $isCommit = $isCommit || $may['commit'];
             $isRollback = $isRollback || $may['rollback'];
             $mayOpen = !$isStart && $may['open'];
             $isStart = $isStart || $may['open'];
+        }
+        if (!$known && $this->refusing()) {
+            // the transaction the caller is still running was lost: sent now, this would commit on its own. One that may
+            // be a ROLLBACK, START or COMMIT too (an executable comment that is not read) is refused the same way, before
+            // the guards below can take it for the caller's ROLLBACK (the cleanup that clears the lost record) or COMMIT
+            return $this->refuseStatement($queryString, $line, $file);
         }
         /*
          * A statement inside a transaction (a plain ROLLBACK aside: when the transaction is already gone a
@@ -1201,10 +1231,6 @@ class Db extends Generic implements Db_Interface
             // COMMIT with nothing open it would report that transaction's writes as saved (a refused COMMIT of a lost
             // one is never sent either)
             return $this->commitWithoutTransaction($queryString, $line, $file);
-        }
-        if (!$isStart && !$isRollback && !$isCommit && $this->refusing()) {
-            // the transaction the caller is still running was lost: sent now, this would commit on its own
-            return $this->refuseStatement($queryString, $line, $file);
         }
         if (!$isStart && !$isRollback && !$isCommit) {
             // after a lost transaction, the caller goes on without a ROLLBACK
@@ -1399,6 +1425,10 @@ class Db extends Generic implements Db_Interface
                 // a START TRANSACTION/BEGIN that failed opened nothing
                 $this->inTransaction = false;
             }
+            if (!$transactionOpen) {
+                // (inside a transaction of this instance's own only a plain ROLLBACK gets here)
+                $this->endStrayDdlTransaction($this->Errno, $lead);
+            }
             if ($transactionOpen && $isRollback) {
                 // the retries are used up, or the error is not retried: whatever it was, the ROLLBACK did not go
                 // through, so a COMMIT must not commit (or report as saved) what the caller meant to discard. The
@@ -1417,6 +1447,12 @@ class Db extends Generic implements Db_Interface
             // the state only changes once the statement has worked
             if ($isStart || $isRollback) {
                 $this->clearTransactionLost();
+            }
+            if ($ends && static::workedEndsNothing($lead)) {
+                // it worked, so it ended nothing: another holder's transaction on the shared link goes on (counted when it
+                // was sent, countStatement(); a statement inside this instance's own transaction never gets here, but a
+                // plain ROLLBACK)
+                $this->takeBackEnd();
             }
             $change = $this->trackTransactionState($queryString);
             $this->txAfter($change, $transactionOpen, $queryString, $line, $file, $this->queryId);
@@ -2368,8 +2404,8 @@ class Db extends Generic implements Db_Interface
     * this link and no other handle sharing it has a transaction open there, a quiet ROLLBACK.
     *
     * The count that found the transaction ended can be wrong: a statement taken for an end (endsTransaction()) that
-    * ended nothing on the server (SET autocommit=1 with autocommit already on, SET autocommit=0, a DDL the server
-    * refused before its implicit commit, ...) leaves the transaction open on the connection, its writes waiting for
+    * ended nothing on the server (SET autocommit=1 with autocommit already on, a DDL the server refused before its
+    * implicit commit, ...) leaves the transaction open on the connection, its writes waiting for
     * whatever COMMIT or START TRANSACTION comes next there, while this instance gives the transaction up. The ROLLBACK
     * ends it; when the transaction was really ended (committed or rolled back) it rolls back nothing. It is not sent
     * while another handle has a transaction open there (it would end that one: anotherLiveHolderInTransaction()), nor
@@ -2406,7 +2442,21 @@ class Db extends Generic implements Db_Interface
     */
     protected function uncountEnd($errno, $ends)
     {
-        if (!$ends || !in_array((int) $errno, self::NOT_RUN_ERRORS, true) || self::$linkEnds === null || !is_object($this->linkId)) {
+        if (!$ends || !in_array((int) $errno, self::NOT_RUN_ERRORS, true)) {
+            return;
+        }
+        $this->takeBackEnd();
+    }
+
+    /**
+    * Takes back one end of a transaction counted on this instance's link (countStatement(true)): for a statement the
+    * server never ran (uncountEnd()), and for one that worked and so ended nothing (workedEndsNothing()).
+    *
+    * @return void
+    */
+    protected function takeBackEnd()
+    {
+        if (self::$linkEnds === null || !is_object($this->linkId)) {
             return;
         }
         $count = isset(self::$linkEnds[$this->linkId]) ? self::$linkEnds[$this->linkId] : 0;
@@ -3019,9 +3069,13 @@ class Db extends Generic implements Db_Interface
     * COMMIT...), or right after the first word of a lead that takes two words (LOCK /*!99999 TABLES *\/ t WRITE: on a
     * server that new it is a LOCK TABLES). This over-approximation is what another holder's count and a failure are
     * judged by; whether one that WORKED ended this instance's own transaction is told strictly
-    * (implicitCommitOutcome()). The count is made before the statement is sent: one the server never ran
-    * (NOT_RUN_ERRORS) is taken back (uncountEnd()). Any other miscount (SET autocommit=1 with autocommit already on,
-    * SET autocommit=0, a DDL refused before its implicit commit) makes the holder of the open transaction give it up
+    * (implicitCommitOutcome()). A SET counts when it holds a comment or may turn the session's autocommit on
+    * (setAutocommitOutcome() is not 'none': SET autocommit=0, a GLOBAL one or a user variable @autocommit_count commit
+    * nothing), a CREATE TEMPORARY TABLE only for START and TRANSACTION next to each other in it (startTransactionAdjacent(),
+    * or both with an executable comment). The count is made before the statement is sent: one the server never ran
+    * (NOT_RUN_ERRORS) is taken back (uncountEnd()), and so is a CREATE TEMPORARY TABLE that worked (workedEndsNothing():
+    * the server refuses one that holds START TRANSACTION). Any other miscount (SET autocommit=1 with autocommit already
+    * on, a DDL refused before its implicit commit) makes the holder of the open transaction give it up
     * although it is still open on the server: that holder is told it is lost (2006), and rolls it back with a quiet
     * ROLLBACK when no other handle has a transaction open there (releaseEndedElsewhere()), so its writes are not left
     * for the next COMMIT or START on the connection to commit.
@@ -3045,9 +3099,15 @@ class Db extends Generic implements Db_Interface
         if ($matched !== 1) {
             // (a look below that could not run, a PCRE limit: an end, on the safe side)
             if (preg_match('~^set\b~i', $lead) !== 0 && stripos($lead, 'autocommit') !== false) {
-                // a SET that names autocommit anywhere (a ';' or any length of text before it included; one in a string
-                // literal too: implicitCommitOutcome() reads its assignments)
-                return true;
+                // a SET that names autocommit: an end when it holds a comment, which may hide an assignment
+                // (SET autocommit /* c *\/ = 1), or when an assignment in it may turn the session's autocommit on
+                // (setAutocommitOutcome(), as implicitCommitOutcome() reads it once it worked: a ';' or any length of
+                // text before it included, one in a string literal too). One that commits nothing is none: a name that
+                // only holds the word (SET @autocommit_count = 1), autocommit set off, a GLOBAL or PERSIST one
+                if (strpos($lead, '/*') !== false || strpos($lead, '#') !== false || strpos($lead, '--') !== false) {
+                    return true;
+                }
+                return static::setAutocommitOutcome($lead) !== 'none';
             }
             // an executable comment it could not read right after the first word of a lead that takes two words
             return preg_match('~^(?:start|lock|check|cache|load|import|stop|change|set)\b~i', $lead) !== 0 && static::executableAmongLeadingWords($lead);
@@ -3064,11 +3124,65 @@ class Db extends Generic implements Db_Interface
                 return true;
             }
             // but CREATE TEMPORARY TABLE ... START TRANSACTION commits the open transaction (trans_begin(), sql_parse.cc)
-            // before the server refuses it (temporary tables take no START TRANSACTION, sql_table.cc): the two words
-            // anywhere in it count (a literal or a comment too, on the safe side)
-            return $word === 'crea' && stripos($lead, 'start') !== false && stripos($lead, 'transaction') !== false;
+            // before the server refuses it (temporary tables take no START TRANSACTION, sql_table.cc): the two words next
+            // to each other (whitespace or a plain comment between them; in a literal too, on the safe side), or both
+            // anywhere in one with an executable comment (which may join them), as implicitCommitOutcome()'s 'chain'. One
+            // that worked held none: its end is taken back then (takeBackEnd(), workedEndsNothing())
+            return $word === 'crea' && stripos($lead, 'start') !== false && stripos($lead, 'transaction') !== false
+                && (strpos($lead, '/*!') !== false || strpos($lead, '/*M!') !== false || static::startTransactionAdjacent($lead));
         }
         return true;
+    }
+
+    /**
+    * Whether a statement endsTransaction() counted as an end ended nothing when it worked: a CREATE TEMPORARY TABLE,
+    * counted only for what may be a START TRANSACTION in it, which the server refuses for a temporary table (after its
+    * trans_begin() committed what was open), so one that worked held none. Its end is taken back then (takeBackEnd()):
+    * counted, it would make another holder of the shared link give up a transaction that is still open, and roll it back.
+    *
+    * @param string $lead the statement from its first keyword on (leadingKeywordSql())
+    * @return bool
+    */
+    protected static function workedEndsNothing($lead)
+    {
+        // (a pattern that could not run, a PCRE limit: the end is kept)
+        return preg_match('~^create'.self::WORD_GAP.'temporary\b~is', $lead) === 1;
+    }
+
+    /**
+    * After a statement that failed outside a transaction of this instance's own (query(), execute()): when the server
+    * ran it (its errno is not one of NOT_RUN_ERRORS) and it may have left the session inside a transaction the server
+    * began for it (mayLeaveDdlTransaction(): a refused CREATE TEMPORARY TABLE or ALTER TABLE ... START TRANSACTION),
+    * that transaction is ended with a quiet ROLLBACK. Left open, the caller's autocommit writes after it would wait in
+    * it, each answered true, and be lost when the connection closes. Nothing of this instance's is open there, and
+    * whatever another handle had open on the link was committed by the server's trans_begin() and is counted as ended
+    * by this statement (endsTransaction()); a holder whose transaction still looks live there is left alone, as in
+    * releaseEndedElsewhere(). The caller's Errno/Error are those of the failed statement.
+    *
+    * @param int $errno the failed statement's
+    * @param string $lead the statement from its first keyword on (leadingKeywordSql())
+    * @return void
+    */
+    protected function endStrayDdlTransaction($errno, $lead)
+    {
+        if (!in_array((int) $errno, self::NOT_RUN_ERRORS, true) && static::mayLeaveDdlTransaction($lead) && !$this->anotherLiveHolderInTransaction()) {
+            $this->sendQuietly('ROLLBACK');
+        }
+    }
+
+    /**
+    * Whether a statement that failed may have left the session inside a transaction of its own: a CREATE or ALTER with
+    * START and TRANSACTION next to each other in it (or both with an executable comment), as endsTransaction() counts a
+    * CREATE TEMPORARY TABLE. The server begins that transaction (trans_begin(), sql_parse.cc) before it runs the
+    * statement, and some refusals end the statement without rolling it back (a temporary table, ALTER TABLE: sql_table.cc).
+    *
+    * @param string $lead the statement from its first keyword on (leadingKeywordSql())
+    * @return bool
+    */
+    protected static function mayLeaveDdlTransaction($lead)
+    {
+        return stripos($lead, 'start') !== false && stripos($lead, 'transaction') !== false && preg_match('~^(?:create|alter)\b~i', $lead) === 1
+            && (strpos($lead, '/*!') !== false || strpos($lead, '/*M!') !== false || static::startTransactionAdjacent($lead));
     }
 
     /**
@@ -3101,15 +3215,22 @@ class Db extends Generic implements Db_Interface
     *  - 'rollback': ROLLBACK may be;
     *  - 'open': BEGIN may be, or START with TRANSACTION after it and no word every reading holds between them, or COMMIT
     *    or ROLLBACK with CHAIN anywhere after it but right after a NO every reading holds (AND CHAIN opens the next
-    *    transaction, AND NO CHAIN does not; RELEASE is not looked at).
+    *    transaction, AND NO CHAIN does not; RELEASE is not looked at); and no word every reading holds comes after that
+    *    opener that no form of it takes there (BEGIN takes WORK; START TRANSACTION READ, ONLY, WRITE, WITH, CONSISTENT,
+    *    SNAPSHOT, and Percona's FROM SESSION and its number; AND CHAIN NO and RELEASE): every reading holding the opener
+    *    holds that word after it, and the server refuses each of them, so the statement opened nothing once it worked
+    *    (/*!99999 BEGIN *\/ SELECT 1 is BEGIN SELECT 1 where the comment runs, a SELECT where it is skipped). Only words
+    *    are read so: a character that ends the leading words after an opener keeps it.
     * Only the leading words are read: the first character outside a comment that is neither a word byte nor whitespace
     * ends them (a plain comment among them is a space, as in leadingKeywordSql()), and so does one inside an executable
     * comment every server runs. One inside a comment that is not read ends them only in the readings that run it: the
     * rest of that comment is skipped (no word after it there can be a leading one), and the words after the comment are
-    * read as in the readings that skip it. What cannot be read that way (a quote inside one: a literal may hold its *\/;
-    * a comment inside one: "--" and "#" run past its end; one never closed) is told by the words alone, wherever they
-    * are in the statement (a keyword the server runs is spelt out in it): COMMIT, ROLLBACK, and BEGIN, START with
-    * TRANSACTION, or CHAIN. A version's digits are skipped, a sixth one too (MariaDB's: dropping a word only adds
+    * read as in the readings that skip it; a quote inside one is such a character (no keyword follows a literal, which
+    * may hold a star-slash where the comment runs; where it is skipped, its first star-slash ends it). A NO and a CHAIN
+    * right after it inside one such comment are one unit: NO CHAIN where it runs, neither where it is skipped. What
+    * cannot be read that way (a comment inside one: "--" and "#" may run past its end; one never closed) is told by the
+    * words alone, wherever they are in the statement (a keyword the server runs is spelt out in it): COMMIT, ROLLBACK,
+    * and BEGIN, START with TRANSACTION, or CHAIN. A version's digits are skipped, a sixth one too (MariaDB's: dropping a word only adds
     * readings).
     *
     * @param string $lead the statement from its first keyword or that comment on (leadingKeywordSql())
@@ -3124,6 +3245,8 @@ class Db extends Generic implements Db_Interface
             'open' => stripos($lead, 'begin') !== false || stripos($lead, 'chain') !== false || (stripos($lead, 'start') !== false && stripos($lead, 'transaction') !== false),
         ];
         $may = ['commit' => false, 'rollback' => false, 'open' => false];
+        // the openers some reading may hold so far ('open' is any of them)
+        $opener = ['begin' => false, 'start' => false, 'chain' => false];
         $length = strlen($lead);
         $offset = 0;
         // inside an executable comment: whether every server runs its content (null: outside one)
@@ -3136,6 +3259,9 @@ class Db extends Generic implements Db_Interface
         $ends = false;
         // the last word every reading holds was NO (AND NO CHAIN opens nothing)
         $no = false;
+        // the last word was NO, inside the executable comment that is not read where the word is: a CHAIN right after it
+        // is NO CHAIN where the comment runs, and gone where it is skipped (COMMIT /*!80000 AND NO CHAIN *\/ opens nothing)
+        $noHere = false;
         while ($offset < $length) {
             $offset += strspn($lead, " \t\n\r\f\x0B", $offset);
             if ($offset >= $length) {
@@ -3146,12 +3272,15 @@ class Db extends Generic implements Db_Interface
                 $word = strtolower(substr($lead, $offset, $words));
                 $offset += $words;
                 $first = false;
+                // the opener this word makes ('': none)
+                $opened = '';
                 if (!$held) {
                     if ($word === 'commit' || $word === 'rollback') {
                         $may[$word] = true;
                         $ends = true;
                     } elseif ($word === 'begin') {
-                        $may['open'] = true;
+                        $opener['begin'] = true;
+                        $opened = 'begin';
                     } elseif ($word === 'start') {
                         $start = true;
                         $first = true;
@@ -3159,22 +3288,38 @@ class Db extends Generic implements Db_Interface
                 }
                 if ($start && !$first) {
                     if ($word === 'transaction') {
-                        $may['open'] = true;
+                        $opener['start'] = true;
+                        $opened = 'start';
                     }
                     if ($inside !== false) {
                         // a word every reading holds, and not TRANSACTION: no START TRANSACTION from that START
                         $start = false;
                     }
                 }
-                if ($ends && $word === 'chain' && !$no) {
-                    $may['open'] = true;
+                if ($ends && $word === 'chain' && !$no && !($inside === false && $noHere)) {
+                    $opener['chain'] = true;
+                    $opened = 'chain';
                 }
                 if ($inside !== false) {
                     $held = true;
                     $no = $word === 'no';
+                    // a word every reading holds that no form of an opener before it takes: each reading with that
+                    // opener is refused by the server (BEGIN SELECT 1), so it is none
+                    if ($opened !== 'begin' && $word !== 'work') {
+                        $opener['begin'] = false;
+                    }
+                    if ($opened !== 'start' && !in_array($word, ['read', 'only', 'write', 'with', 'consistent', 'snapshot', 'from', 'session'], true) && !ctype_digit($word)) {
+                        $opener['start'] = false;
+                    }
+                    if ($opened !== 'chain' && $word !== 'no' && $word !== 'release') {
+                        $opener['chain'] = false;
+                    }
                 }
+                $may['open'] = $opener['begin'] || $opener['start'] || $opener['chain'];
+                $noHere = $inside === false && $word === 'no';
                 continue;
             }
+            $noHere = false;
             $char = $lead[$offset];
             $next = $offset + 1 < $length ? $lead[$offset + 1] : '';
             if ($char === '/' && $next === '*') {
@@ -3204,11 +3349,14 @@ class Db extends Generic implements Db_Interface
                 continue;
             }
             if ($inside !== null) {
-                if ($char === '#' || $char === "'" || $char === '"' || $char === '`' || ($char === '-' && $next === '-')) {
-                    // a comment that runs past its end, or a literal that may hold it ("--" without a space is two
-                    // minus signs, read the same way here)
+                if ($char === '#' || ($char === '-' && $next === '-')) {
+                    // a comment that may run past its end ("--" without a space is two minus signs, read the same way
+                    // here)
                     return $any;
                 }
+                // (a quote is read as any other character here: no keyword comes after a literal or a quoted name, so
+                // the leading words end at it where the comment runs, even when the literal holds a star-slash; where
+                // the comment is skipped, MySQL's lexer reads no quote in it and ends it at its first star-slash)
                 if ($inside) {
                     // run by every server: the leading words end here
                     return $may;
@@ -3341,7 +3489,7 @@ class Db extends Generic implements Db_Interface
     {
         // the assignments to the session's autocommit (a user variable @autocommit, @@GLOBAL.autocommit and a read of
         // @@autocommit are not), and those that set it off
-        $assigned = '(?<![\w$.@])(?:@@(?:`?(?:session|local)`?\.)?)?`?autocommit`?\s*:?=';
+        $assigned = self::AUTOCOMMIT_TARGET;
         $targets = preg_match_all('~'.$assigned.'~i', $lead);
         if ($targets === false) {
             // the pattern could not run (a PCRE limit): never none on that

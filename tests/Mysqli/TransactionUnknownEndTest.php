@@ -234,11 +234,29 @@ class TransactionUnknownEndTest extends TestCase
 			// r9 F4: CREATE TEMPORARY TABLE ... START TRANSACTION commits in its trans_begin() before the server refuses it
 			// (ER_NOT_ALLOWED_WITH_START_TRANSACTION): counted; one that worked held none and committed nothing
 			'CREATE TEMPORARY TABLE ... START TRANSACTION' => ['CREATE TEMPORARY TABLE t (a int) START TRANSACTION', true, 'none', true],
-			'CREATE TEMPORARY TABLE ... start and transaction apart' => ["CREATE TEMPORARY TABLE t (start int) COMMENT 'transaction'", true, 'none', true],
+			// r10 F4: only next to each other (whitespace or a plain comment between them; in a literal too, on the safe side),
+			// or both with an executable comment
+			'CREATE TEMPORARY TABLE ... start and transaction apart' => ["CREATE TEMPORARY TABLE t (start int) COMMENT 'transaction'", false, 'none', true],
+			'CREATE TEMPORARY TABLE ... transaction_id, start_date' => ['CREATE TEMPORARY TABLE tt AS SELECT transaction_id FROM transactions WHERE start_date > 0', false, 'none', true],
+			"CREATE TEMPORARY TABLE ... 'restart transaction'" => ["CREATE TEMPORARY TABLE tt (id int) AS SELECT id FROM invoices WHERE memo = 'restart transaction'", false, 'none', true],
+			"CREATE TEMPORARY TABLE ... 'start transaction' (a literal)" => ["CREATE TEMPORARY TABLE tt AS SELECT 'start transaction' AS v", true, 'none', true],
+			'CREATE TEMPORARY TABLE ... START /* c */ TRANSACTION' => ['CREATE TEMPORARY TABLE t (a int) START /* c */ TRANSACTION', true, 'none', true],
+			'CREATE TEMPORARY TABLE ... /*!99999 START */ x TRANSACTION (an executable comment)' => ['CREATE TEMPORARY TABLE t (a int) /*!99999 START */ x TRANSACTION', true, 'none', true],
 			'CREATE TEMPORARY TABLE' => ['CREATE TEMPORARY TABLE t (a int)', false, null, true],
-			// r9 F5: a SET is counted by the word autocommit anywhere in it (a ';' in a literal before it included)
+			// r9 F5: a SET that names autocommit is read for its assignments (a ';' in a literal before it included); r10 F4:
+			// counted only when one may turn the session's autocommit on (setAutocommitOutcome()), or with a comment in it
 			"SET @x='a;b', autocommit=1" => ["SET @x='a;b', autocommit=1", true, 'doubt', true],
-			"SET @x=';', @y='autocommit' (counted; no assignment to it)" => ["SET @x=';', @y='autocommit'", true, 'none', true],
+			"SET @x=';', @y='autocommit' (no assignment to it)" => ["SET @x=';', @y='autocommit'", false, 'none', true],
+			'SET @autocommit_count = 1' => ['SET @autocommit_count = 1', false, 'none', true],
+			'SET autocommit_x = 1' => ['SET autocommit_x = 1', false, 'none', true],
+			'SET @a = @autocommit' => ['SET @a = @autocommit', false, 'none', true],
+			'SET autocommit=0' => ['SET autocommit=0', false, 'none', true],
+			'SET @x=1, autocommit=1' => ['SET @x=1, autocommit=1', true, 'doubt', true],
+			'SET autocommit /* c */ = 1 (a comment in it)' => ['SET autocommit /* c */ = 1', true, 'doubt', true],
+			'SET @x=1, autocommit/* c */=1 (a comment hiding the assignment)' => ['SET @x=1, autocommit/* c */=1', true, 'doubt', true],
+			'SET @x=1, autocommit # c, then =1' => ["SET @x=1, autocommit # c\n=1", true, 'doubt', true],
+			'SET @x=1, autocommit -- c, then =1' => ["SET @x=1, autocommit -- c\n=1", true, 'doubt', true],
+			"SET @x=1 # autocommit, then autocommit=0 (a comment in it)" => ["SET @x=1 # autocommit\n, autocommit=1", true, 'doubt', true],
 			// r9 F7: INTO, comments, then a user variable
 			'SELECT ... INTO /*!80000 */ @x' => ['SELECT a, b INTO /*!80000 */ @x FROM t', false, null, true],
 			'SELECT ... INTO /*!99999 x */ @x (skipped by MySQL 8.0)' => ['SELECT a, b INTO /*!99999 x */ @x FROM t', false, null, true],
@@ -252,32 +270,32 @@ class TransactionUnknownEndTest extends TestCase
 			'SELECT ... INTO /* @x */ OUTFILE (a plain comment)' => ["SELECT a, b INTO /* @x */ OUTFILE 'f' FROM t", false, null, false],
 			'INSERT INTO t VALUES (@x)' => ['INSERT INTO t VALUES (@x)', false, null, false],
 			// F2c: a scope keyword is in force for the plain names after it
-			'SET GLOBAL autocommit=1' => ['SET GLOBAL autocommit=1', true, 'none', true],
-			'SET PERSIST autocommit=1' => ['SET PERSIST autocommit=1', true, 'none', true],
-			'SET PERSIST_ONLY autocommit=1' => ['SET PERSIST_ONLY autocommit=1', true, 'none', true],
-			'SET @@GLOBAL.autocommit=1' => ['SET @@GLOBAL.autocommit=1', true, 'none', true],
-			'SET @@persist.autocommit=1' => ['SET @@persist.autocommit=1', true, 'none', true],
-			'SET GLOBAL x=1, autocommit=1' => ['SET GLOBAL x=1, autocommit=1', true, 'none', true],
+			'SET GLOBAL autocommit=1' => ['SET GLOBAL autocommit=1', false, 'none', true],
+			'SET PERSIST autocommit=1' => ['SET PERSIST autocommit=1', false, 'none', true],
+			'SET PERSIST_ONLY autocommit=1' => ['SET PERSIST_ONLY autocommit=1', false, 'none', true],
+			'SET @@GLOBAL.autocommit=1' => ['SET @@GLOBAL.autocommit=1', false, 'none', true],
+			'SET @@persist.autocommit=1' => ['SET @@persist.autocommit=1', false, 'none', true],
+			'SET GLOBAL x=1, autocommit=1' => ['SET GLOBAL x=1, autocommit=1', false, 'none', true],
 			'SET GLOBAL x=1, SESSION autocommit=1' => ['SET GLOBAL x=1, SESSION autocommit=1', true, 'doubt', true],
 			'SET autocommit=1, GLOBAL x=1' => ['SET autocommit=1, GLOBAL x=1', true, 'doubt', true],
-			'SET autocommit=0, GLOBAL autocommit=1' => ['SET autocommit=0, GLOBAL autocommit=1', true, 'none', true],
-			'SET GLOBAL autocommit=0, autocommit=1' => ['SET GLOBAL autocommit=0, autocommit=1', true, 'none', true],
+			'SET autocommit=0, GLOBAL autocommit=1' => ['SET autocommit=0, GLOBAL autocommit=1', false, 'none', true],
+			'SET GLOBAL autocommit=0, autocommit=1' => ['SET GLOBAL autocommit=0, autocommit=1', false, 'none', true],
 			'SET GLOBAL autocommit=1, @@autocommit=1' => ['SET GLOBAL autocommit=1, @@autocommit=1', true, 'doubt', true],
-			'SET GLOBAL autocommit=1, @@session.autocommit=0' => ['SET GLOBAL autocommit=1, @@session.autocommit=0', true, 'none', true],
-			'SET autocommit=0, @@GLOBAL.autocommit=1' => ['SET autocommit=0, @@GLOBAL.autocommit=1', true, 'none', true],
+			'SET GLOBAL autocommit=1, @@session.autocommit=0' => ['SET GLOBAL autocommit=1, @@session.autocommit=0', false, 'none', true],
+			'SET autocommit=0, @@GLOBAL.autocommit=1' => ['SET autocommit=0, @@GLOBAL.autocommit=1', false, 'none', true],
 			"SET @a='autocommit=1', autocommit=0 (a count the scopes do not match: taken for the session's)" => ["SET @a='autocommit=1', autocommit=0", true, 'doubt', true],
 			'SET LOCAL autocommit=1' => ['SET LOCAL autocommit=1', true, 'doubt', true],
-			"SET GLOBAL sql_mode='a,b', autocommit=1" => ["SET GLOBAL sql_mode='a,b', autocommit=1", true, 'none', true],
+			"SET GLOBAL sql_mode='a,b', autocommit=1" => ["SET GLOBAL sql_mode='a,b', autocommit=1", false, 'none', true],
 			"SET sql_mode='a,b', autocommit=1" => ["SET sql_mode='a,b', autocommit=1", true, 'doubt', true],
-			'SET GLOBAL `autocommit`=1' => ['SET GLOBAL `autocommit`=1', true, 'none', true],
-			"SET autocommit = 'OFF'" => ["SET autocommit = 'OFF'", true, 'none', true],
+			'SET GLOBAL `autocommit`=1' => ['SET GLOBAL `autocommit`=1', false, 'none', true],
+			"SET autocommit = 'OFF'" => ["SET autocommit = 'OFF'", false, 'none', true],
 			"SET autocommit = 'OFF (an unclosed quote)" => ["SET autocommit = 'OFF", true, 'doubt', true],
 			'SET autocommit=(0)' => ['SET autocommit=(0)', true, 'doubt', true],
 			'SET GLOBAL autocommit="1" (a double quote: not read with scopes)' => ['SET GLOBAL autocommit="1"', true, 'doubt', true],
 			// (@@x.autocommit is no variable MySQL has: the statement fails; it is not read with scopes, and the plain
 			// look below does not take it for the session's either)
-			'SET autocommit=0, then a target the scopes do not read' => ['SET autocommit=0, @@x.autocommit=1', true, 'none', true],
-			'SET autocommit=0, then autocommit as a value' => ['SET autocommit=0, @a=autocommit', true, 'none', true],
+			'SET autocommit=0, then a target the scopes do not read' => ['SET autocommit=0, @@x.autocommit=1', false, 'none', true],
+			'SET autocommit=0, then autocommit as a value' => ['SET autocommit=0, @a=autocommit', false, 'none', true],
 			// F2d
 			'an executable SET NAMES (mysqldump)' => ['/*!40101 SET NAMES utf8mb4 */', false, null, true],
 			'an executable SET autocommit=0, stopped inside it' => ['/*!40101 SET autocommit=0 */', true, 'doubt', true],
@@ -1052,8 +1070,41 @@ class TransactionUnknownEndTest extends TestCase
 			'a CHAIN with no COMMIT or ROLLBACK before it' => ['/*M! x */ SELECT chain', false, false, false],
 			'/*M! x */ XA START' => ['/*M! x */ XA START', false, false, false],
 			'a word every reading holds, then COMMIT' => ['/*M! x */ SELECT /*M! y */ COMMIT', false, false, false],
-			'a quote in one: told by the words (COMMIT)' => ["/*!99999 'x' */ COMMIT", true, false, false],
-			'a quote in one: told by the words (none)' => ["/*!99999 'x' */ SELECT 1", false, false, false],
+			'a quote in one: COMMIT where it is skipped' => ["/*!99999 'x' */ COMMIT", true, false, false],
+			'a quote in one: none' => ["/*!99999 'x' */ SELECT 1", false, false, false],
+			// r10 F3: a quote in one is read as any other character, not by the words anywhere (the data included)
+			"a quote in one: the literal data is not read (begin)" => ["/*!99999 'q' */ SELECT 'begin'", false, false, false],
+			"a quote in one: the literal data is not read (rollback)" => ["/*!99999 'q' */ INSERT INTO t (v) VALUES ('rollback x')", false, false, false],
+			"a quote in one: the literal data is not read (start transaction, chain)" => ["/*!99999 'q' */ INSERT INTO t (v) VALUES ('start transaction', 'commit and chain')", false, false, false],
+			'a quote in one that holds a star-slash: COMMIT where it is skipped' => ["/*!99999 SELECT 'a */ COMMIT' */", true, false, false],
+			'a quote in one every server runs: the words end there' => ["/*!40101 'x' */ COMMIT", false, false, false],
+			'a quote in one after COMMIT: no CHAIN' => ["COMMIT /*!99999 'x' AND CHAIN */", true, false, false],
+			'a quoted name in one: BEGIN where it is skipped' => ['/*!99999 `t` */ BEGIN', false, false, true],
+			'a double quote in one: ROLLBACK where it is skipped' => ['/*!99999 "x" */ ROLLBACK', false, true, false],
+			'a double quote in one: the literal data is not read' => ["/*!99999 \"q\" */ SELECT 'begin'", false, false, false],
+			'a quoted name in one: the literal data is not read' => ["/*!99999 `q` */ SELECT 'begin'", false, false, false],
+			'BEGIN in one, then SELECT: BEGIN SELECT 1 or SELECT 1, neither opens' => ['/*!99999 BEGIN */ SELECT 1', false, false, false],
+			'BEGIN in one, then WORK: BEGIN WORK opens' => ['/*!99999 BEGIN */ WORK', false, false, true],
+			'BEGIN in one, then BEGIN: the second opens' => ['/*!99999 BEGIN */ BEGIN', false, false, true],
+			'BEGIN, then a word in one: BEGIN opens where it is skipped' => ['BEGIN /*!99999 x */', false, false, true],
+			'BEGIN in one, x in another, then WORK' => ['/*!99999 BEGIN */ /*!80000 x */ WORK', false, false, true],
+			'START TRANSACTION in one, then SELECT' => ['/*!99999 START TRANSACTION */ SELECT 1', false, false, false],
+			'START TRANSACTION in one, then READ ONLY' => ['/*!99999 START TRANSACTION */ READ ONLY', false, false, true],
+			"START TRANSACTION in one, then Percona's FROM SESSION 7" => ['/*!99999 START TRANSACTION */ WITH CONSISTENT SNAPSHOT FROM SESSION 7', false, false, true],
+			'START TRANSACTION in one, then AS SELECT (the CREATE TABLE ... START TRANSACTION is not an opener)' => ['/*!80000 CREATE TABLE t2 */ START TRANSACTION AS SELECT 1 AS a', false, false, false],
+			'COMMIT AND CHAIN in one, then NO RELEASE' => ['COMMIT /*!80000 AND CHAIN */ NO RELEASE', true, false, true],
+			'COMMIT AND CHAIN in one, then RELEASE' => ['COMMIT /*!80000 AND CHAIN */ RELEASE', true, false, true],
+			'COMMIT AND CHAIN in one, then x' => ['COMMIT /*!80000 AND CHAIN */ x', true, false, false],
+			'BEGIN in one with a comma after it: a character keeps it' => ['/*!99999 BEGIN */, SELECT 1', false, false, true],
+			// r10 F3: NO and CHAIN in one comment that is not read are one unit
+			'COMMIT /*!80000 AND NO CHAIN */' => ['COMMIT /*!80000 AND NO CHAIN */', true, false, false],
+			'ROLLBACK /*!99999 AND NO CHAIN */' => ['ROLLBACK /*!99999 AND NO CHAIN */', false, true, false],
+			'COMMIT AND /*!80000 NO CHAIN */' => ['COMMIT AND /*!80000 NO CHAIN */', true, false, false],
+			'COMMIT WORK /*M! AND NO CHAIN */' => ['COMMIT WORK /*M! AND NO CHAIN */', true, false, false],
+			'COMMIT /*!80000 AND NO */ CHAIN (CHAIN outside it)' => ['COMMIT /*!80000 AND NO */ CHAIN', true, false, true],
+			'COMMIT /*!80000 AND NO */ /*!80000 CHAIN */ (two comments)' => ['COMMIT /*!80000 AND NO */ /*!80000 CHAIN */', true, false, true],
+			'COMMIT /*!80000 NO AND CHAIN */ (NO not right before it)' => ['COMMIT /*!80000 NO AND CHAIN */', true, false, true],
+			'COMMIT /*!80000 AND CHAIN NO */' => ['COMMIT /*!80000 AND CHAIN NO */', true, false, true],
 			'a comment in one: told by the words' => ['/*!99999 /* c */ */ ROLLBACK AND CHAIN', false, true, true],
 			'a -- comment in one' => ["/*!99999 -- c\n*/ BEGIN", false, false, true],
 			'a # comment in one' => ["/*!99999 # c\n*/ START TRANSACTION", false, false, true],
@@ -1378,6 +1429,340 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertNotFalse($this->q($a, $sql));
 		$this->assertTrue($this->q($b, 'START TRANSACTION'));
 		$this->assertSame(1, FakeServer::$connections, 'B\'s START stays on the shared link: its session holds @x');
+	}
+
+	public static function strayDdlTransactions()
+	{
+		return [
+			'CREATE TEMPORARY TABLE ... START TRANSACTION' => ['CREATE TEMPORARY TABLE tt (a int) START TRANSACTION'],
+			'ALTER TABLE ..., START TRANSACTION' => ['ALTER TABLE t2 ADD COLUMN c int, START TRANSACTION'],
+			'CREATE TEMPORARY TABLE ... START /* c */ TRANSACTION' => ['CREATE TEMPORARY TABLE tt (a int) START /* c */ TRANSACTION'],
+			'CREATE TEMPORARY TABLE ... /*!80000 START TRANSACTION */' => ['CREATE TEMPORARY TABLE tt (a int) /*!80000 START TRANSACTION */'],
+			'CREATE TEMPORARY TABLE ... START /*!80000 TRANSACTION */' => ['CREATE TEMPORARY TABLE tt (a int) START /*!80000 TRANSACTION */'],
+		];
+	}
+
+	/**
+	* r10 F5 (the reviewer's s10_stray_ddl_tx): a CREATE TEMPORARY TABLE or ALTER TABLE ... START TRANSACTION sent with no
+	* transaction open begins one on the server (trans_begin()) before the server refuses it (3909), and that refusal does
+	* not roll it back: a quiet ROLLBACK ends it, so the caller's autocommit writes after it are committed. Before, they
+	* each answered true and waited in that transaction, lost when the connection closed.
+	*
+	* @dataProvider strayDdlTransactions
+	* @param string $sql
+	*/
+	#[DataProvider('strayDdlTransactions')]
+	public function testARefusedDdlStartTransactionLeavesNoTransactionOpen($sql)
+	{
+		FakeServer::$strict = false;
+		FakeServer::$ddlStartTransaction = true;
+		$db = $this->db();
+		$this->assertFalse($this->q($db, $sql));
+		$this->assertSame(3909, (int) $db->Errno, 'its own error');
+		$this->assertFalse($db->inTransaction());
+		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('x')"));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('y')"));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('x')", "INSERT INTO t (v) VALUES ('y')"], self::writes(), 'autocommitted');
+		$this->assertSame(1, FakeServer::sent('ROLLBACK'));
+	}
+
+	/** r10 F5: the same through prepare() and execute() */
+	public function testARefusedDdlStartTransactionThroughExecuteLeavesNoTransactionOpen()
+	{
+		FakeServer::$strict = false;
+		FakeServer::$ddlStartTransaction = true;
+		$db = $this->db();
+		$this->assertNotSame(0, $db->prepare('CREATE TEMPORARY TABLE tt (a int) START TRANSACTION'));
+		$this->assertFalse($db->execute());
+		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('x')"));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('x')"], self::writes(), 'autocommitted');
+	}
+
+	/**
+	* r10 F5, shared link: a clone with no transaction of its own sends the refused statement while another handle has
+	* one open there. trans_begin() commits that one's writes; the clone's quiet ROLLBACK ends the empty transaction,
+	* and the other handle, whose transaction was ended, is told so (2006, outcome unknown: its writes were committed).
+	*/
+	public function testARefusedDdlStartTransactionBesideAnotherHandlesTransaction()
+	{
+		FakeServer::$strict = false;
+		FakeServer::$ddlStartTransaction = true;
+		$a = $this->db();
+		$this->assertTrue($this->q($a, 'SELECT 1'));
+		$b = clone $a;
+		$this->assertTrue($this->q($a, 'START TRANSACTION'));
+		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertFalse($this->q($b, 'CREATE TEMPORARY TABLE tt (a int) START TRANSACTION'));
+		$this->assertSame(3909, (int) $b->Errno);
+		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
+		$this->assertFalse($this->q($a, "INSERT INTO t (v) VALUES ('a2')"));
+		$this->assertSame(2006, (int) $a->Errno, 'outcome unknown, never retried');
+		$this->assertFalse($this->q($a, 'COMMIT'));
+		$this->assertSame(2006, (int) $a->Errno);
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a1')"], self::writes(), 'a1 committed by trans_begin(), a2 never sent');
+	}
+
+	/** r10 F5: one that never ran (a syntax error) began nothing: no ROLLBACK; nor after an ordinary failed statement */
+	public function testAFailedStatementThatBeganNothingSendsNoRollback()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		FakeServer::failNext('/^CREATE TEMPORARY/', 1064);
+		$this->assertFalse($this->q($db, 'CREATE TEMPORARY TABLE tt (a int) START TRANSACTION'));
+		FakeServer::failNext('/^CREATE TEMPORARY/', 1146);
+		$this->assertFalse($this->q($db, "CREATE TEMPORARY TABLE tt AS SELECT transaction_id FROM t9 WHERE start_date > 0"));
+		FakeServer::failNext('/^ALTER/', 1146);
+		$this->assertFalse($this->q($db, 'ALTER TABLE t9 ADD COLUMN c int'));
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'));
+	}
+
+	/**
+	* r10 F5: through execute() inside the handle's own transaction the refusal gives the transaction up (lost, 2006) as
+	* before, with the give-up's own ROLLBACK only (endStrayDdlTransaction() is for a statement outside one).
+	*/
+	public function testARefusedDdlStartTransactionThroughExecuteInsideATransaction()
+	{
+		FakeServer::$strict = false;
+		FakeServer::$ddlStartTransaction = true;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a')"));
+		$this->assertNotSame(0, $db->prepare('CREATE TEMPORARY TABLE tt (a int) START TRANSACTION'));
+		$this->assertFalse($db->execute());
+		$this->assertSame(1, FakeServer::sent('ROLLBACK'), "the give-up's ROLLBACK, and no other");
+		$this->assertFalse($this->q($db, 'COMMIT'));
+		$this->assertSame(2006, (int) $db->Errno);
+		$this->assertTrue($this->q($db, 'ROLLBACK'));
+		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('b')"));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a')", "INSERT INTO t (v) VALUES ('b')"], self::writes());
+	}
+
+	/** r10 F5: inside the handle's own transaction the refusal is a 2006 (what was open is committed), as before */
+	public function testARefusedDdlStartTransactionInsideATransactionIsA2006()
+	{
+		FakeServer::$strict = false;
+		FakeServer::$ddlStartTransaction = true;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a')"));
+		$this->assertFalse($this->q($db, 'CREATE TEMPORARY TABLE tt (a int) START TRANSACTION'));
+		$this->assertSame(2006, (int) $db->Errno);
+		$this->assertFalse($this->q($db, 'COMMIT'));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a')"], self::writes(), 'committed by trans_begin()');
+		$this->assertTrue($this->q($db, 'ROLLBACK'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('b')"));
+		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a')", "INSERT INTO t (v) VALUES ('b')"], self::writes());
+	}
+
+	public static function endsNothing()
+	{
+		return [
+			'CREATE TEMPORARY TABLE ... transaction_id, start_date' => ['CREATE TEMPORARY TABLE tt AS SELECT transaction_id FROM transactions WHERE start_date > 0'],
+			"CREATE TEMPORARY TABLE ... 'restart transaction'" => ["CREATE TEMPORARY TABLE tt (id int) AS SELECT id FROM invoices WHERE memo = 'restart transaction'"],
+			'SET @autocommit_count = 1' => ['SET @autocommit_count = 1'],
+			'SET GLOBAL autocommit = 1' => ['SET GLOBAL autocommit = 1'],
+		];
+	}
+
+	/**
+	* r10 F4 (the reviewer's s10_temp_overcount, own transaction): a statement that ends nothing, failing inside the
+	* transaction, keeps its own errno and the transaction goes on. Before, the words start and transaction anywhere in a
+	* CREATE TEMPORARY TABLE, or autocommit anywhere in a SET, counted it as an end: its failure was a 2006 and the
+	* transaction was given up (a1 lost, the COMMIT a 2006).
+	*
+	* @dataProvider endsNothing
+	* @param string $sql
+	*/
+	#[DataProvider('endsNothing')]
+	public function testAFailedStatementThatEndsNothingKeepsTheTransaction($sql)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a1')"));
+		FakeServer::failNext('/^(?:CREATE|SET)/', 1146);
+		$this->assertFalse($this->q($db, $sql));
+		$this->assertSame(1146, (int) $db->Errno, 'its own error: the transaction is open');
+		$this->assertFalse($db->lost());
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a2')"));
+		$this->assertTrue($this->q($db, 'COMMIT'));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a1')", "INSERT INTO t (v) VALUES ('a2')"], self::writes());
+	}
+
+	/**
+	* r10 F4 (s10_temp_overcount, shared link): one that ends nothing, run by a handle with no transaction of its own
+	* while another handle sharing the link has one open there, leaves that transaction alone. A CREATE TEMPORARY TABLE
+	* that worked held no START TRANSACTION (the server refuses one that does), so its end is taken back, a literal
+	* holding the two words included. Before, it was counted as an end on the link: A's next statement sent a quiet
+	* ROLLBACK, A's transaction was lost (2006) and nothing was committed.
+	*
+	* @dataProvider endsNothing
+	* @param string $sql
+	*/
+	#[DataProvider('endsNothing')]
+	public function testAStatementThatEndsNothingLeavesAnotherHandlesTransactionAlone($sql)
+	{
+		$this->assertAnotherHandlesTransactionGoesOn($sql);
+	}
+
+	/** r10 F4: a CREATE TEMPORARY TABLE that worked with START TRANSACTION in a literal: counted, then taken back */
+	public function testACreateTemporaryTableThatWorkedEndedNothing()
+	{
+		$this->assertAnotherHandlesTransactionGoesOn("CREATE TEMPORARY TABLE tt AS SELECT 'start transaction' AS v");
+	}
+
+	/** r10 F4: the same through prepare() and execute() */
+	public function testACreateTemporaryTableThatWorkedThroughExecuteEndedNothing()
+	{
+		$this->assertAnotherHandlesTransactionGoesOn("CREATE TEMPORARY TABLE tt AS SELECT 'start transaction' AS v", true);
+	}
+
+	private function assertAnotherHandlesTransactionGoesOn($sql, $execute = false)
+	{
+		FakeServer::$strict = false;
+		$a = $this->db();
+		$this->assertTrue($this->q($a, 'SELECT 1'));
+		$b = clone $a;
+		$this->assertTrue($this->q($a, 'START TRANSACTION'));
+		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a1')"));
+		if ($execute) {
+			$this->assertNotSame(0, $b->prepare($sql));
+			$this->assertTrue($b->execute());
+		} else {
+			$this->assertTrue($this->q($b, $sql));
+		}
+		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a2')"), 'A goes on');
+		$this->assertTrue($this->q($a, 'COMMIT'));
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'), 'no quiet ROLLBACK');
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a1')", "INSERT INTO t (v) VALUES ('a2')"], self::writes());
+	}
+
+	public static function notOpeners()
+	{
+		return [
+			'COMMIT /*!80000 AND NO CHAIN */' => ['COMMIT /*!80000 AND NO CHAIN */'],
+			'ROLLBACK /*!99999 AND NO CHAIN */' => ['ROLLBACK /*!99999 AND NO CHAIN */'],
+			"/*!99999 'q' */ SELECT 'begin'" => ["/*!99999 'q' */ SELECT 'begin'"],
+			"/*!99999 'q' */ INSERT ... 'commit and chain'" => ["/*!99999 'q' */ INSERT INTO t (v) VALUES ('commit and chain')"],
+			'/*!99999 BEGIN */ SELECT 1' => ['/*!99999 BEGIN */ SELECT 1'],
+			'/*!99999 START TRANSACTION */ SELECT 1' => ['/*!99999 START TRANSACTION */ SELECT 1'],
+		];
+	}
+
+	/**
+	* r10 F3 (the reviewer's s10_phantom): a statement that opens no transaction in any reading, sent with none open, is
+	* not tracked as an open one once it worked, so the caller's autocommit writes after it go on as before (a 1213 retried
+	* on its own, never a 2006 nor a halt). Before, NO CHAIN in one comment that is not read, or a quote in one (the words
+	* of the data then read), made it "may open": tracked as a transaction whose start is not known, the 1213 gave it up
+	* (2006, mail and halt) and every later statement was refused until a ROLLBACK or START the caller never sends.
+	*
+	* @dataProvider notOpeners
+	* @param string $sql
+	*/
+	#[DataProvider('notOpeners')]
+	public function testAStatementThatOpensNoTransactionInAnyReadingIsNotTrackedAsOne($sql)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db('yes');
+		$this->assertNotFalse($this->q($db, $sql));
+		$this->assertFalse($db->inTransaction(), 'none open');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a')"));
+		FakeServer::failNext("/VALUES \\('b'\\)/", 1213);
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('b')"), 'retried on its own (autocommit)');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		$this->assertSame(0, $db->haltCalls);
+		foreach (['a', 'b', 'c'] as $v) {
+			$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('".$v."')"), $v);
+		}
+		$this->assertSame([], FakeServer::$open, 'nothing left open');
+	}
+
+	public static function unreadAfterALoss()
+	{
+		// MySQL 8.0 skips each comment (a version above its own): every one of them is the INSERT
+		return [
+			'/*!99999 ROLLBACK; */ INSERT' => ["/*!99999 ROLLBACK; */ INSERT INTO t (v) VALUES ('x')"],
+			"/*!99999 'q' */ INSERT ... 'rollback x'" => ["/*!99999 'q' */ INSERT INTO t (v) VALUES ('rollback x')"],
+			"/*!99999 'q' */ INSERT ... 'begin x'" => ["/*!99999 'q' */ INSERT INTO t (v) VALUES ('begin x')"],
+			'/*!99999 BEGIN; */ INSERT' => ["/*!99999 BEGIN; */ INSERT INTO t (v) VALUES ('x')"],
+			'/*!99999 COMMIT; */ INSERT' => ["/*!99999 COMMIT; */ INSERT INTO t (v) VALUES ('x')"],
+			'/*M! ROLLBACK; */ INSERT' => ["/*M! ROLLBACK; */ INSERT INTO t (v) VALUES ('x')"],
+			'plain INSERT (as before)' => ["INSERT INTO t (v) VALUES ('x')"],
+		];
+	}
+
+	/**
+	* r10 F2 (the reviewer's s10_lost_bypass): after a lost transaction (1213 on one that cannot be replayed), a statement
+	* whose unread executable comment makes it a ROLLBACK, an opener or a COMMIT in some reading is refused like any other
+	* statement until the caller's own ROLLBACK or START: it never ends the refusal. Before, it was sent and worked (the
+	* INSERT on MySQL 8.0), ended the refusal, the next INSERT autocommitted and the COMMIT answered true with a1 rolled
+	* back (a false success); a may-COMMIT was taken for the caller's COMMIT, so the next INSERT autocommitted on its own.
+	*
+	* @dataProvider unreadAfterALoss
+	* @param string $sql
+	*/
+	#[DataProvider('unreadAfterALoss')]
+	public function testAStatementThatMayEndTheTransactionNeverEndsTheRefusalAfterALoss($sql)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertNotFalse($this->q($db, "SELECT GET_LOCK('k', 0)"));
+		FakeServer::failNext("/VALUES \\('a2'\\)/", 1213);
+		$this->assertFalse($this->q($db, "INSERT INTO t (v) VALUES ('a2')"));
+		$this->assertSame(1213, (int) $db->Errno);
+
+		$this->assertFalse($this->q($db, $sql), 'refused');
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertSame(0, FakeServer::sent($sql), 'never sent');
+		$this->assertTrue($db->lostTransactionPending(), 'still refusing');
+		$this->assertFalse($this->q($db, "INSERT INTO t (v) VALUES ('c')"), 'refused');
+		$this->assertFalse($this->q($db, 'COMMIT'), 'never a false success');
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertSame([], self::writes(), 'nothing written on its own');
+		$this->assertSame(0, FakeServer::sent("INSERT INTO t (v) VALUES ('c')"));
+		// the caller's ROLLBACK ends it, and what it sends next runs again
+		$this->assertTrue($this->q($db, 'ROLLBACK'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('d')"));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('d')"], self::writes());
+	}
+
+	/**
+	* r10 F2: the same beside another handle's transaction on the shared link: one that may be a ROLLBACK is refused, not
+	* taken for the cleanup of the lost transaction (a ROLLBACK there is answered true without being sent, and the lost
+	* record cleared). Before, it answered true although nothing was sent, and the next INSERT ran in the other handle's
+	* transaction
+	*/
+	public function testAStatementThatMayBeARollbackIsNoCleanupBesideAnotherTransaction()
+	{
+		FakeServer::$strict = false;
+		$b = $this->db();
+		$this->assertTrue($this->q($b, 'SELECT 1'));
+		$a = clone $b;
+		$this->assertTrue($this->q($b, 'START TRANSACTION'));
+		$this->assertTrue($this->q($b, "INSERT INTO t (v) VALUES ('b1')"));
+		$this->assertNotFalse($this->q($b, "SELECT GET_LOCK('k', 0)"));
+		FakeServer::failNext("/VALUES \\('b2'\\)/", 1213);
+		$this->assertFalse($this->q($b, "INSERT INTO t (v) VALUES ('b2')"));
+		$this->assertTrue($b->lostTransactionPending());
+		$this->assertTrue($this->q($a, 'START TRANSACTION'));
+		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertSame(1, FakeServer::$connections, 'one link');
+
+		$sql = "/*!99999 ROLLBACK; */ INSERT INTO t (v) VALUES ('x')";
+		$this->assertFalse($this->q($b, $sql), 'refused, never answered true');
+		$this->assertSame(1213, (int) $b->Errno);
+		$this->assertSame(0, FakeServer::sent($sql));
+		$this->assertTrue($b->lostTransactionPending(), 'still refusing');
+		$this->assertFalse($this->q($b, "INSERT INTO t (v) VALUES ('c')"));
+		$this->assertSame(0, FakeServer::sent("INSERT INTO t (v) VALUES ('c')"), 'not run in A\'s transaction');
+		$this->assertTrue($this->q($a, 'COMMIT'));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a1')"], self::writes());
 	}
 
 	public static function wordGapForms()
