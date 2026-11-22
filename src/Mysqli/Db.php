@@ -123,9 +123,18 @@ class Db extends Generic implements Db_Interface
     * INTO /*!99999 x *\/ @x: skipped by MySQL 8.0, which assigns @x), and the user variable inside an executable one
     * too (INTO /*!80000 @x *\/, where it runs); a "*\/" between them ends an executable comment INTO sat in. A comment
     * that is an executable one beginning with the user variable is not skipped as a gap (the last alternative reads
-    * it). Possessive, and each step of the gap begins with a different character: linear from each INTO.
+    * it). What it matches is read by wordGapReaches() (intoUserVariable()); the pattern itself is never run over a
+    * statement: it is linear from each INTO, but it walks the gap again from every INTO, string literals and comment
+    * bodies included, so a literal holding "@" and many "into /*" cost the length squared (a 512 KB one about 80 s).
     */
     const INTO_USER_VARIABLE = '\binto(?:\s|/\*(?!M?!\d*+\s*+@)(?:(?!\*/).)*+\*/|\*/|(?:\#|--(?=[\x00-\x20\x7F]))[^\n]*+(?:\n|$))*+(?:@|/\*M?!\d*+\s*+@)';
+
+    /**
+    * implicitCommitOutcome(): START and TRANSACTION next to each other anywhere in the statement (WORD_GAP between
+    * them). Read by wordGapReaches() (startTransactionAdjacent()), never run: like INTO_USER_VARIABLE it walks the gap
+    * again from every START.
+    */
+    const START_TRANSACTION_ANYWHERE = '\bstart'.self::WORD_GAP.'transaction\b';
 
     /**
     * changesSessionState(): CREATE/DROP TEMPORARY TABLE.
@@ -3306,7 +3315,7 @@ class Db extends Generic implements Db_Interface
         // them; in a literal too, on the safe side), or anywhere in one with an executable comment (whose content the
         // server runs or skips, which may join them)
         if (stripos($lead, 'start') !== false && stripos($lead, 'transaction') !== false && preg_match('~^create'.$gap.'table\b~is', $lead) !== 0
-            && (strpos($lead, '/*!') !== false || strpos($lead, '/*M!') !== false || preg_match('~\bstart'.$gap.'transaction\b~is', $lead) !== 0)) {
+            && (strpos($lead, '/*!') !== false || strpos($lead, '/*M!') !== false || static::startTransactionAdjacent($lead))) {
             return 'chain';
         }
         return 'end';
@@ -3489,8 +3498,13 @@ class Db extends Generic implements Db_Interface
         if (strpos($lead, '@') === false && strpos($lead, ':=') === false && stripos($lead, 'lock') === false && stripos($lead, 'last_insert_id') === false) {
             return false;
         }
-        // (a pattern that could not run, a PCRE limit: changed, on the safe side)
-        return preg_match('~:=|'.self::INTO_USER_VARIABLE.'|\b(?:get_lock|release_lock|release_all_locks)\s*\(|\blast_insert_id\s*\(\s*[^)\s]~is', $lead) !== 0;
+        if (strpos($lead, ':=') !== false || (strpos($lead, '@') !== false && static::intoUserVariable($lead))) {
+            return true;
+        }
+        // (a pattern that could not run, a PCRE limit: changed, on the safe side; from each function name it walks only
+        // the whitespace after it, so it is linear)
+        return (stripos($lead, 'lock') !== false || stripos($lead, 'last_insert_id') !== false)
+            && preg_match('~\b(?:get_lock|release_lock|release_all_locks)\s*\(|\blast_insert_id\s*\(\s*[^)\s]~is', $lead) !== 0;
     }
 
     /**
@@ -3538,9 +3552,217 @@ class Db extends Generic implements Db_Interface
         if (strpos($lead, ':=') !== false) {
             return false;
         }
-        // the pattern needs an @ or a lock function: skip the regex walk of a long statement that has neither
-        // (a pattern that could not run, a PCRE limit: not replayable)
-        return (strpos($lead, '@') === false && stripos($lead, 'lock') === false) || preg_match('~'.self::INTO_USER_VARIABLE.'|\b(?:get_lock|release_lock|release_all_locks)\s*\(~is', $lead) === 0;
+        // INTO @x needs an @, a lock function its name: skip the walk of a long statement that has neither (a pattern
+        // that could not run, a PCRE limit: not replayable)
+        if (strpos($lead, '@') !== false && static::intoUserVariable($lead)) {
+            return false;
+        }
+        return stripos($lead, 'lock') === false || preg_match('~\b(?:get_lock|release_lock|release_all_locks)\s*\(~is', $lead) === 0;
+    }
+
+    /**
+    * Whether the statement holds what INTO_USER_VARIABLE matches (SELECT ... INTO @x, with comments between), read in
+    * one linear sweep (wordGapReaches()).
+    *
+    * @param string $lead
+    * @return bool true too when a pattern could not run (a PCRE limit): changed, not replayable
+    */
+    protected static function intoUserVariable($lead)
+    {
+        return static::wordGapReaches($lead, 'into', true);
+    }
+
+    /**
+    * Whether the statement holds what START_TRANSACTION_ANYWHERE matches (START and TRANSACTION with whitespace or
+    * plain comments between them, anywhere), read in one linear sweep (wordGapReaches()).
+    *
+    * @param string $lead
+    * @return bool true too when a pattern could not run (a PCRE limit): the safe side ('chain')
+    */
+    protected static function startTransactionAdjacent($lead)
+    {
+        return static::wordGapReaches($lead, 'start', false);
+    }
+
+    /**
+    * Whether $sql holds $word (any case, not after a word character: PCRE's \b) followed by a gap and then a target,
+    * exactly where INTO_USER_VARIABLE ($into true) or START_TRANSACTION_ANYWHERE ($into false) matches:
+    *  - $into: the gap is any number of: whitespace (\s), a block comment that is not an executable one beginning with
+    *    a user variable (slash-star, optional M, bang, digits, whitespace, @; to the first star-slash after its
+    *    slash-star: the content of a plain or executable comment whatever it holds), a star-slash, a "#" or "--"
+    *    comment (the "--" followed by a control character or a space) to the end of its line; the target is "@", or
+    *    an executable comment beginning with a user variable;
+    *  - otherwise WORD_GAP, at least one of: whitespace, a block comment that is not an executable one (no bang nor
+    *    M-bang after its slash-star), a "#" or "--" comment to the end of its line; the target is the word
+    *    TRANSACTION (\b after it).
+    * Each step of a gap begins with a different character and runs to a fixed end, so the gap after a word is the
+    * same whoever reaches a place in it, and what follows that place is told by the place alone. The patterns walked
+    * that gap again from each word, string literals and comment bodies included ("@ into /* into /* ..." in a literal:
+    * from every INTO to the end of the statement, the length squared). Here every walk that can still reach a target
+    * is advanced in the order of its position, and a place already waiting is not queued twice, so each place is read
+    * once whichever word's gap reaches it; the end of a block comment and of a line is looked up forward only (the
+    * places are read in increasing order, so one lookup serves every place before what it found). Linear in the length
+    * of $sql whatever it holds; nothing is copied but whitespace runs.
+    *
+    * @param string $sql
+    * @param string $word 'into' or 'start' (lowercase)
+    * @param bool $into
+    * @return bool true too when the word could not be looked for (a PCRE limit)
+    */
+    protected static function wordGapReaches($sql, $word, $into)
+    {
+        $sql = (string) $sql;
+        // whitespace (and a star-slash) holds no word, so walks over nothing but those never meet and a pattern walks
+        // each place of them once: first, a target after nothing but those (a match), then the words with a comment
+        // after nothing but those (none: no walk ever takes a comment, and there is no other match)
+        if ($into) {
+            $plain = preg_match('~\binto(?:\s|\*/)*+(?:@|/\*M?!\d*+\s*+@)~i', $sql);
+            $entry = '~\binto(?:\s|\*/)*+(?=/\*|\#|--[\x00-\x20\x7F])~i';
+            // a walk at a place after the last @ reaches no target
+            $last = strrpos($sql, '@');
+        } else {
+            $plain = preg_match('~\bstart\s++transaction\b~i', $sql);
+            $entry = '~\bstart\s*+(?=/\*(?!M?!)|\#|--[\x00-\x20\x7F])~i';
+            $last = strripos($sql, 'transaction');
+        }
+        if ($plain !== 0) {
+            // (a pattern that could not run, a PCRE limit: true, the safe side)
+            return true;
+        }
+        if ($last === false) {
+            return false;
+        }
+        $length = strlen($sql);
+        // where the next word's walk takes its first comment (null: not looked for yet; false: none at or before $last)
+        $next = null;
+        $from = 0;
+        // places some walk reached and has not read yet, the smallest first, and the same as a set; the smallest of
+        // them (null: none)
+        $waiting = new \SplMinHeap();
+        $queued = [];
+        $top = null;
+        // the last lookups of a star-slash and of a newline: from where, and what they found (false: none from there on)
+        $closeFrom = -1;
+        $closeAt = false;
+        $lineFrom = -1;
+        $lineAt = false;
+        $at = null;
+        while (true) {
+            if ($next === null) {
+                $found = preg_match($entry, $sql, $match, PREG_OFFSET_CAPTURE, $from);
+                if ($found === false) {
+                    return true;
+                }
+                $next = false;
+                if ($found === 1) {
+                    $from = $match[0][1] + strlen($match[0][0]);
+                    if ($from <= $last) {
+                        $next = $from;
+                    }
+                }
+            }
+            if ($at === null) {
+                // the next place to read: the smallest of the next word's and the waiting ones
+                if ($next !== false && ($top === null || $next <= $top)) {
+                    $at = $next;
+                    $next = null;
+                    if ($at === $top) {
+                        // a walk reached it too: read once
+                        $waiting->extract();
+                        unset($queued[$at]);
+                        $top = $waiting->isEmpty() ? null : $waiting->top();
+                    }
+                    continue;
+                }
+                if ($top === null) {
+                    return false;
+                }
+                $at = $waiting->extract();
+                unset($queued[$at]);
+                $top = $waiting->isEmpty() ? null : $waiting->top();
+            }
+            // (no pattern is run at a place: with PCRE's JIT, a match anchored there first looks for the pattern's last
+            // fixed character through the rest of the statement, which would cost its length at every place)
+            $char = $sql[$at];
+            $comment = $char === '/' && $at + 1 < $length && $sql[$at + 1] === '*';
+            // an executable comment: slash-star, M (any case) or not, bang; $bang where its version would begin
+            $bang = 0;
+            if ($comment) {
+                $mark = $at + 2 < $length ? $sql[$at + 2] : '';
+                if ($mark === '!') {
+                    $bang = $at + 3;
+                } elseif (($mark === 'M' || $mark === 'm') && $at + 3 < $length && $sql[$at + 3] === '!') {
+                    $bang = $at + 4;
+                }
+            }
+            // a target (not where a word's walk takes its first comment: the plain look above found none there)
+            if ($into) {
+                if ($char === '@') {
+                    return true;
+                }
+                if ($bang > 0) {
+                    // its digits, its whitespace, then the user variable
+                    $after = $bang + strspn($sql, '0123456789', $bang);
+                    $after += strspn($sql, " \t\n\r\x0B\f", $after);
+                    if ($after < $length && $sql[$after] === '@') {
+                        return true;
+                    }
+                }
+            } elseif (($char === 't' || $char === 'T') && $at + 11 <= $length && substr_compare($sql, 'transaction', $at, 11, true) === 0
+                && strspn($sql, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_', $at + 11, 1) === 0) {
+                return true;
+            }
+            // one step of the gap, a comment (a place is either one, whitespace or a star-slash, or where a gap ends)
+            if ($comment) {
+                if (!$into && $bang > 0) {
+                    // an executable comment is no WORD_GAP
+                    $at = null;
+                    continue;
+                }
+                // (for INTO, an executable one beginning with a user variable is the target, read above)
+                if ($closeFrom < 0 || $at + 2 < $closeFrom || ($closeAt !== false && $at + 2 > $closeAt)) {
+                    $closeFrom = $at + 2;
+                    $closeAt = strpos($sql, '*/', $closeFrom);
+                }
+                if ($closeAt === false) {
+                    // never closed: no step
+                    $at = null;
+                    continue;
+                }
+                $to = $closeAt + 2;
+            } elseif ($char === '#' || ($char === '-' && $at + 2 < $length && $sql[$at + 1] === '-' && (ord($sql[$at + 2]) <= 0x20 || $sql[$at + 2] === "\x7F"))) {
+                if ($lineFrom < 0 || $at + 1 < $lineFrom || ($lineAt !== false && $at + 1 > $lineAt)) {
+                    $lineFrom = $at + 1;
+                    $lineAt = strpos($sql, "\n", $lineFrom);
+                }
+                $to = $lineAt === false ? $length : $lineAt + 1;
+            } else {
+                $to = $at;
+            }
+            // then whitespace and (for INTO) star-slashes: steps that hold no word
+            do {
+                $was = $to;
+                $to += strspn($sql, " \t\n\r\x0B\f", $to);
+                if ($into && $to + 1 < $length && $sql[$to] === '*' && $sql[$to + 1] === '/') {
+                    $to += 2;
+                }
+            } while ($to !== $was);
+            if ($to === $at || $to > $last || isset($queued[$to]) || strpos($into ? '@/#-' : 'tT/#-', $sql[$to]) === false) {
+                // no step (the gap ends here, short of a target), past the last target, a walk waits there already, or
+                // what is there is neither a target nor a comment: that walk ends
+                $at = null;
+            } elseif ($next !== null && ($next === false || $to < $next) && ($top === null || $to < $top)) {
+                // still the smallest place: read on from it at once
+                $at = $to;
+            } else {
+                $queued[$to] = true;
+                $waiting->insert($to);
+                if ($top === null || $to < $top) {
+                    $top = $to;
+                }
+                $at = null;
+            }
+        }
     }
 
     /**

@@ -597,12 +597,23 @@ namespace MyDb\Tests\Mysqli {
 		 */
 		public static function serverSql($sql)
 		{
-			$sql = preg_replace_callback('~/\*(M!|!(\d{5})?)?((?:(?!\*/).)*+)\*/~s', static function ($match) {
-				if ($match[1] !== '' && $match[1] !== 'M!' && ($match[2] === '' || (int) $match[2] <= self::SERVER_VERSION)) {
-					return ' '.$match[3].' ';
+			// each block comment to the first star-slash after it, found with strpos (a pattern walked a comment never
+			// closed again from every slash-star in it: the length squared, the whole of query()'s time on a long one)
+			$sql = (string) $sql;
+			$bare = '';
+			$from = 0;
+			while (($open = strpos($sql, '/*', $from)) !== false && ($close = strpos($sql, '*/', $open + 2)) !== false) {
+				$body = substr($sql, $open + 2, $close - $open - 2);
+				$bare .= substr($sql, $from, $open - $from);
+				if (strncmp($body, 'M!', 2) !== 0 && strncmp($body, '!', 1) === 0) {
+					$version = strspn($body, '0123456789', 1) >= 5 ? substr($body, 1, 5) : '';
+					$bare .= $version === '' || (int) $version <= self::SERVER_VERSION ? ' '.substr($body, 1 + strlen($version)).' ' : ' ';
+				} else {
+					$bare .= ' ';
 				}
-				return ' ';
-			}, (string) $sql);
+				$from = $close + 2;
+			}
+			$sql = $bare.substr($sql, $from);
 			$sql = preg_replace('/^(?:[\s(]|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', $sql);
 			// a line comment among the leading words (START -- c, newline, TRANSACTION) is a space too
 			do {

@@ -22,6 +22,9 @@ use PHPUnit\Framework\TestCase;
 * the release ROLLBACK reads stale flags as stale; a SET is counted by the word autocommit; INTO with comments before a
 * user variable changes the session; a PCRE failure never reads as harmless.
 *
+* Round 10 (the reviewer's scale10/quad10): the looks that read a whole statement (INTO @x, START ... TRANSACTION in a
+* CREATE TABLE) read what their patterns match in linear time, whatever a string literal in the statement holds.
+*
 * @runTestsInSeparateProcesses
 * @preserveGlobalState disabled
 */
@@ -1376,6 +1379,203 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertTrue($this->q($b, 'START TRANSACTION'));
 		$this->assertSame(1, FakeServer::$connections, 'B\'s START stays on the shared link: its session holds @x');
 	}
+
+	public static function wordGapForms()
+	{
+		// [statement, INTO_USER_VARIABLE matches, START_TRANSACTION_ANYWHERE matches]
+		return [
+			'INTO @x' => ['SELECT a INTO @x FROM t', true, false],
+			'INTO@x' => ['SELECT a INTO@x FROM t', true, false],
+			'INTO /* c */ @x' => ['SELECT a INTO /* c */ @x FROM t', true, false],
+			'INTO /* c */ /* d */ @x' => ['SELECT a INTO /* c */ /* d */ @x FROM t', true, false],
+			'INTO -- c then @x' => ["SELECT a INTO -- c\n@x FROM t", true, false],
+			'INTO # c then @x' => ["SELECT a INTO # c\n @x FROM t", true, false],
+			'INTO --x is no comment' => ["SELECT a INTO --x\n@x FROM t", false, false],
+			'INTO -- before DEL is a comment' => ["SELECT a INTO --\x7F c\n@x FROM t", true, false],
+			'INTO /* c */ -- before DEL' => ["SELECT a INTO /* c */ --\x7F c\n@x FROM t", true, false],
+			'INTO /*!80000 @x */' => ['SELECT a INTO /*!80000 @x */ FROM t', true, false],
+			'INTO /*M!@x */' => ['SELECT a INTO /*M!@x */ FROM t', true, false],
+			'INTO /*m! @x */ (any case)' => ['SELECT a INTO /*m! @x */ FROM t', true, false],
+			'INTO /*!99999 x */ @x' => ['SELECT a INTO /*!99999 x */ @x FROM t', true, false],
+			'INTO in an executable comment' => ['SELECT a /*!80000 INTO */ @x FROM t', true, false],
+			'INTO /* never closed @x' => ['SELECT a INTO /* @x', false, false],
+			'INTO OUTFILE' => ["SELECT a INTO OUTFILE '/tmp/@x' FROM t", false, false],
+			'INTO t, then @' => ["INSERT INTO t (v) VALUES ('joe@example.com')", false, false],
+			'INTO later in a literal' => ["INSERT INTO t (v) VALUES ('sent into @joe')", true, false],
+			'a word ending in into' => ['SELECT a xinto @x FROM t', false, false],
+			'the word in a comment run' => ["SELECT a /* into */ INTO /* c */ x, @y FROM t", false, false],
+			'INTO through a comment in literals' => ["SELECT 'into /* ', 'into */ @y' FROM t", true, false],
+			'an inner INTO by a line comment' => ["SELECT 'into /* into -- x */ zzz\n@' FROM t", true, false],
+			'INTO /* c */ /*!80000 @x */' => ['SELECT a INTO /* c */ /*!80000 @x */ FROM t', true, false],
+			'INTO /* c */ /*m!50000 @x */' => ['SELECT a INTO /* c */ /*m!50000 @x */ FROM t', true, false],
+			'INTO /* c */ /*!80000 x */ @x' => ['SELECT a INTO /* c */ /*!80000 x */ @x FROM t', true, false],
+			'INTO /* c */ */ @x' => ['SELECT a INTO /* c */ */ @x FROM t', true, false],
+			'INTO /* c */ -- c then @x' => ["SELECT a INTO /* c */ -- c\n @x FROM t", true, false],
+			'INTO /* c */ --x' => ["SELECT a INTO /* c */ --x\n@x FROM t", false, false],
+			'INTO /* c */ x @x' => ['SELECT a INTO /* c */ x @x FROM t', false, false],
+			'START TRANSACTION' => ['CREATE TABLE t2 START TRANSACTION AS SELECT 1', false, true],
+			'START/**/TRANSACTION' => ['CREATE TABLE t2 START/**/TRANSACTION AS SELECT 1', false, true],
+			'START /* c */ /*!80000 */ TRANSACTION' => ['CREATE TABLE t2 START /* c */ /*!80000 */ TRANSACTION AS SELECT 1', false, false],
+			'START /* c */ /*m!80000 */ TRANSACTION' => ['CREATE TABLE t2 START /* c */ /*m!80000 */ TRANSACTION AS SELECT 1', false, false],
+			'START /* c */ transactions' => ['CREATE TABLE t2 AS SELECT start /* c */ transactions FROM t', false, false],
+			'START /* c */ transaction_id' => ['CREATE TABLE t2 AS SELECT start /* c */ transaction_id FROM t', false, false],
+			'START /* c */ transaction$x ($ is no word character)' => ['CREATE TABLE t2 AS SELECT start /* c */ transaction$x FROM t', false, true],
+			'START /* c */ transaction then a byte over 127' => ["CREATE TABLE t2 AS SELECT start /* c */ transaction\xC3\xA9 FROM t", false, true],
+			'START /* c */ -- c then transaction' => ["CREATE TABLE t2 AS SELECT start /* c */ -- c\ntransaction FROM t", false, true],
+			'START /* c */ */ TRANSACTION' => ['CREATE TABLE t2 START /* c */ */ TRANSACTION AS SELECT 1', false, false],
+			'START /* c */ TRANSACTION' => ['CREATE TABLE t2 START /* c */ TRANSACTION AS SELECT 1', false, true],
+			'START -- c then TRANSACTION' => ["CREATE TABLE t2 START -- c\nTRANSACTION AS SELECT 1", false, true],
+			'STARTTRANSACTION' => ['CREATE TABLE t2 STARTTRANSACTION AS SELECT 1', false, false],
+			'START /*!80000 */ TRANSACTION is no gap' => ['CREATE TABLE t2 START /*!80000 */ TRANSACTION AS SELECT 1', false, false],
+			'START /*M x */ TRANSACTION is a plain comment' => ['CREATE TABLE t2 START /*M x */ TRANSACTION AS SELECT 1', false, true],
+			'START TRANSACTIONS' => ['CREATE TABLE t2 (start int, transactions int)', false, false],
+			'START TRANSACTION_ID' => ['CREATE TABLE t2 AS SELECT start transaction_id FROM t', false, false],
+			'start, transaction' => ['CREATE TABLE t2 (start int, transaction int)', false, false],
+			'START through a comment in a literal' => ["CREATE TABLE t2 AS SELECT 'start /* start */ transaction'", false, true],
+		];
+	}
+
+	/**
+	* r10 F1: what the INTO and START ... TRANSACTION looks find is what their patterns match
+	*
+	* @dataProvider wordGapForms
+	* @param string $sql
+	* @param bool $into
+	* @param bool $start
+	*/
+	#[DataProvider('wordGapForms')]
+	public function testTheWordGapLooksFindWhatTheirPatternsMatch($sql, $into, $start)
+	{
+		$this->assertSame($into, preg_match('~'.\MyDb\Mysqli\Db::INTO_USER_VARIABLE.'~is', $sql) === 1, 'the pattern itself');
+		$this->assertSame($start, preg_match('~'.\MyDb\Mysqli\Db::START_TRANSACTION_ANYWHERE.'~is', $sql) === 1, 'the pattern itself');
+		$this->assertSame($into, LeadProbe::into($sql));
+		$this->assertSame($start, LeadProbe::startTransaction($sql));
+	}
+
+	/**
+	* r10 F1: the looks read exactly what the patterns match, on strings made of the pieces that matter to them (a
+	* fixed seed: the same strings every run)
+	*/
+	public function testTheWordGapLooksAgreeWithTheirPatternsOnEveryPieceTogether()
+	{
+		$all = ['into', 'INTO', 'start', 'START', 'transaction', 'Transaction', ' ', "\n", "\t", "\x0B", "\x7F", '/*', '*/', '/*!', '/*!80000', '/*!99999 ', '/*M!', '/*m!', '/*M', '@', '@x', '#', '--', '-- ', "--\t", "--\x7F", '-', '*', '/', "'", 'x', '1', '!', '_', '$', "\xC3", '(', 'intox', 'xinto', 'transactions'];
+		$few = ['into', 'start', 'START', 'transaction', ' ', "\n", '/*', '*/', '/*!', '/*M!', '@', '#', '-- ', '--', 'x', '/', '*'];
+		mt_srand(10);
+		$intoRef = '~'.\MyDb\Mysqli\Db::INTO_USER_VARIABLE.'~is';
+		$startRef = '~'.\MyDb\Mysqli\Db::START_TRANSACTION_ANYWHERE.'~is';
+		$matched = [0, 0];
+		// (one assertion at the end: an event per assertion of a test run in its own process costs the runner memory)
+		$wrong = [];
+		for ($i = 0; $i < 40000; $i++) {
+			$pieces = $i % 2 === 0 ? $all : $few;
+			$sql = '';
+			for ($j = mt_rand(1, 16); $j > 0; $j--) {
+				$sql .= $pieces[mt_rand(0, count($pieces) - 1)];
+			}
+			$into = preg_match($intoRef, $sql) === 1;
+			$start = preg_match($startRef, $sql) === 1;
+			$matched[0] += $into ? 1 : 0;
+			$matched[1] += $start ? 1 : 0;
+			if ($into !== LeadProbe::into($sql) || $start !== LeadProbe::startTransaction($sql)) {
+				$wrong[] = json_encode($sql);
+			}
+		}
+		$this->assertSame([], array_slice($wrong, 0, 20));
+		$this->assertGreaterThan(500, $matched[0], 'the strings hold matches');
+		$this->assertGreaterThan(100, $matched[1], 'the strings hold matches');
+	}
+
+	public static function hostileLiterals()
+	{
+		// [statement of n repeats, n, the reading it must still give: changesSessionState() / replayableStatement() /
+		// implicitCommitOutcome()]; d43abf5 took 10 to 20 s for each (the length squared), the looks a few ms
+		return [
+			'@, then into /* (never closed)' => ["INSERT INTO t (v) VALUES ('@ %s')", 'into /* ', 40000, ['dirty' => false, 'replayable' => true]],
+			'@, then into /* and a close' => ["INSERT INTO t (v) VALUES ('@ %s */')", 'into /* ', 40000, ['dirty' => false, 'replayable' => true]],
+			'@, then into /*!99999' => ["INSERT INTO t (v) VALUES ('@ %s')", 'into /*!99999 ', 32000, ['dirty' => false, 'replayable' => true]],
+			'@, then into # on one line' => ["INSERT INTO t (v) VALUES ('@ %s')", 'into # ', 80000, ['dirty' => false, 'replayable' => true]],
+			'@, then into -- on one line' => ["INSERT INTO t (v) VALUES ('@ %s')", 'into -- ', 80000, ['dirty' => false, 'replayable' => true]],
+			'into /* then @ at the end' => ["INSERT INTO t (v) VALUES ('%s */ x @')", 'into /* ', 40000, ['dirty' => false, 'replayable' => true]],
+			'into # then @ at the end' => ["INSERT INTO t (v) VALUES ('%s\nx @')", 'into # ', 80000, ['dirty' => false, 'replayable' => true]],
+			'into /* then @ at the end, reached' => ["INSERT INTO t (v) VALUES ('%s */ @')", 'into /* ', 40000, ['dirty' => true, 'replayable' => false]],
+			'CREATE TABLE, start /* then transaction' => ["CREATE TABLE t2 AS SELECT '%s transaction' AS v", 'start /* ', 40000, ['outcome' => 'end']],
+			'CREATE TABLE, start # then transaction' => ["CREATE TABLE t2 AS SELECT '%s transaction' AS v", 'start # ', 80000, ['outcome' => 'end']],
+		];
+	}
+
+	/**
+	* r10 F1: a string literal holding "@" and many "into /*" (or "start /*" in a CREATE TABLE with "transaction")
+	* costs what its length does: each size here took d43abf5 10 s or more (from every INTO the pattern walked to the end
+	* of the statement), and must take under 3 s; the readings are those d43abf5 gave
+	*
+	* @dataProvider hostileLiterals
+	* @param string $statement
+	* @param string $piece
+	* @param int $n
+	* @param array $reading
+	*/
+	#[DataProvider('hostileLiterals')]
+	public function testAHostileLiteralIsReadInLinearTime($statement, $piece, $n, $reading)
+	{
+		$sql = sprintf($statement, str_repeat($piece, $n));
+		$start = microtime(true);
+		if (isset($reading['outcome'])) {
+			$this->assertSame($reading['outcome'], LeadProbe::outcome($sql));
+		} else {
+			$this->assertSame($reading['dirty'], LeadProbe::dirty($sql));
+			$this->assertSame($reading['replayable'], LeadProbe::replayable($sql));
+		}
+		$this->assertLessThan(3.0, microtime(true) - $start, strlen($sql).' bytes');
+	}
+
+	/**
+	* r10 F1: the end of a block comment or a line is looked up once for every place before it (a look from each place
+	* would scan to the end again: 200k of them in 1.6 MB, about 160 GB of scanning)
+	*/
+	public function testTheEndOfACommentOrALineIsLookedUpOnce()
+	{
+		foreach ([["INSERT INTO t (v) VALUES ('%s */ x @')", 'into /* '], ["INSERT INTO t (v) VALUES ('%s\nx @')", 'into # '], ["CREATE TABLE t2 AS SELECT '%s */ x transaction' AS v", 'start /* ']] as [$statement, $piece]) {
+			$sql = sprintf($statement, str_repeat($piece, 200000));
+			$start = microtime(true);
+			if ($piece === 'start /* ') {
+				$this->assertSame('end', LeadProbe::outcome($sql));
+			} else {
+				$this->assertFalse(LeadProbe::dirty($sql));
+			}
+			$this->assertLessThan(3.0, microtime(true) - $start, $piece);
+		}
+	}
+
+	/**
+	* r10 F1: a place many walks reach is read once: 6000 INTOs whose comments all end at one star-slash, then 6000
+	* comments before the @ (read again for each walk, 36 million steps)
+	*/
+	public function testAPlaceManyWalksReachIsReadOnce()
+	{
+		$sql = "INSERT INTO t (v) VALUES ('".str_repeat('into /* ', 6000).'*/'.str_repeat(' /**/', 6000)." x @')";
+		$start = microtime(true);
+		$this->assertFalse(LeadProbe::dirty($sql));
+		$this->assertTrue(LeadProbe::dirty(str_replace(' x @', ' @', $sql)));
+		$this->assertLessThan(3.0, microtime(true) - $start);
+	}
+
+	/** r10 F1: the other looks of changesSessionState() and replayableStatement() still read as they did */
+	public function testTheOtherSessionLooksStillRead()
+	{
+		foreach (["SELECT 'a' := 1", "SELECT GET_LOCK('k', 1)", "SELECT release_lock ('k')", 'SELECT RELEASE_ALL_LOCKS()', 'SELECT a INTO /* c */ @x FROM t'] as $sql) {
+			$this->assertTrue(LeadProbe::dirty($sql), $sql);
+			$this->assertFalse(LeadProbe::replayable($sql), $sql);
+		}
+		foreach (['SELECT LAST_INSERT_ID()', "SELECT 'lock' FROM t", "SELECT 'a@b' FROM t", "SELECT block FROM t WHERE e = 'x@y'", 'SELECT get_locks(1)'] as $sql) {
+			$this->assertFalse(LeadProbe::dirty($sql), $sql);
+			$this->assertTrue(LeadProbe::replayable($sql), $sql);
+		}
+		// (replayableStatement() never looked at LAST_INSERT_ID(expr): a replay sets it again)
+		foreach (['SELECT LAST_INSERT_ID(5)', 'SELECT last_insert_id ( 5 )'] as $sql) {
+			$this->assertTrue(LeadProbe::dirty($sql), $sql);
+			$this->assertTrue(LeadProbe::replayable($sql), $sql);
+		}
+	}
 }
 
 /** the driver's statement readers, called on their own */
@@ -1413,5 +1613,15 @@ class LeadProbe extends \MyDb\Mysqli\Db
 	public static function replayable($sql)
 	{
 		return static::replayableStatement(static::leadingKeywordSql($sql));
+	}
+
+	public static function into($sql)
+	{
+		return static::intoUserVariable($sql);
+	}
+
+	public static function startTransaction($sql)
+	{
+		return static::startTransactionAdjacent($sql);
 	}
 }

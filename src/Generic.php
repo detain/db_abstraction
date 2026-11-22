@@ -651,8 +651,10 @@ abstract class Generic
             return $queryString;
         }
         return (string) preg_replace(
-            // each literal runs to its closing quote, or to the end when a driver error truncated the query
-            ["/'(?:[^'\\\\]|\\\\.|'')*(?:'|\\z)/s", '/"(?:[^"\\\\]|\\\\.|"")*(?:"|\\z)/s'],
+            // each literal runs to its closing quote, or to the end when a driver error truncated the query (a backslash
+            // at the end too): every match runs to one of the two, so no literal is walked again from a quote inside it
+            // (a literal never closed that ended in a backslash was: from each quote in it, the length squared)
+            ["/'(?:[^'\\\\]++|\\\\(?:.|\\z)|'')*+(?:'|\\z)/s", '/"(?:[^"\\\\]++|\\\\(?:.|\\z)|"")*+(?:"|\\z)/s'],
             ["'[redacted]'", '"[redacted]"'],
             $queryString
         );
