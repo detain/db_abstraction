@@ -592,6 +592,14 @@ class Db extends Generic implements Db_Interface
         // is_resource() test was always true and this always fell through to
         // connect(); keep calling it, but off a check that can actually pass.
         if (!$this->linkIsUsable() && !$this->connect()) {
+            // B013 (S52, 2026-11-22): str_replace escaping without a live utf8mb4 link is not a
+            // security control, so surface the outage instead of degrading silently: halt() sets
+            // Errno/Error and logs (mailing only in 'report' mode); haltOnError='yes' dies inside
+            // halt() before ever handing back a worse escape, and under PHP 8.3's default
+            // MYSQLI_REPORT_STRICT real_connect() throws before connect() returns 0 at all — this
+            // leg runs only when the driver is deliberately running with mysqli error reporting
+            // off and halting off. escape() stays the documented worst case, and it is now loud.
+            $this->halt('real_escape() called with no usable connection', __LINE__, __FILE__);
             return $this->escape($string);
         }
         return mysqli_real_escape_string($this->linkId, $string);

@@ -74,6 +74,9 @@ class Db extends Generic implements Db_Interface
      */
     public function real_escape($string = '')
     {
+        // B013 (S52, 2026-11-22): escapeshellarg is the wrong tool for SQL (quoting style,
+        // percent signs on Windows); kept only because this driver has no production consumer
+        // (ruled PARTIAL/LOW, §0.6 B013). Wiring it up means the ADOdb handle's own qstr().
         return escapeshellarg($string);
     }
 

@@ -47,6 +47,10 @@ class Db extends Generic implements Db_Interface
      */
     public function real_escape($string = '')
     {
+        // B013 (S52, 2026-11-22): this is the charset-blind escape() (see Generic::escape — not a
+        // security boundary), not pg_escape_string(); deliberate for a driver with no production
+        // consumer (ruled PARTIAL/LOW, §0.6 B013). Wiring this driver up means giving it a real,
+        // connection-bound escaper first.
         return $this->escape($string);
     }
 

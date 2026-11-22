@@ -81,17 +81,20 @@ class DbTest extends \PHPUnit\Framework\TestCase
 
     public function testEscaping()
     {
-        $oldId = $this->db->linkId;
-        $this->db->linkId = 0;
         $string1 = 'hi there"dude';
         $string3 = 'hi there\"dude';
-        $oldId = $this->db->linkId;
-        $this->db->linkId = 0;
-        $string2 = $this->db->real_escape($string1);
-        $this->assertEquals($string3, $string2);
-        $this->db->linkId = $oldId;
-        $string2 = $this->db->real_escape($string1);
-        $this->assertEquals($string3, $string2);
+        // B013 (S52): this used to drive Generic::real_escape() with linkId forced to 0 and back,
+        // asserting str_replace-shaped bytes — the charset-blind fallback the ruling removed. The
+        // base is now loud for a driver that has no escaper of its own (Pdo has none: production
+        // binds parameters instead), and the helpers keep their pins below.
+        $this->expectException(\LogicException::class);
+        $this->db->real_escape($string1);
+    }
+
+    public function testEscapeHelpersStillWork()
+    {
+        $string1 = 'hi there"dude';
+        $string3 = 'hi there\"dude';
         $string2 = $this->db->escape($string1);
         $this->assertEquals($string3, $string2);
         $string2 = $this->db->dbAddslashes($string1);

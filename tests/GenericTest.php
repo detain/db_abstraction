@@ -15,8 +15,8 @@ class TestGeneric extends Generic
 {
     public function connect()
     {
-        // Mock connection logic for testing: there is no server behind a plain Generic,
-        // so connecting fails and real_escape() takes its documented fallback path.
+        // Mock connection logic for testing: there is no server behind a plain Generic;
+        // real_escape() no longer degrades through connect() at all (B013) — the base throws.
         return false;
     }
 
@@ -79,8 +79,12 @@ class TestGenericTest extends TestCase
 
     public function testRealEscape()
     {
-        // with no server to escape through (connect() fails), real_escape() falls back to escape()
-        $this->assertEquals("O\\'Reilly", $this->db->real_escape("O'Reilly"));
+        // B013 (S52): the base no longer hand-calls mysqli_real_escape_string on whatever link
+        // type it is handed (and its old is_resource() guard was dead under PHP 8) — a driver
+        // that has not implemented its own escaper fails loudly instead of TypeErrors on a live
+        // link or silently degrading to escape() on a dead one.
+        $this->expectException(\LogicException::class);
+        $this->db->real_escape("O'Reilly");
     }
 
     public function testEscape()

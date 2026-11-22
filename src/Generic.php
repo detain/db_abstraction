@@ -392,18 +392,34 @@ abstract class Generic
     }
 
     /**
+     * Connection-bound escaping is a driver job; the shared base has none.
+     *
      * @param $string
-     * @return string
+     * @return never
+     * @throws \LogicException always, from the base: the driver did not implement its own escaper
      */
     public function real_escape($string = '')
     {
-        if ((!is_resource($this->linkId) || $this->linkId == 0) && !$this->connect()) {
-            return $this->escape($string);
-        }
-        return mysqli_real_escape_string($this->linkId, $string);
+        // B013 (S52, 2026-11-22): this base used to call mysqli_real_escape_string itself —
+        // a mysqli leak into every non-mysqli driver (the PDO driver inherited it and would
+        // TypeError on a PDO link) — behind a dead is_resource() test: PHP 8 links are
+        // objects, so the guard always took the connect()/fallback path, and callers with
+        // haltOnError='no' silently received charset-blind escape() output from what looked
+        // like a real escape. A driver that cannot supply a connection-bound escaper must
+        // fail loudly. Drivers implement their own real_escape(): Mysqli overrides this
+        // method; Pgsql/Adodb delegate to escape() and say so at their own risk (no
+        // production consumer uses them — ruled PARTIAL/LOW in §0.6 B013).
+        throw new \LogicException(static::class . ' must implement real_escape() for its own link type');
     }
 
     /**
+     * The charset-blind str_replace escaping — a convenience helper, NOT a security boundary.
+     *
+     * @internal worst-case helper: real_escape() never degrades to this silently (B013);
+     *             callers that use it directly know it carries no connection or charset
+     *             awareness (the classic multibyte exposure is blocked on this estate only
+     *             because every link is forced utf8mb4, not by anything this method does).
+     *
      * @param $string
      * @return string
      */
