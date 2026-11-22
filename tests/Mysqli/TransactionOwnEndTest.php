@@ -12,8 +12,11 @@ use PHPUnit\Framework\TestCase;
 * the tracked transaction: ended there, a 1213 on the next statement is retried on its own (autocommit) while the
 * server rolled the earlier INSERT back, and the COMMIT reports success (a lost write and a false success). Words
 * between which only whitespace or a plain comment sits are read; a comment marker inside a string literal further on
-* changes nothing. A form whose meaning cannot be told (an executable comment among the leading words) gives the
-* transaction up as lost (2006): never a false success, never a duplicate. Cases from the round-7 review (R7OwnEndGapTest).
+* changes nothing; an executable comment whose content runs everywhere is read as that content (round 8,
+* leadingKeywordSql()). A form whose commit cannot be told (SET autocommit=1, an executable comment that is not read
+* among the leading words) keeps the transaction going and loses it with 2006 on a later failure, and one whose
+* statement is not known at all (an executable comment that is not read before the first keyword) gives it up (2006):
+* never a false success, never a duplicate. Cases from the round-7 review (R7OwnEndGapTest) and round 8.
 *
 * @runTestsInSeparateProcesses
 * @preserveGlobalState disabled
@@ -79,6 +82,14 @@ class TransactionOwnEndTest extends TestCase
 			'RESET PERSIST IF EXISTS' => 'RESET PERSIST IF EXISTS sort_buffer_size',
 			'RESET comment PERSIST' => 'RESET /* x */ PERSIST',
 			'SET autocommit=0 (control)' => 'SET autocommit=0',
+			// round 8: read as the server runs them (round 7 gave the transaction up on them)
+			'executable comment around TEMPORARY' => 'CREATE /*!32312 TEMPORARY */ TABLE tt (a int)',
+			'executable comment before the first keyword' => '/*!32312 SHOW */ CREATE TABLE t',
+			'executable SET NAMES (mysqldump)' => '/*!40101 SET NAMES utf8mb4 */',
+			'SET GLOBAL autocommit=1' => 'SET GLOBAL autocommit=1',
+			'SET PERSIST autocommit=1' => 'SET PERSIST autocommit=1',
+			'SET GLOBAL x, then a plain autocommit (GLOBAL carries)' => 'SET GLOBAL sort_buffer_size=1, autocommit=1',
+			'an executable marker inside a line comment' => "-- see /*!40101 x */\nSELECT 1",
 		] as $name => $sql) {
 			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
 				$cases[$name.', '.$mode] = [$sql, $strict];
@@ -139,11 +150,14 @@ class TransactionOwnEndTest extends TestCase
 	{
 		$cases = [];
 		foreach ([
-			'executable comment around TEMPORARY' => 'CREATE /*!32312 TEMPORARY */ TABLE tt (a int)',
+			// 'doubt': kept going, lost with 2006 on the 1213 (round 8)
 			'MariaDB executable comment around TEMPORARY' => 'DROP /*M! TEMPORARY */ TABLE IF EXISTS tt',
-			'executable comment before the statement' => '/*!40000 ALTER TABLE t DISABLE KEYS */',
-			'executable comment before the first keyword' => '/*!32312 SHOW */ CREATE TABLE t',
+			'later-version executable comment around TEMPORARY' => 'CREATE /*!99999 TEMPORARY */ TABLE tt (a int)',
 			'SET autocommit=1' => 'SET autocommit=1',
+			'SET GLOBAL x, then SESSION autocommit=1' => 'SET GLOBAL sort_buffer_size=1, SESSION autocommit=1',
+			// 'unknown': given up at once (2006)
+			'later-version executable comment before the statement' => '/*!99999 ALTER TABLE t DISABLE KEYS */',
+			'MariaDB executable comment before the statement' => '/*M! ALTER TABLE t DISABLE KEYS */ SELECT 1',
 		] as $name => $sql) {
 			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
 				$cases[$name.', '.$mode] = [$sql, $strict];
@@ -153,8 +167,9 @@ class TransactionOwnEndTest extends TestCase
 	}
 
 	/**
-	* the same caller loop: a statement whose implicit commit cannot be told gives the transaction up (2006, not
-	* retried), so the caller never sees a successful COMMIT and nothing is written twice
+	* the same caller loop: after a statement whose implicit commit cannot be told the 1213 loses the transaction with
+	* 2006 (not retried), and after one whose statement is not known the transaction is given up at once, so the caller
+	* never sees a successful COMMIT and nothing is written twice
 	*/
 	#[DataProvider('doubtful')]
 	public function testAStatementWhoseCommitCannotBeToldNeverReportsSuccess($sql, $strict)
@@ -180,7 +195,38 @@ class TransactionOwnEndTest extends TestCase
 		}
 		$this->assertFalse($committedOk, 'no COMMIT reported success');
 		$this->assertSame(2006, (int) $db->Errno, 'given up as lost: outcome unknown');
-		$this->assertSame([], self::writes(), 'the quiet ROLLBACK discarded the INSERT; the UPDATE was never sent');
+		$this->assertSame([], self::writes(), 'the 1213 or the quiet ROLLBACK discarded the INSERT, and the UPDATE never landed');
 		$this->assertFalse($db->inTransaction());
+	}
+
+	public static function keptGoing()
+	{
+		$cases = [];
+		foreach ([
+			'MariaDB executable comment around TEMPORARY' => 'DROP /*M! TEMPORARY */ TABLE IF EXISTS tt',
+			'SET autocommit=1' => 'SET autocommit=1',
+			'SET GLOBAL x, then SESSION autocommit=1' => 'SET GLOBAL sort_buffer_size=1, SESSION autocommit=1',
+		] as $name => $sql) {
+			foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+				$cases[$name.', '.$mode] = [$sql, $strict];
+			}
+		}
+		return $cases;
+	}
+
+	/** the same caller loop without the 1213: a statement whose implicit commit cannot be told does not stop the COMMIT */
+	#[DataProvider('keptGoing')]
+	public function testAStatementWhoseCommitCannotBeToldLetsTheCommitSaveEveryWrite($sql, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		$this->assertNotFalse($this->q($db, $sql));
+		$this->assertTrue($db->inTransaction(), 'it goes on');
+		$this->assertTrue($this->q($db, 'UPDATE u SET x=1'));
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(['INSERT INTO t VALUES (1)', 'UPDATE u SET x=1'], self::writes(), 'saved once each');
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'));
 	}
 }

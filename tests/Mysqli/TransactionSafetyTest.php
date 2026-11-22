@@ -303,10 +303,14 @@ class TransactionSafetyTest extends TestCase
 			'SET autocommit (implicit commit)' => ['SET autocommit=1'],
 			'transactionBegin() (session state pinned)' => ['transactionBegin'],
 			'lock()' => ['lock'],
-			// round 7 F1: an executable comment stays doubtful for another holder (counted as an end), and the
-			// statements MySQL commits on that endsTransaction() did not know before
-			'an executable comment (doubtful)' => ['CREATE /*!32312 TEMPORARY */ TABLE tmp (a int)'],
-			'a statement held by an executable comment (doubtful)' => ['/*!40000 ALTER TABLE t DISABLE KEYS */'],
+			// round 7 F1: an executable comment that is not read stays doubtful for another holder (counted as an end),
+			// and the statements MySQL commits on that endsTransaction() did not know before; round 8: one whose content
+			// runs everywhere is read (leadingKeywordSql()), so the ALTER it holds is one
+			'an executable comment that is not read (doubtful: MariaDB)' => ['CREATE /*M! TEMPORARY */ TABLE tmp (a int)'],
+			'a statement held by an executable comment (read: ALTER)' => ['/*!40000 ALTER TABLE t DISABLE KEYS */'],
+			'a statement held by an executable comment of a later version (doubtful)' => ['/*!99999 ALTER TABLE t DISABLE KEYS */'],
+			'LOCK with an executable comment between its words (read: LOCK TABLES)' => ['LOCK /*!50000 TABLES */ t WRITE'],
+			'LOCK with a later-version comment between its words (doubtful)' => ['LOCK /*!99999 TABLES */ t WRITE'],
 			'START REPLICA (implicit commit)' => ['START REPLICA'],
 			'STOP REPLICA (implicit commit)' => ['STOP REPLICA'],
 			'CHANGE REPLICATION SOURCE (implicit commit)' => ["CHANGE REPLICATION SOURCE TO SOURCE_HOST='h'"],
@@ -401,6 +405,14 @@ class TransactionSafetyTest extends TestCase
 			'DROP PREPARE' => ['DROP PREPARE s1'],
 			'RESET PERSIST' => ['RESET PERSIST'],
 			"CREATE TEMPORARY TABLE ... '/*'" => ["CREATE TEMPORARY TABLE tt AS SELECT '/*' AS x"],
+			// round 8: an executable comment whose content runs everywhere is read (leadingKeywordSql()): MySQL creates
+			// a temporary table, shows a CREATE TABLE, sets the names (round 7 counted them as ends)
+			'CREATE /*!32312 TEMPORARY */ TABLE' => ['CREATE /*!32312 TEMPORARY */ TABLE tmp (a int)'],
+			'/*!32312 SHOW */ CREATE TABLE' => ['/*!32312 SHOW */ CREATE TABLE t'],
+			'/*!40101 SET NAMES utf8mb4 */' => ['/*!40101 SET NAMES utf8mb4 */'],
+			// and an executable comment marker inside a plain comment is no executable comment (round 8 F2a)
+			'an executable comment marker inside a line comment' => ["-- see /*!40101 x */\nSELECT 1"],
+			'an executable comment marker inside a block comment' => ['/* see /*!40101 x */ SELECT 1'],
 		];
 	}
 
@@ -2910,7 +2922,7 @@ class TransactionSafetyTest extends TestCase
 				}
 			}
 		}
-		foreach (['TRUNCATE TABLE t', 'CREATE TABLE x (a int)', 'DROP TABLE x', 'RENAME TABLE t TO t2', "GRANT SELECT ON db.* TO 'u'@'h'", 'SET autocommit=1', 'OPTIMIZE TABLE t', 'CREATE /*!32312 TEMPORARY */ TABLE x (a int)', '/*!40000 ALTER TABLE t DISABLE KEYS */', 'LOCK /* c */ TABLES t WRITE', 'START REPLICA', 'CLONE LOCAL DATA DIRECTORY = \'/tmp/c\'', "SET DEFAULT ROLE ALL TO 'u'@'h'"] as $sql) {
+		foreach (['TRUNCATE TABLE t', 'CREATE TABLE x (a int)', 'DROP TABLE x', 'RENAME TABLE t TO t2', "GRANT SELECT ON db.* TO 'u'@'h'", 'SET autocommit=1', 'OPTIMIZE TABLE t', 'CREATE /*M! TEMPORARY */ TABLE x (a int)', '/*!40000 ALTER TABLE t DISABLE KEYS */', '/*!99999 ALTER TABLE t DISABLE KEYS */', 'LOCK /*!50000 TABLES */ t WRITE', 'LOCK /* c */ TABLES t WRITE', 'START REPLICA', 'CLONE LOCAL DATA DIRECTORY = \'/tmp/c\'', "SET DEFAULT ROLE ALL TO 'u'@'h'"] as $sql) {
 			$cases[$sql.', 1213'] = [$sql, 1213, 2006, false];
 		}
 		return $cases;
@@ -2939,9 +2951,9 @@ class TransactionSafetyTest extends TestCase
 		$this->assertTrue($this->q($db, 'START TRANSACTION'));
 		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
 		FakeServer::failNext('/^'.preg_quote(strtok($sql, ' '), '/').'\\b/', $errno);
-		// the statement's first keyword as the messages name it ('?' for one held by an executable comment: it has
-		// none outside comments)
-		$word = strncmp($sql, '/*!', 3) === 0 ? '?' : strtok($sql, ' ');
+		// the statement's first keyword as the messages name it: the one an executable comment whose content runs
+		// everywhere holds (leadingKeywordSql() reads it), '?' for one held by an executable comment that is not read
+		$word = preg_match('~^/\*!(\d{5}) (\w+)~', $sql, $held) === 1 ? ((int) $held[1] <= 50700 ? $held[2] : '?') : strtok($sql, ' ');
 
 		$this->assertFalse($this->q($db, $sql));
 
@@ -3028,6 +3040,12 @@ class TransactionSafetyTest extends TestCase
 			// out as "rolled back, retry" would make a retrying caller apply the committed writes twice)
 			'LOCK /* c */ TABLES t WRITE', "CHECK -- c\nTABLE t", "SET /* c */ PASSWORD = 'x'", 'CHANGE /* c */ MASTER TO MASTER_DELAY=1',
 			'START /* c */ REPLICA', "SET /* c */ DEFAULT /* c */ ROLE ALL TO 'u'@'h'",
+			// round 8 (F3, F4): an executable comment whose content runs everywhere is read (leadingKeywordSql()): the
+			// statement it holds, or the words it holds among the leading ones, commit as their plain forms do
+			'/*!40000 ALTER TABLE t DISABLE KEYS */', 'ALTER TABLE t /*!50100 ENGINE=InnoDB */', '/*!50000 CREATE TABLE x AS */ SELECT 1 AS a',
+			'LOCK /*!50000 TABLES */ t WRITE', 'CHECK /*!50000 TABLE */ t', "SET /*!50000 PASSWORD */ = 'x'", 'CACHE /*!50000 INDEX */ t IN k',
+			// ... and past the leading words of a CREATE TABLE (mysqldump: readExecutableComments())
+			'CREATE TABLE x (a int) /*!50100 PARTITION BY HASH (a) */',
 		] as $sql) {
 			$cases[$sql.', returned'] = [$sql, false];
 		}
@@ -3113,6 +3131,23 @@ class TransactionSafetyTest extends TestCase
 			'SET a user variable named autocommit' => 'SET @autocommit = 1',
 			'SET a read of @@autocommit' => 'SET @saved = @@autocommit',
 			'SET @@GLOBAL.autocommit' => 'SET @@GLOBAL.autocommit = 1',
+			// round 8: an executable comment whose content runs everywhere is read (leadingKeywordSql()): MySQL runs
+			// CREATE/DROP TEMPORARY TABLE and SET NAMES (round 7 gave the transaction up on them as doubtful; /*!32312 SHOW */
+			// CREATE TABLE, which a replay repeats, is in TransactionOwnEndTest::nonCommitting())
+			'CREATE /*!32312 TEMPORARY */ TABLE' => 'CREATE /*!32312 TEMPORARY */ TABLE tmp (a int)',
+			'DROP /*!32312 TEMPORARY */ TABLE' => 'DROP /*!32312 TEMPORARY */ TABLE tmp',
+			'CREATE /*! TEMPORARY */ TABLE' => 'CREATE /*! TEMPORARY */ TABLE tmp (a int)',
+			'/*!40101 SET NAMES utf8mb4 */' => '/*!40101 SET NAMES utf8mb4 */',
+			// round 8 F2c: a GLOBAL, PERSIST or PERSIST_ONLY scope keyword is in force for the plain names after it
+			// (sql_yacc.yy option_value_following_option_type, PT_option_value_type), and MySQL's pre_autocommit()
+			// commits only for the session's autocommit
+			'SET GLOBAL autocommit=1' => 'SET GLOBAL autocommit=1',
+			'SET PERSIST autocommit=1' => 'SET PERSIST autocommit=1',
+			'SET PERSIST_ONLY autocommit=1' => 'SET PERSIST_ONLY autocommit=1',
+			'SET GLOBAL x=1, autocommit=1 (the scope carries)' => 'SET GLOBAL sort_buffer_size=1, autocommit=1',
+			'SET autocommit=0, GLOBAL autocommit=1' => 'SET autocommit=0, GLOBAL autocommit=1',
+			"SET GLOBAL sql_mode='a,b', autocommit=1 (a comma in a string)" => "SET GLOBAL sql_mode='a,b', autocommit=1",
+			'SET autocommit /* c */ = 0 (a plain comment among the words is a space)' => 'SET autocommit /* c */ = 0',
 		] as $name => $sql) {
 			foreach (['query', 'execute'] as $api) {
 				foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
@@ -3131,7 +3166,9 @@ class TransactionSafetyTest extends TestCase
 	* PREPARE and RESET PERSIST ended the transaction (endsTransaction() over-approximates, and read TEMPORARY with the
 	* comment in front of it): the UPDATE was retried on its own after the server had rolled the INSERT back, and the
 	* COMMIT reported success with the INSERT lost. SET autocommit=0 and SETs that assign no session autocommit were
-	* already right (controls; SET autocommit=1 is doubtful: testAStatementWhoseImplicitCommitCannotBeToldGivesItUp).
+	* already right (controls; SET autocommit=1 is doubtful: testAStatementWhoseImplicitCommitCannotBeToldKeepsItGoing).
+	* Round 8: the executable comments whose content runs everywhere are read (CREATE /\*!32312 TEMPORARY *\/ TABLE is
+	* a CREATE TEMPORARY TABLE), and so are the scope keywords of a SET (SET GLOBAL autocommit=1 commits nothing).
 	*
 	* @dataProvider ownStatementsThatCommitNothing
 	* @param string $sql
@@ -3179,14 +3216,31 @@ class TransactionSafetyTest extends TestCase
 	public static function ownStatementsWhoseCommitCannotBeTold()
 	{
 		$cases = [];
-		foreach ([
-			// an executable comment: MySQL runs its content (here: TEMPORARY, so it commits nothing)
-			'CREATE /*!32312 TEMPORARY */ TABLE' => 'CREATE /*!32312 TEMPORARY */ TABLE tmp (a int)',
-			'DROP /*!32312 TEMPORARY */ TABLE' => 'DROP /*!32312 TEMPORARY */ TABLE tmp',
-			'CREATE /*! TEMPORARY */ TABLE' => 'CREATE /*! TEMPORARY */ TABLE tmp (a int)',
+		foreach (self::doubtfulOwnStatements() as $name => $sql) {
+			foreach (['query', 'execute'] as $api) {
+				foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
+					foreach (['the server kept it open' => false, 'the server committed it' => true] as $world => $committed) {
+						$cases[$name.', '.$api.'(), '.$mode.', '.$world] = [$sql, $api, $strict, $committed];
+					}
+				}
+			}
+		}
+		return $cases;
+	}
+
+	/** the statements that either committed the open transaction or left it open, which cannot be told ('doubt') */
+	private static function doubtfulOwnStatements()
+	{
+		return [
+			// an executable comment that is not read among the leading words: MariaDB runs it (a temporary table, so
+			// nothing is committed), MySQL takes it for a comment (a table, so the transaction is committed)
 			'CREATE /*M! TEMPORARY */ TABLE (MariaDB)' => 'CREATE /*M! TEMPORARY */ TABLE tmp (a int)',
-			'ALTER TABLE ... /*!50100 ... */' => 'ALTER TABLE t /*!50100 ENGINE=InnoDB */',
-			// SET autocommit=1 commits only "if the value is not already 1": the session's value is not tracked
+			// ... or one of a later version: on a server that new it is a LOCK TABLES
+			'LOCK /*!99999 TABLES */ t WRITE' => 'LOCK /*!99999 TABLES */ t WRITE',
+			// an executable comment that is not read past the leading words of a CREATE TABLE (it may hold START
+			// TRANSACTION; one whose content runs everywhere is read: implicitCommitsThatWork())
+			'CREATE TABLE ... /*!99999 ... */' => 'CREATE TABLE x (a int) /*!99999 ENGINE=InnoDB */',
+			// SET autocommit=1 commits only when the session's autocommit was off: that is not tracked
 			'SET autocommit=1' => 'SET autocommit=1',
 			'SET SESSION autocommit = ON' => 'SET SESSION autocommit = ON',
 			'SET @@session.autocommit := TRUE' => 'SET @@session.autocommit := TRUE',
@@ -3195,18 +3249,144 @@ class TransactionSafetyTest extends TestCase
 			'SET autocommit = 0 + 1' => 'SET autocommit = 0 + 1',
 			'SET `autocommit` = 1' => 'SET `autocommit` = 1',
 			'SET autocommit=0 with a comment in it' => 'SET autocommit=0 /* c */',
-			'SET autocommit /* c */ = 1 (a comment hides the assignment)' => 'SET autocommit /* c */ = 1',
+			'SET autocommit /* c */ = 1' => 'SET autocommit /* c */ = 1',
 			"SET autocommit -- c, then = 1" => "SET autocommit -- c\n= 1",
-			// an executable comment before the first keyword (mysqldump): it reads as nothing to the leading keywords
-			'/*!40000 ALTER TABLE ... */' => '/*!40000 ALTER TABLE t DISABLE KEYS */',
-			// ... or changes what the words after it mean: the server runs SHOW CREATE TABLE t, which commits nothing
-			'/*!32312 SHOW */ CREATE TABLE t' => '/*!32312 SHOW */ CREATE TABLE t',
+			// round 8 F2c: SESSION (LOCAL) is in force again for the names after it
+			'SET GLOBAL x=1, SESSION autocommit=1' => 'SET GLOBAL sort_buffer_size=1, SESSION autocommit=1',
+			'SET autocommit=1, GLOBAL x=1' => 'SET autocommit=1, GLOBAL sort_buffer_size=1',
+			'SET GLOBAL autocommit=0, @@autocommit=1 (@@ is the session\'s)' => 'SET GLOBAL autocommit=0, @@autocommit=1',
 			// atomic DDL: CREATE TABLE ... START TRANSACTION commits nothing
 			'CREATE TABLE ... START TRANSACTION' => 'CREATE TABLE x (a int) START TRANSACTION',
 			'CREATE TABLE ... START /* c */ TRANSACTION' => 'CREATE TABLE x (a int) START /* c */ TRANSACTION',
 			// commits only after it ran, and only if it did
 			'STOP GROUP_REPLICATION' => 'STOP GROUP_REPLICATION',
 			'ANALYZE without TABLE' => 'ANALYZE x',
+		];
+	}
+
+	/**
+	* Round 8 (F2d; round 7 F1 gave these up): a statement that may commit the open transaction implicitly, sent by the
+	* handle's own transaction and working, when whether it did cannot be told although it rolled nothing back (SET
+	* autocommit=1; CREATE TABLE ... START TRANSACTION; STOP GROUP_REPLICATION; an executable comment that is not read
+	* among the leading words of a known first keyword; a form the strict list does not know) keeps the transaction
+	* going, its end not known (keepUnknownEnd()): no refusal, no ROLLBACK, one error_log() line, no mail; its own result
+	* stands. It is not replayable any more, and a failure in it from here on loses it with 2006 (unknownEndLoss()), never
+	* with the server's 1213: whatever the server did, there is no false success and nothing is applied twice. Had it kept
+	* the transaction open, the 1213 rolled the INSERT back and the COMMIT is refused; had it committed it, the INSERT
+	* landed once and the caller, told 2006, never runs it again. Run through query() and execute(), with failures thrown
+	* or returned. testAStatementWhoseImplicitCommitCannotBeToldThenACommitSavesEveryWrite: without the failure.
+	*
+	* @dataProvider ownStatementsWhoseCommitCannotBeTold
+	* @param string $sql
+	* @param string $api
+	* @param bool $strict
+	* @param bool $committed whether the (modelled) server committed the transaction before it ran the statement
+	*/
+	#[DataProvider('ownStatementsWhoseCommitCannotBeTold')]
+	public function testAStatementWhoseImplicitCommitCannotBeToldKeepsItGoing($sql, $api, $strict, $committed)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$attempts = 0;
+		$errno = 0;
+		$saved = false;
+		for ($attempt = 1; $attempt <= 3; $attempt++) {
+			$attempts++;
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+			if ($attempt === 1 && $committed) {
+				self::implicitCommit();
+			}
+			if ($api === 'execute') {
+				$this->assertNotSame(0, $db->prepare($sql));
+				$this->assertTrue($db->execute(), 'it ran: its own result stands');
+			} else {
+				$this->assertNotFalse($this->q($db, $sql), 'it ran: its own result stands');
+			}
+			if ($attempt === 1) {
+				$this->assertTrue($db->inTransaction(), 'it goes on');
+				$this->assertFalse($db->lost());
+				$this->assertSame(0, FakeServer::sent('ROLLBACK'), 'nothing rolled back');
+				// (the first reason stays: prepare() inside it, or a statement counted as an implicit commit)
+				$this->assertNotNull($db->replayable(), 'not replayable any more');
+				$this->assertStringContainsString('the transaction goes on', implode("\n", FakeServer::$log));
+				FakeServer::failNext('/^UPDATE u/', 1213);
+			}
+			if ($this->q($db, 'UPDATE u SET x=1') && $db->transactionCommit()) {
+				$saved = true;
+				break;
+			}
+			$errno = (int) $db->Errno;
+			if (!in_array($errno, [1213, 3101], true)) {
+				break;
+			}
+			$db->transactionAbort();
+		}
+
+		$this->assertFalse($saved, 'never reported as saved');
+		$this->assertSame(1, $attempts, 'not retried: whether the transaction committed is not known');
+		$this->assertSame(2006, $errno, 'lost with 2006, never the server\'s 1213');
+		$this->assertStringContainsString('which may have committed it implicitly, so whether its writes were committed is not known', $db->Error);
+		$this->assertSame(1, FakeServer::sent('UPDATE u SET x=1'), 'sent once, never replayed');
+		$this->assertSame($committed ? ['INSERT INTO t VALUES (1)'] : [], self::writes(), $committed ? 'once, never twice' : 'nothing reported as saved');
+		$this->assertLostAndRefused($db, 2006);
+		$this->assertCount(1, $db->reported, 'the failed UPDATE, as any failed statement (the doubtful one and the refused ones are not)');
+		$this->assertStringContainsString('Error #2006: Transaction lost: SQL error 1213 after', $db->reported[0][1]);
+		$this->assertTrue($db->transactionAbort(), 'the caller ends it');
+		$this->assertTrue($this->q($db, 'START TRANSACTION'), 'and the handle works again');
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (4)'));
+		FakeServer::failNext('/^UPDATE v/', 1213);
+		$this->assertTrue($this->q($db, 'UPDATE v SET x=1'), 'a new transaction is replayed again: its end is known');
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(1, self::committed('INSERT INTO t VALUES (4)'));
+		$this->assertSame(1, self::committed('UPDATE v SET x=1'));
+	}
+
+	/**
+	* Round 8 (F2d): the same statements without a failure after them: the COMMIT reports success, and every write is
+	* saved once whatever the server did (committed by the COMMIT, or by the implicit commit and autocommit). Nothing is
+	* refused, nothing rolled back, nothing reported.
+	*
+	* @dataProvider ownStatementsWhoseCommitCannotBeTold
+	* @param string $sql
+	* @param string $api
+	* @param bool $strict
+	* @param bool $committed
+	*/
+	#[DataProvider('ownStatementsWhoseCommitCannotBeTold')]
+	public function testAStatementWhoseImplicitCommitCannotBeToldThenACommitSavesEveryWrite($sql, $api, $strict, $committed)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, 'INSERT INTO t VALUES (1)'));
+		if ($committed) {
+			self::implicitCommit();
+		}
+		if ($api === 'execute') {
+			$this->assertNotSame(0, $db->prepare($sql));
+			$this->assertTrue($db->execute());
+		} else {
+			$this->assertNotFalse($this->q($db, $sql));
+		}
+		$this->assertTrue($this->q($db, 'UPDATE u SET x=1'));
+		$this->assertTrue($db->transactionCommit(), 'every write is saved either way');
+
+		$this->assertSame(['INSERT INTO t VALUES (1)', 'UPDATE u SET x=1'], self::writes(), 'once each');
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'));
+		$this->assertFalse($db->lost());
+		$this->assertFalse($db->inTransaction());
+		$this->assertSame([], $db->reported);
+	}
+
+	public static function ownStatementsWhatRanIsNotKnown()
+	{
+		$cases = [];
+		foreach ([
+			// an executable comment that is not read before the first keyword: the statement is not known at all
+			'/*!99999 ALTER TABLE ... */ (a later version)' => '/*!99999 ALTER TABLE t DISABLE KEYS */',
+			'/*!100100 ALTER TABLE ... */ (a MariaDB version)' => '/*!100100 ALTER TABLE t DISABLE KEYS */',
+			'/*M! ALTER TABLE ... */ SELECT 1 (MariaDB)' => '/*M! ALTER TABLE t DISABLE KEYS */ SELECT 1',
 		] as $name => $sql) {
 			foreach (['query', 'execute'] as $api) {
 				foreach (['thrown' => true, 'returned' => false] as $mode => $strict) {
@@ -3220,25 +3400,21 @@ class TransactionSafetyTest extends TestCase
 	}
 
 	/**
-	* Round 7 F1: a statement that may commit the open transaction implicitly, sent by the handle's own transaction and
-	* working, when whether it did cannot be told (an executable comment, whose content the server runs; SET
-	* autocommit=1; CREATE TABLE ... START TRANSACTION; STOP GROUP_REPLICATION; a form the strict list does not know),
-	* gives the transaction up: lost with 2006 (never 1213: not to be retried), a quiet ROLLBACK, statements and the
-	* COMMIT refused, one error_log() line, no mail; its own result stands. Whatever the server did, there is no false
-	* success: had it kept the transaction open, the INSERT is discarded and the COMMIT is refused (not reported as
-	* saved); had it committed it, the INSERT landed once and is never run again. Run through query() and execute(),
-	* with failures thrown or returned. In 4233584 these ended the transaction (CREATE /\*!32312 TEMPORARY *\/ TABLE:
-	* the INSERT lost, the COMMIT reporting success) or kept it (SET autocommit=1 after a SET autocommit=0: a 1213 later
-	* handed out as "rolled back, retry", the committed INSERT applied twice).
+	* Round 7 F1, kept for 'unknown' (round 8): a statement held by an executable comment that is not read before its
+	* first keyword worked inside the handle's own transaction. What it ran is not known (it may have committed the
+	* transaction, left it open or rolled it back), so the transaction is given up: lost with 2006 (never 1213: not to be
+	* retried), a quiet ROLLBACK, statements and the COMMIT refused, one error_log() line, no mail; its own result stands.
+	* Had the server kept the transaction open, the INSERT is discarded and the COMMIT is refused (not reported as saved);
+	* had it committed it, the INSERT landed once and is never run again.
 	*
-	* @dataProvider ownStatementsWhoseCommitCannotBeTold
+	* @dataProvider ownStatementsWhatRanIsNotKnown
 	* @param string $sql
 	* @param string $api
 	* @param bool $strict
-	* @param bool $committed whether the (modelled) server committed the transaction before it ran the statement
+	* @param bool $committed
 	*/
-	#[DataProvider('ownStatementsWhoseCommitCannotBeTold')]
-	public function testAStatementWhoseImplicitCommitCannotBeToldGivesItUp($sql, $api, $strict, $committed)
+	#[DataProvider('ownStatementsWhatRanIsNotKnown')]
+	public function testAStatementWhoseContentIsNotKnownGivesItUp($sql, $api, $strict, $committed)
 	{
 		FakeServer::$strict = $strict;
 		$db = $this->db();
@@ -3264,7 +3440,7 @@ class TransactionSafetyTest extends TestCase
 				$this->assertTrue($db->lostTransactionPending(), 'the caller still takes it to be open: statements are refused');
 				$this->assertSame(1, FakeServer::sent('ROLLBACK'), 'a quiet ROLLBACK: nothing of it is left open');
 				$this->assertSame([], FakeServer::$open, 'nothing of it is left open on the server');
-				$this->assertStringContainsString('whether it committed the open transaction implicitly is not known', implode("\n", FakeServer::$log));
+				$this->assertStringContainsString('what it ran is not known', implode("\n", FakeServer::$log));
 				FakeServer::failNext('/^UPDATE u/', 1213);
 			}
 			if ($this->q($db, 'UPDATE u SET x=1') && $db->transactionCommit()) {
@@ -3281,7 +3457,7 @@ class TransactionSafetyTest extends TestCase
 		$this->assertFalse($saved, 'never reported as saved');
 		$this->assertSame(1, $attempts, 'not retried: whether the transaction committed is not known');
 		$this->assertSame(2006, $errno);
-		$this->assertStringContainsString('ran inside it, and whether it committed the open transaction implicitly is not known', $db->Error);
+		$this->assertStringContainsString('ran inside it, and what it ran is not known', $db->Error);
 		$this->assertSame(0, FakeServer::sent('UPDATE u SET x=1'), 'refused, never sent');
 		$this->assertSame($committed ? ['INSERT INTO t VALUES (1)'] : [], self::writes(), $committed ? 'once, never twice' : 'nothing reported as saved');
 		$this->assertLostAndRefused($db, 2006);

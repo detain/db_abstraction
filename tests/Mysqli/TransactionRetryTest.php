@@ -1262,7 +1262,8 @@ class TransactionRetryTest extends TestCase
 	public static function unrecognisedForms()
 	{
 		return [
-			'comment between the words' => ['START /* x */ TRANSACTION'],
+			// (START /* x */ TRANSACTION is a START since round 8: leadingKeywordSql() reads a comment among the leading
+			// words as a space, see TransactionUnknownEndTest::testAStartWithACommentAmongItsWordsIsTracked)
 			'dashes without a space' => ["--x\nSTART TRANSACTION"],
 			'unterminated block comment' => ['/* START TRANSACTION'],
 		];
@@ -1980,14 +1981,17 @@ class TransactionRetryTest extends TestCase
 
 	public static function inTransactionRollbackForms()
 	{
-		// [statement, whether a replay can repeat it (only a ROLLBACK TO it can read without a comment in the way)]
+		// [statement, whether a replay can repeat it: a ROLLBACK TO, read as the server reads it (round 8: a comment among
+		// the leading words is a space, an executable comment whose content runs everywhere is unwrapped,
+		// leadingKeywordSql()); before, only one with no comment in the way]
 		return [
-			'comment between the words' => ['ROLLBACK /*c*/ TO SAVEPOINT s1', false],
-			'comments, no spaces' => ['ROLLBACK/**/WORK/**/TO s1', false],
-			'dash comment' => ["ROLLBACK -- c\n TO SAVEPOINT s1", false],
-			'hash comment' => ["ROLLBACK # c\n TO SAVEPOINT s1", false],
-			'executable comment' => ['ROLLBACK /*!50000 TO SAVEPOINT s1*/', false],
-			'leading and inner comment' => ['/* a */ ROLLBACK /* b */ WORK /* c */ TO s1', false],
+			'comment between the words' => ['ROLLBACK /*c*/ TO SAVEPOINT s1', true],
+			'comments, no spaces' => ['ROLLBACK/**/WORK/**/TO s1', true],
+			'dash comment' => ["ROLLBACK -- c\n TO SAVEPOINT s1", true],
+			'hash comment' => ["ROLLBACK # c\n TO SAVEPOINT s1", true],
+			'executable comment' => ['ROLLBACK /*!50000 TO SAVEPOINT s1*/', true],
+			'executable comment of a later version (not read)' => ['ROLLBACK /*!99999 TO SAVEPOINT s1*/', false],
+			'leading and inner comment' => ['/* a */ ROLLBACK /* b */ WORK /* c */ TO s1', true],
 			'quoted' => ["ROLLBACK TO SAVEPOINT `s1`", true],
 			'unknown form' => ['ROLLBACK FOO', false],
 		];

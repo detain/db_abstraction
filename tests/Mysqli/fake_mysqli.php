@@ -329,6 +329,8 @@ namespace MyDb\Tests\Mysqli {
 
 	final class FakeServer
 	{
+		/** the server's version (MYSQL_VERSION_ID): executable comments up to it run (serverSql()) */
+		const SERVER_VERSION = 80036;
 		/** @var bool true: failures throw mysqli_sql_exception (MYSQLI_REPORT_STRICT, PHP 8.1+ default); false: mysqli_query() returns false */
 		public static $strict = true;
 		/** @var int next N real_connect() calls fail the way real mysqli does (half-open object left behind) */
@@ -537,9 +539,8 @@ namespace MyDb\Tests\Mysqli {
 					return self::fail($link, $failure[1], $sql);
 				}
 			}
-			// the server ignores leading comments
-			$sql = preg_replace('/^(?:[\s(]|\/\*.*?\*\/|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', $sql);
-			$sql = preg_replace('/\/\*.*?\*\//s', ' ', $sql);
+			// the server ignores comments, and runs the content of an executable one
+			$sql = self::serverSql($sql);
 			$chain = preg_match('/^(?:commit|rollback)\b(?:\s+work)?\s+and\s+chain\b/i', $sql) === 1;
 			if (preg_match('/^\s*(start\s+transaction|begin)\b/i', $sql) === 1) {
 				// START TRANSACTION/BEGIN implicitly commits a transaction that is already open
@@ -585,9 +586,34 @@ namespace MyDb\Tests\Mysqli {
 			return true;
 		}
 
+		/**
+		 * The statement as the server runs it, from its first keyword: a block comment is a space, an executable one
+		 * (slash-star-bang, with no version or one up to SERVER_VERSION) is its content, as MySQL's lexer does; a
+		 * MariaDB one (slash-star-M-bang) and a later version are comments. Leading whitespace, "(" and line comments
+		 * are dropped. Nested comments are not modelled.
+		 *
+		 * @param string $sql
+		 * @return string
+		 */
+		public static function serverSql($sql)
+		{
+			$sql = preg_replace_callback('~/\*(M!|!(\d{5})?)?((?:(?!\*/).)*+)\*/~s', static function ($match) {
+				if ($match[1] !== '' && $match[1] !== 'M!' && ($match[2] === '' || (int) $match[2] <= self::SERVER_VERSION)) {
+					return ' '.$match[3].' ';
+				}
+				return ' ';
+			}, (string) $sql);
+			$sql = preg_replace('/^(?:[\s(]|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', $sql);
+			// a line comment among the leading words (START -- c, newline, TRANSACTION) is a space too
+			do {
+				$sql = preg_replace('/^(\w++(?:\s++\w++)*+)\s*+(?:--[ \t\r\n][^\n]*+|#[^\n]*+)(?:\n|$)/', '$1 ', $sql, 1, $count);
+			} while ($count > 0);
+			return $sql;
+		}
+
 		private static function fail(FakeLink $link, $code, $sql = '')
 		{
-			$bare = preg_replace('/^(?:[\s(]|\/\*.*?\*\/|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', (string) $sql);
+			$bare = self::serverSql((string) $sql);
 			$isCommit = preg_match('/^\s*commit\b/i', $bare) === 1;
 			if (preg_match('/^\s*(start\s+transaction|begin)\b/i', $bare) === 1 && !in_array($code, [1064, 1065, 1149], true)) {
 				// a START/BEGIN with a transaction open commits it first: when that commit fails the transaction is
