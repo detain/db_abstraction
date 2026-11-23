@@ -2238,7 +2238,9 @@ class TransactionUnknownEndTest extends TestCase
 			case 'into after a word character':
 				return "SELECT '".str_repeat('xinto /* ', $n)."*/ @'";
 			case 'into with no comment after it':
-				return "SELECT '@ ".str_repeat('into   x ', $n)."'";
+				// (r13b F2: a comment opener somewhere, or the sweep is not run at all; the @ last, so every word is an
+				// entry looked at)
+				return "SELECT '".str_repeat('into   x ', $n)."@' # c";
 		}
 		throw new \LogicException($family);
 	}
@@ -2348,6 +2350,115 @@ class TransactionUnknownEndTest extends TestCase
 			$before = LeadProbe::work();
 			$this->assertTrue(LeadProbe::dirty(str_replace(' x @', ' @', $sql)));
 			$this->assertLessThanOrEqual(6 * strlen($sql), LeadProbe::work() - $before);
+		}
+	}
+
+	/**
+	* r13b F1 (r12): the sweep's memory is linear and small: one lowercase copy of the statement and the places waiting.
+	* 45065e9 and 3563e82 kept every step end in a set that was never pruned, 16 bytes for each byte of a chain of empty
+	* comments and 31 of "#" lines, so an autocommit INSERT of a 20 MB ticket body was committed and then the request
+	* died of memory_limit. A child PHP (fixed memory_limit, a 4 MB statement of each chain): the peak above what was in
+	* use before the look stays under twice the statement's length plus 1 MB
+	*/
+	public function testTheSweepsMemoryIsOneCopyOfTheStatement()
+	{
+		$script = 'require '.var_export(dirname(__DIR__, 2).'/vendor/autoload.php', true).';'
+			.'$probe = new class extends \MyDb\Mysqli\Db { public function __construct($database = \'\', $user = \'\', $password = \'\', $host = \'localhost\', $query = \'\', $port = \'\') {} public static function into($s) { return static::intoUserVariable($s); } public static function start($s) { return static::startTransactionAdjacent($s); } };'
+			.'$out = []; $k = 4 << 20;'
+			.'foreach (["into /**/" => ["into", "/**/", "@", true], "into #" => ["into", "#\n", "@", true], "into --" => ["into", "-- \n", "@", true], "into /**/ x" => ["into", "/**/", "x @", false], "start /**/" => ["start", "/**/", "transaction", true], "start #" => ["start", "#\n", "transaction", true]] as $name => $f) {'
+			.' $sql = "SELECT \'".$f[0]." ".str_repeat($f[1], intdiv($k, strlen($f[1]))).$f[2]."\'";'
+			.' gc_collect_cycles(); $base = memory_get_usage();'
+			.' if (function_exists("memory_reset_peak_usage")) { memory_reset_peak_usage(); $peak0 = $base; } else { $peak0 = memory_get_peak_usage(); }'
+			.' $r = $f[0] === "into" ? $probe::into($sql) : $probe::start($sql);'
+			.' $out[$name] = ["reading" => $r === $f[3], "above" => memory_get_peak_usage() - $peak0, "bytes" => strlen($sql)];'
+			.' unset($sql); }'
+			.'echo json_encode($out);';
+		$output = [];
+		$status = -1;
+		exec(escapeshellarg(PHP_BINARY).' -d memory_limit=256M -r '.escapeshellarg($script).' 2>&1', $output, $status);
+		$this->assertSame(0, $status, implode("\n", $output));
+		$result = json_decode(implode('', $output), true);
+		$this->assertIsArray($result, implode("\n", $output));
+		$this->assertCount(6, $result);
+		foreach ($result as $name => $one) {
+			$this->assertTrue($one['reading'], $name.': the reading');
+			$this->assertLessThanOrEqual(2 * $one['bytes'] + (1 << 20), $one['above'], $name.': memory above the statement');
+		}
+	}
+
+	/**
+	* r13b F2 (r12): a statement with no comment opener ("/*", "#", "--") anywhere is read by the plain look alone: the
+	* sweep makes no lowercase copy and looks at no word (every gap there is whitespace and star-slashes, which the plain
+	* look reads exactly), and the reading is the patterns'
+	*/
+	public function testAStatementWithNoCommentOpenerIsReadWithoutTheSweep()
+	{
+		$intoStatements = [
+			"INSERT INTO accounts (account_lid, account_email) VALUES ('joe@example.com', 'joe@example.com')",
+			"UPDATE swticketposts SET contents = 'look into it, mail me at a@b.c' WHERE ticketpostid = 5",
+			"SELECT a INTO @x FROM t WHERE e = 'x@y'",
+			"SELECT a INTO */ @x FROM t",
+			"SELECT a INTO\t\n@x",
+			"SELECT 'into x @', 'INTO y @' FROM t",
+			"SELECT a xinto @x",
+			"SELECT 'into - @'",
+		];
+		foreach ($intoStatements as $sql) {
+			$before = LeadProbe::work();
+			$this->assertSame(preg_match('~'.\MyDb\Mysqli\Db::INTO_USER_VARIABLE.'~is', $sql) === 1, LeadProbe::into($sql), $sql);
+			$this->assertSame(0, LeadProbe::work() - $before, $sql.': no sweep');
+		}
+		$startStatements = [
+			'CREATE TEMPORARY TABLE tt START TRANSACTION AS SELECT 1',
+			"CREATE TABLE t2 START\t\x0B\fTRANSACTION",
+			"CREATE TABLE t2 AS SELECT 'start x transaction' AS v",
+			'CREATE TABLE t2 AS SELECT 1 AS restart, 2 AS transaction',
+			'CREATE TABLE t2 AS SELECT 1 AS start_transaction',
+			"CREATE TABLE t2 AS SELECT 'START TRANSACTIONS' AS v",
+			"CREATE TABLE t2 AS SELECT 'xstart transaction' AS v",
+			"CREATE TABLE t2 AS SELECT 'start - transaction' AS v",
+		];
+		foreach ($startStatements as $sql) {
+			$before = LeadProbe::work();
+			$this->assertSame(preg_match('~\bstart'.\MyDb\Mysqli\Db::WORD_GAP.'transaction\b~is', $sql) === 1, LeadProbe::startTransaction($sql), $sql);
+			$this->assertSame(0, LeadProbe::work() - $before, $sql.': no sweep');
+		}
+		// one comment opener anywhere, and the sweep runs (and reads what the patterns read)
+		foreach (["SELECT a INTO /* c */ @x", "SELECT a INTO # c\n@x", "SELECT 'into x' # @\n, '@'", "SELECT a INTO -- c\n@x", 'SELECT a INTO x /* @ */', 'SELECT a INTO x /*!80000 @x */'] as $sql) {
+			$before = LeadProbe::work();
+			$this->assertSame(preg_match('~'.\MyDb\Mysqli\Db::INTO_USER_VARIABLE.'~is', $sql) === 1, LeadProbe::into($sql), $sql);
+			$this->assertGreaterThan(0, LeadProbe::work() - $before, $sql.': the sweep ran');
+		}
+	}
+
+	/**
+	* r13b F3 (r12): the plain START look is linear without PCRE's JIT. Caseless, PCRE checks before each try that
+	* TRANSACTION's last letter still follows, with memchr() for each case, and one never there is looked for to the end
+	* of the statement every time: an uppercase N after each START and no lowercase n cost the length squared (552 ms at
+	* 562 KB, 9.5 s at 2.25 MB on 45065e9). A child PHP with pcre.jit=0 times the look at n and 4n (the best of five
+	* each): four times the statement, under ten times the time (the squared cost is sixteen times and more)
+	*/
+	public function testThePlainStartLookIsLinearWithoutPcreJit()
+	{
+		$script = 'require '.var_export(dirname(__DIR__, 2).'/vendor/autoload.php', true).';'
+			.'$probe = new class extends \MyDb\Mysqli\Db { public function __construct($database = \'\', $user = \'\', $password = \'\', $host = \'localhost\', $query = \'\', $port = \'\') {} public static function start($s) { return static::startTransactionAdjacent($s); } };'
+			.'$out = ["jit" => ini_get("pcre.jit")];'
+			.'foreach ([16000, 64000] as $n) { foreach (["plain" => "", "comment" => " /* c */"] as $form => $tail) {'
+			.' $sql = "CREATE TEMPORARY TABLE TT AS SELECT \'".str_repeat("START NX ", $n)."\' AS TRANSACTION".$tail;'
+			.' $best = INF; for ($i = 0; $i < 5; $i++) { $t = hrtime(true); $r = $probe::start($sql); $best = min($best, hrtime(true) - $t); }'
+			.' $out[$form][$n] = ["reading" => $r, "ns" => $best]; } }'
+			.'echo json_encode($out);';
+		$output = [];
+		$status = -1;
+		exec(escapeshellarg(PHP_BINARY).' -d pcre.jit=0 -r '.escapeshellarg($script).' 2>&1', $output, $status);
+		$this->assertSame(0, $status, implode("\n", $output));
+		$result = json_decode(implode('', $output), true);
+		$this->assertIsArray($result, implode("\n", $output));
+		$this->assertSame('0', $result['jit']);
+		foreach (['plain', 'comment'] as $form) {
+			$this->assertFalse($result[$form][16000]['reading'], $form);
+			$this->assertFalse($result[$form][64000]['reading'], $form);
+			$this->assertLessThan(10 * max($result[$form][16000]['ns'], 1), $result[$form][64000]['ns'], $form.': four times the statement ('.json_encode($result[$form]).')');
 		}
 	}
 

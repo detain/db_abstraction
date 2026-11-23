@@ -3971,7 +3971,8 @@ class Db extends Generic implements Db_Interface
     * is advanced in the order of its position, and a place already waiting is not queued twice, so each place is read
     * once whichever word's gap reaches it; the end of a block comment and of a line is looked up forward only (the
     * places are read in increasing order, so one lookup serves every place before what it found). Linear in the length
-    * of $sql whatever it holds; nothing is copied but whitespace runs.
+    * of $sql whatever it holds, in time and in memory: one lowercase copy of the statement (for INTO none when it holds
+    * no comment opener), and the places waiting, at most one for each place.
     *
     * @param string $sql
     * @param string $word 'into' or 'start' (lowercase)
@@ -3981,17 +3982,29 @@ class Db extends Generic implements Db_Interface
     protected static function wordGapReaches($sql, $word, $into)
     {
         $sql = (string) $sql;
+        // the words are looked for in a lowercase copy with strpos(), each from where the last one ended: what is read
+        // of the statement to find them is read once (a caseless search from each word, PCRE's without its JIT or
+        // stripos()'s, looks for both cases of the first letter to the end of the statement each time when one of them
+        // is not there: the length times the number of words). For START it is made first, for the plain look too
+        $lower = null;
         // whitespace (and a star-slash) holds no word, so walks over nothing but those never meet and a pattern walks
         // each place of them once: first, a target after nothing but those (a match), then the words with a comment
         // after nothing but those (none: no walk ever takes a comment, and there is no other match). One search over
-        // the statement: it is run once, so PCRE's search for its first letter (both cases) is made once
+        // the statement, run once. For INTO it is caseless on the statement: the letter it must hold last, the @, has
+        // no case. For START it is caseful on the lowercase copy (the same match in the C ctype the app keeps, where
+        // PCRE's tables and strtolower() fold ASCII letters only and \w is [A-Za-z0-9_]: \b is a word character on one
+        // side only, \s the six bytes in the class): without PCRE's JIT, a caseless search checks before each try that
+        // the last letter it must hold (TRANSACTION's n) still follows, with memchr() for each case, and a case that is
+        // not there is looked for to the end of the statement every time (an uppercase N after each START and no
+        // lowercase n: the length squared)
         if ($into) {
             $plain = preg_match('~\binto(?:\s|\*/)*+(?:@|/\*M?!\d*+\s*+@)~i', $sql);
             // a walk at a place after the last @ reaches no target
             $last = strrpos($sql, '@');
         } else {
-            $plain = preg_match('~\bstart\s++transaction\b~i', $sql);
-            $last = strripos($sql, 'transaction');
+            $lower = strtolower($sql);
+            $plain = preg_match('~(?<![a-z0-9_])start[ \t\n\r\x0B\f]++transaction(?![a-z0-9_])~', $lower);
+            $last = strrpos($lower, 'transaction');
         }
         if ($plain !== 0) {
             // (a pattern that could not run, a PCRE limit: true, the safe side)
@@ -4000,12 +4013,15 @@ class Db extends Generic implements Db_Interface
         if ($last === false) {
             return false;
         }
+        // no comment opener anywhere: every gap is whitespace (and, for INTO, star-slashes) and every target is a plain
+        // one (an executable comment holding the user variable begins with a slash-star too), which the plain look read
+        if (strpos($sql, '/*') === false && strpos($sql, '#') === false && strpos($sql, '--') === false) {
+            return false;
+        }
         $length = strlen($sql);
-        // the words are looked for in a lowercase copy with strpos(), each from where the last one ended: what is read
-        // of the statement to find them is read once (a caseless search from each word, PCRE's without its JIT or
-        // stripos()'s, looks for both cases of the first letter to the end of the statement each time when one of them
-        // is not there: the length times the number of words)
-        $lower = strtolower($sql);
+        if ($lower === null) {
+            $lower = strtolower($sql);
+        }
         $wordLength = strlen($word);
         // the work done (places read, bytes looked at), added to $sweepWork at the end
         $work = 0;
@@ -4021,15 +4037,21 @@ class Db extends Generic implements Db_Interface
         $waiting = new \SplMinHeap();
         $queued = [];
         $top = null;
-        // the ends of the steps some walk took (a comment's or a line's): another walk that takes a step to one of them
-        // would skip what follows it again and reach the same place, so it ends there (k walks whose comments close at
-        // one star-slash would each skip the run after it: k times its length)
-        $stepped = [];
         // the last lookups of a star-slash and of a newline: from where, and what they found (false: none from there on)
         $closeFrom = -1;
         $closeAt = false;
         $lineFrom = -1;
         $lineAt = false;
+        // whether some walk took a step to the end of the star-slash and of the newline last looked up: another walk
+        // that takes a step there would skip what follows it again and reach the same place, so it ends there (k walks
+        // whose comments close at one star-slash would each skip the run after it: k times its length). A step goes to
+        // the end of the star-slash or newline last looked up, and a lookup is made again only once a place is past
+        // what it found (the places are read in increasing order), so a step end that is not the current one is never
+        // stepped to again, and one flag for each answers what a set of every step end would (whose memory grew with
+        // the statement: 16 bytes for each byte of a chain of empty comments, 31 of "#" lines). A comment's end and a
+        // line's meet only at the end of the statement, where every walk ends
+        $closeStepped = false;
+        $lineStepped = false;
         $at = null;
         $result = false;
         while (true) {
@@ -4108,31 +4130,37 @@ class Db extends Generic implements Db_Interface
                     $closeFrom = $at + 2;
                     $closeAt = strpos($sql, '*/', $closeFrom);
                     $work += ($closeAt === false ? $length : $closeAt) - $closeFrom;
+                    $closeStepped = false;
                 }
                 if ($closeAt === false) {
                     // never closed: no step
                     $at = null;
                     continue;
                 }
+                if ($closeStepped) {
+                    // another walk's step ended here: it skipped what follows and went on from where that ends (queued
+                    // it, read it or ended there), and so would this one
+                    $at = null;
+                    continue;
+                }
+                $closeStepped = true;
                 $to = $closeAt + 2;
             } elseif ($char === '#' || ($char === '-' && $at + 2 < $length && $sql[$at + 1] === '-' && (ord($sql[$at + 2]) <= 0x20 || $sql[$at + 2] === "\x7F"))) {
                 if ($lineFrom < 0 || $at + 1 < $lineFrom || ($lineAt !== false && $at + 1 > $lineAt)) {
                     $lineFrom = $at + 1;
                     $lineAt = strpos($sql, "\n", $lineFrom);
                     $work += ($lineAt === false ? $length : $lineAt) - $lineFrom;
+                    $lineStepped = false;
                 }
-                $to = $lineAt === false ? $length : $lineAt + 1;
-            } else {
-                $to = $at;
-            }
-            if ($to !== $at) {
-                if (isset($stepped[$to])) {
-                    // another walk's step ended here: it skipped what follows and went on from where that ends (queued
-                    // it, read it or ended there), and so would this one
+                if ($lineStepped) {
+                    // (as for a comment)
                     $at = null;
                     continue;
                 }
-                $stepped[$to] = true;
+                $lineStepped = true;
+                $to = $lineAt === false ? $length : $lineAt + 1;
+            } else {
+                $to = $at;
             }
             // then whitespace and (for INTO) star-slashes: steps that hold no word. A run of them is skipped from at
             // most three step ends: its start, the end of its first star-slash (a comment opened before the run closes
