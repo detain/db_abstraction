@@ -345,8 +345,9 @@ namespace MyDb\Tests\Mysqli {
 		public static $implicitBegin = true;
 		/**
 		 * @var bool model CREATE TEMPORARY TABLE / ALTER TABLE ... START TRANSACTION (off by default): trans_begin()
-		 * (sql_parse.cc) commits the open transaction and begins one, then sql_table.cc refuses the statement (3909)
-		 * without rolling that one back, so the session is left inside an empty transaction
+		 * (sql_parse.cc) commits the open transaction and begins one, then sql_table.cc refuses the statement (3979,
+		 * ER_NOT_ALLOWED_WITH_START_TRANSACTION) without rolling that one back, so the session is left inside an empty
+		 * transaction
 		 */
 		public static $ddlStartTransaction = false;
 		/** @var array[] scripted result sets: [pattern, row sets (each run takes the next; the last one repeats)] */
@@ -385,7 +386,7 @@ namespace MyDb\Tests\Mysqli {
 			2055 => "Lost connection to MySQL server at 'reading initial communication packet'",
 			4031 => 'The client was disconnected by the server because of inactivity.',
 			3101 => 'Plugin instructed the server to rollback the current transaction.',
-			3909 => 'START TRANSACTION clause is not supported for this statement',
+			3979 => 'START TRANSACTION clause cannot be used with this statement',
 		];
 
 		public static function reset()
@@ -555,7 +556,7 @@ namespace MyDb\Tests\Mysqli {
 					self::$committed[] = $write;
 				}
 				self::$open[$connection] = [];
-				return self::fail($link, 3909, $sql);
+				return self::fail($link, 3979, $sql);
 			}
 			if (preg_match('/^\s*(start\s+transaction|begin)\b/i', $sql) === 1) {
 				// START TRANSACTION/BEGIN implicitly commits a transaction that is already open
@@ -604,29 +605,57 @@ namespace MyDb\Tests\Mysqli {
 		/**
 		 * The statement as the server runs it, from its first keyword: a block comment is a space, an executable one
 		 * (slash-star-bang, with no version or one up to SERVER_VERSION) is its content, as MySQL's lexer does; a
-		 * MariaDB one (slash-star-M-bang) and a later version are comments. Leading whitespace, "(" and line comments
-		 * are dropped. Nested comments are not modelled.
+		 * MariaDB one (slash-star-M-bang, slash-star-m-bang too) and a later version are comments. Leading whitespace,
+		 * "(" and line comments are dropped. Nesting as MySQL's lexer has it (r13): a version comment it skips ends at
+		 * the first star-slash that does not close a comment nested in it (consume_comment(), one level); in one it
+		 * runs, a block comment is a space and the first star-slash outside one ends it; a plain comment ends at its
+		 * first star-slash. Quotes in a comment are not modelled.
 		 *
 		 * @param string $sql
 		 * @return string
 		 */
 		public static function serverSql($sql)
 		{
-			// each block comment to the first star-slash after it, found with strpos (a pattern walked a comment never
-			// closed again from every slash-star in it: the length squared, the whole of query()'s time on a long one)
+			// each block comment found with strpos (a pattern walked a comment never closed again from every slash-star
+			// in it: the length squared, the whole of query()'s time on a long one); one never closed is left as it is
 			$sql = (string) $sql;
 			$bare = '';
 			$from = 0;
-			while (($open = strpos($sql, '/*', $from)) !== false && ($close = strpos($sql, '*/', $open + 2)) !== false) {
-				$body = substr($sql, $open + 2, $close - $open - 2);
-				$bare .= substr($sql, $from, $open - $from);
-				if (strncmp($body, 'M!', 2) !== 0 && strncmp($body, '!', 1) === 0) {
-					$version = strspn($body, '0123456789', 1) >= 5 ? substr($body, 1, 5) : '';
-					$bare .= $version === '' || (int) $version <= self::SERVER_VERSION ? ' '.substr($body, 1 + strlen($version)).' ' : ' ';
-				} else {
-					$bare .= ' ';
+			while (($open = strpos($sql, '/*', $from)) !== false) {
+				if (substr($sql, $open + 2, 1) !== '!') {
+					$close = strpos($sql, '*/', $open + 2);
+					if ($close === false) {
+						break;
+					}
+					$bare .= substr($sql, $from, $open - $from).' ';
+					$from = $close + 2;
+					continue;
 				}
-				$from = $close + 2;
+				$version = strspn($sql, '0123456789', $open + 3) >= 5 ? substr($sql, $open + 3, 5) : '';
+				$runs = $version === '' || (int) $version <= self::SERVER_VERSION;
+				$at = $open + 3 + strlen($version);
+				$content = '';
+				$end = false;
+				while (($close = strpos($sql, '*/', $at)) !== false) {
+					$nested = strpos($sql, '/*', $at);
+					if ($nested === false || $nested > $close) {
+						$content .= substr($sql, $at, $close - $at);
+						$end = $close + 2;
+						break;
+					}
+					// a comment nested in it (a space where it runs), to its own first star-slash
+					$content .= substr($sql, $at, $nested - $at).' ';
+					$inner = strpos($sql, '*/', $nested + 2);
+					if ($inner === false) {
+						break;
+					}
+					$at = $inner + 2;
+				}
+				if ($end === false) {
+					break;
+				}
+				$bare .= substr($sql, $from, $open - $from).($runs ? ' '.$content.' ' : ' ');
+				$from = $end;
 			}
 			$sql = $bare.substr($sql, $from);
 			$sql = preg_replace('/^(?:[\s(]|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', $sql);

@@ -791,6 +791,9 @@ class TransactionUnknownEndTest extends TestCase
 			'ROLLBACK /*!80000 AND CHAIN */' => ['ROLLBACK /*!80000 AND CHAIN */'],
 			'/*!99999 SET @x=1 */ START TRANSACTION' => ['/*!99999 SET @x=1 */ START TRANSACTION'],
 			"/*!99999 'x' */ BEGIN (a literal in it: told by the words)" => ["/*!99999 'x' */ BEGIN"],
+			// r13 R2: a comment nested in one the server skips (one level): MySQL 8.0.36 runs the opener after it
+			"/*!99999 'q /* z' */ x */ BEGIN (a comment in a quote in it)" => ["/*!99999 'q /* z' */ x */ BEGIN"],
+			'/*!99999 a, /* z */ x */ START TRANSACTION (a comment after a comma in it)' => ['/*!99999 a, /* z */ x */ START TRANSACTION'],
 		];
 	}
 
@@ -1093,7 +1096,8 @@ class TransactionUnknownEndTest extends TestCase
 			"START TRANSACTION in one, then Percona's FROM SESSION 7" => ['/*!99999 START TRANSACTION */ WITH CONSISTENT SNAPSHOT FROM SESSION 7', false, false, true],
 			'START TRANSACTION in one, then AS SELECT (the CREATE TABLE ... START TRANSACTION is not an opener)' => ['/*!80000 CREATE TABLE t2 */ START TRANSACTION AS SELECT 1 AS a', false, false, false],
 			'COMMIT AND CHAIN in one, then NO RELEASE' => ['COMMIT /*!80000 AND CHAIN */ NO RELEASE', true, false, true],
-			'COMMIT AND CHAIN in one, then RELEASE' => ['COMMIT /*!80000 AND CHAIN */ RELEASE', true, false, true],
+			// r13 R2: AND CHAIN RELEASE is refused (and COMMIT RELEASE opens nothing)
+			'COMMIT AND CHAIN in one, then RELEASE' => ['COMMIT /*!80000 AND CHAIN */ RELEASE', true, false, false],
 			'COMMIT AND CHAIN in one, then x' => ['COMMIT /*!80000 AND CHAIN */ x', true, false, false],
 			'BEGIN in one with a comma after it: a character keeps it' => ['/*!99999 BEGIN */, SELECT 1', false, false, true],
 			// r10 F3: NO and CHAIN in one comment that is not read are one unit
@@ -1101,11 +1105,53 @@ class TransactionUnknownEndTest extends TestCase
 			'ROLLBACK /*!99999 AND NO CHAIN */' => ['ROLLBACK /*!99999 AND NO CHAIN */', false, true, false],
 			'COMMIT AND /*!80000 NO CHAIN */' => ['COMMIT AND /*!80000 NO CHAIN */', true, false, false],
 			'COMMIT WORK /*M! AND NO CHAIN */' => ['COMMIT WORK /*M! AND NO CHAIN */', true, false, false],
-			'COMMIT /*!80000 AND NO */ CHAIN (CHAIN outside it)' => ['COMMIT /*!80000 AND NO */ CHAIN', true, false, true],
-			'COMMIT /*!80000 AND NO */ /*!80000 CHAIN */ (two comments)' => ['COMMIT /*!80000 AND NO */ /*!80000 CHAIN */', true, false, true],
-			'COMMIT /*!80000 NO AND CHAIN */ (NO not right before it)' => ['COMMIT /*!80000 NO AND CHAIN */', true, false, true],
-			'COMMIT /*!80000 AND CHAIN NO */' => ['COMMIT /*!80000 AND CHAIN NO */', true, false, true],
-			'a comment in one: told by the words' => ['/*!99999 /* c */ */ ROLLBACK AND CHAIN', false, true, true],
+			// r13 R2: read on the grammar, each reading (COMMIT AND NO CHAIN, COMMIT CHAIN, COMMIT NO AND CHAIN, COMMIT AND
+			// CHAIN NO: none opens)
+			'COMMIT /*!80000 AND NO */ CHAIN (CHAIN outside it)' => ['COMMIT /*!80000 AND NO */ CHAIN', true, false, false],
+			'COMMIT /*!80000 AND NO */ /*!80000 CHAIN */ (two comments)' => ['COMMIT /*!80000 AND NO */ /*!80000 CHAIN */', true, false, false],
+			'COMMIT /*!80000 NO AND CHAIN */ (NO not right before it)' => ['COMMIT /*!80000 NO AND CHAIN */', true, false, false],
+			'COMMIT /*!80000 AND CHAIN NO */' => ['COMMIT /*!80000 AND CHAIN NO */', true, false, false],
+			'COMMIT /*!80000 AND */ CHAIN (COMMIT AND CHAIN where it runs)' => ['COMMIT /*!80000 AND */ CHAIN', true, false, true],
+			'COMMIT /*!80000 AND */ /*!80000 CHAIN */ (each on its own: one may run without the other)' => ['COMMIT /*!80000 AND */ /*!80000 CHAIN */', true, false, true],
+			'COMMIT AND CHAIN, then NO RELEASE in one' => ['COMMIT AND CHAIN /*!80000 NO RELEASE */', true, false, true],
+			'COMMIT AND CHAIN, then RELEASE in one (COMMIT AND CHAIN where it is skipped)' => ['COMMIT AND CHAIN /*!80000 RELEASE */', true, false, true],
+			'COMMIT RELEASE, then AND CHAIN in one' => ['COMMIT RELEASE /*!80000 AND CHAIN */', true, false, false],
+			'COMMIT AND NO CHAIN, then AND CHAIN in one' => ['COMMIT AND NO CHAIN /*!80000 AND CHAIN */', true, false, false],
+			'COMMIT AND NO in one, then CHAIN' => ['/*!80000 COMMIT AND NO */ CHAIN', true, false, false],
+			'COMMIT AND CHAIN in one, then AND CHAIN' => ['COMMIT /*!80000 AND CHAIN */ AND CHAIN', true, false, true],
+			'COMMIT WORK, then AND CHAIN in one' => ['COMMIT WORK /*!80000 AND CHAIN */', true, false, true],
+			'ROLLBACK WORK AND, then CHAIN NO RELEASE in one' => ['ROLLBACK WORK AND /*!80000 CHAIN NO RELEASE */', false, true, true],
+			'SELECT, then AND CHAIN in one: no COMMIT before it' => ['SELECT /*!80000 AND CHAIN */', false, false, false],
+			'WORK AND CHAIN in one, no COMMIT' => ['/*!80000 WORK AND CHAIN */', false, false, false],
+			'ROLLBACK TO SAVEPOINT, then AND CHAIN in one' => ['ROLLBACK TO SAVEPOINT s1 /*!99999 AND CHAIN */', false, true, false],
+			'COMMIT AND CHAIN in one, then a comma: a character keeps it' => ['COMMIT /*!80000 AND CHAIN */, x', true, false, true],
+			'COMMIT AND CHAIN, then a quote in one: COMMIT AND CHAIN where it is skipped' => ["COMMIT AND CHAIN /*!80000 'x' */", true, false, true],
+			'COMMIT AND CHAIN and a quote in one: ended at it where it runs' => ["COMMIT /*!80000 AND CHAIN 'x' */", true, false, true],
+			'a slash-star-M-bang one (MariaDB runs it): AND CHAIN' => ['COMMIT /*M!AND CHAIN */', true, false, true],
+			// r13 R2: a plain comment in one is a space whether it runs or is skipped
+			'a comment in one: a space' => ['/*!99999 /* c */ */ ROLLBACK AND CHAIN', false, true, true],
+			'a comment in one before AND NO CHAIN: a space' => ['/*!99999 /* n */ */ COMMIT AND NO CHAIN', true, false, false],
+			'a comment in one between AND NO and CHAIN' => ['COMMIT AND NO /*!99999 /* n */ */ CHAIN', true, false, false],
+			'a comment in one, then x: ROLLBACK where it is skipped' => ['/*!99999 /* c */ x */ ROLLBACK', false, true, false],
+			'a comment in one, then x: no BEGIN where it runs, BEGIN WORK where it is skipped' => ['/*!99999 /* c */ x */ BEGIN WORK', false, false, true],
+			'a comment in one every server runs: a space' => ['/*!40101 /* c */ */ x ROLLBACK', false, false, false],
+			'an executable comment in one: told by the words' => ['/*!99999 x /*!80000 y */ */ BEGIN', false, false, true],
+			'a comment in a slash-star-M-bang one: told by the words' => ['/*M! x /* c */ y */ COMMIT AND NO CHAIN', true, false, true],
+			// r13 R2: where a comment that is skipped ends, nested comments (one level) taken: MySQL 8.0.36 runs these
+			"a comment in a quote in one: BEGIN where it is skipped" => ["/*!99999 'q /* z' */ x */ BEGIN", false, false, true],
+			"a comment in a quote in one: START TRANSACTION where it is skipped" => ["/*!99999 'q /* z' */ x */ START TRANSACTION", false, false, true],
+			"a comment in a quote in one: COMMIT where it is skipped" => ["/*!99999 'q /* z' */ x */ COMMIT", true, false, false],
+			"a comment in a quote in one: ROLLBACK where it is skipped" => ["/*!99999 'q /* z' */ x */ ROLLBACK", false, true, false],
+			'a comment after a comma in one: BEGIN where it is skipped' => ['/*!99999 a, /* z */ x */ BEGIN', false, false, true],
+			'a comment after a comma in one, never closed: refused where it is skipped' => ['/*!99999 a, /* z */ x BEGIN', false, false, false],
+			'BEGIN and a comma in one never closed: BEGIN where it runs' => ['/*!99999 BEGIN, x', false, false, true],
+			'COMMIT AND CHAIN, then a comma in one never closed: refused where it is skipped' => ['COMMIT AND CHAIN /*!99999 x, y', true, false, false],
+			"a comment in a quote in one: COMMIT AND NO CHAIN where it is skipped" => ["/*!99999 'q /* z' */ x */ COMMIT AND NO CHAIN", true, false, false],
+			"a comment in a quote in one: the words after it are read (no BEGIN)" => ["/*!99999 'q /* begin' */ x */ SELECT 1", false, false, false],
+			'COMMIT AND and a comma in one, then CHAIN: no reading opens' => ['COMMIT /*!80000 AND , */ CHAIN', true, false, false],
+			'a slash-star-M-bang one, a comment in it before its end: BEGIN where MySQL ends it' => ['/*M! a, /* z */ BEGIN -- */', false, false, true],
+			'a slash-star-M-bang one with a comma: its first star-slash ends it' => ['/*M! a, b */ BEGIN', false, false, true],
+			'a slash-star-M-bang one with a comma and a comment: told by the words' => ['/*M! a, /* z */ x */ COMMIT', true, false, false],
 			'a -- comment in one' => ["/*!99999 -- c\n*/ BEGIN", false, false, true],
 			'a # comment in one' => ["/*!99999 # c\n*/ START TRANSACTION", false, false, true],
 			'one never closed' => ['/*!99999 COMMIT', true, false, false],
@@ -1439,12 +1485,20 @@ class TransactionUnknownEndTest extends TestCase
 			'CREATE TEMPORARY TABLE ... START /* c */ TRANSACTION' => ['CREATE TEMPORARY TABLE tt (a int) START /* c */ TRANSACTION'],
 			'CREATE TEMPORARY TABLE ... /*!80000 START TRANSACTION */' => ['CREATE TEMPORARY TABLE tt (a int) /*!80000 START TRANSACTION */'],
 			'CREATE TEMPORARY TABLE ... START /*!80000 TRANSACTION */' => ['CREATE TEMPORARY TABLE tt (a int) START /*!80000 TRANSACTION */'],
+			// r13 R1: a lowercase m-bang is a plain comment on every server
+			'CREATE TEMPORARY TABLE ... START /*m! x */ TRANSACTION' => ['CREATE TEMPORARY TABLE tt (a int) START /*m! x */ TRANSACTION'],
+			'CREATE TEMPORARY TABLE ... START /*m!*/ TRANSACTION' => ['CREATE TEMPORARY TABLE tt (a int) START /*m!*/ TRANSACTION'],
+			'ALTER TABLE ..., START /*m! x */ TRANSACTION' => ['ALTER TABLE t2 ADD COLUMN c int, START /*m! x */ TRANSACTION'],
+			// r13 R1: wrapped in an executable comment that is not read, whole or in part
+			'/*!80000 CREATE TEMPORARY TABLE ... START TRANSACTION */' => ['/*!80000 CREATE TEMPORARY TABLE tt (a int) START TRANSACTION */'],
+			'/*!80000 ALTER TABLE ..., START TRANSACTION */' => ['/*!80000 ALTER TABLE t2 ADD COLUMN c int, START TRANSACTION */'],
+			'/*!80000 CREATE TEMPORARY */ TABLE ... START TRANSACTION' => ['/*!80000 CREATE TEMPORARY */ TABLE tt (a int) START TRANSACTION'],
 		];
 	}
 
 	/**
 	* r10 F5 (the reviewer's s10_stray_ddl_tx): a CREATE TEMPORARY TABLE or ALTER TABLE ... START TRANSACTION sent with no
-	* transaction open begins one on the server (trans_begin()) before the server refuses it (3909), and that refusal does
+	* transaction open begins one on the server (trans_begin()) before the server refuses it (3979), and that refusal does
 	* not roll it back: a quiet ROLLBACK ends it, so the caller's autocommit writes after it are committed. Before, they
 	* each answered true and waited in that transaction, lost when the connection closed.
 	*
@@ -1458,7 +1512,7 @@ class TransactionUnknownEndTest extends TestCase
 		FakeServer::$ddlStartTransaction = true;
 		$db = $this->db();
 		$this->assertFalse($this->q($db, $sql));
-		$this->assertSame(3909, (int) $db->Errno, 'its own error');
+		$this->assertSame(3979, (int) $db->Errno, 'its own error');
 		$this->assertFalse($db->inTransaction());
 		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
 		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('x')"));
@@ -1495,7 +1549,7 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertTrue($this->q($a, 'START TRANSACTION'));
 		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a1')"));
 		$this->assertFalse($this->q($b, 'CREATE TEMPORARY TABLE tt (a int) START TRANSACTION'));
-		$this->assertSame(3909, (int) $b->Errno);
+		$this->assertSame(3979, (int) $b->Errno);
 		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
 		$this->assertFalse($this->q($a, "INSERT INTO t (v) VALUES ('a2')"));
 		$this->assertSame(2006, (int) $a->Errno, 'outcome unknown, never retried');
@@ -1515,6 +1569,9 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertFalse($this->q($db, "CREATE TEMPORARY TABLE tt AS SELECT transaction_id FROM t9 WHERE start_date > 0"));
 		FakeServer::failNext('/^ALTER/', 1146);
 		$this->assertFalse($this->q($db, 'ALTER TABLE t9 ADD COLUMN c int'));
+		// r13 R1: wrapped in one that is not read, the words anywhere, no CREATE or ALTER in it
+		FakeServer::failNext('/transaction_id/', 1146);
+		$this->assertFalse($this->q($db, '/*!80000 INSERT INTO t9 SELECT transaction_id FROM t WHERE start_date > 0 */'));
 		$this->assertSame(0, FakeServer::sent('ROLLBACK'));
 	}
 
@@ -1556,6 +1613,172 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('b')"));
 		$this->assertSame([], FakeServer::$open, 'nothing left open on the server');
 		$this->assertSame(["INSERT INTO t (v) VALUES ('a')", "INSERT INTO t (v) VALUES ('b')"], self::writes());
+	}
+
+	public static function lowercaseMDdlStartTransactions()
+	{
+		return [
+			'START /*m! x */ TRANSACTION' => ['CREATE TEMPORARY TABLE tt (a int) START /*m! x */ TRANSACTION'],
+			'START /*m!*/ TRANSACTION' => ['CREATE TEMPORARY TABLE tt (a int) START /*m!*/ TRANSACTION'],
+		];
+	}
+
+	/**
+	* r13 R1 (the reviewer's r11_mcomment, inside): a CREATE TEMPORARY TABLE ... START TRANSACTION whose two words have a
+	* lowercase m-bang comment between them (a plain comment on MySQL and MariaDB) is the refused DDL START TRANSACTION:
+	* trans_begin() committed what was open, so inside the handle's own transaction the refusal is a 2006 and so is
+	* everything after it until the caller's ROLLBACK. Before, the m-bang was taken for an executable comment that keeps
+	* the words apart: the refusal kept its own error, the next 1213 was a "rolled back, retry" and so was the COMMIT,
+	* while a was committed: a retry wrote it twice.
+	*
+	* @dataProvider lowercaseMDdlStartTransactions
+	* @param string $sql
+	*/
+	#[DataProvider('lowercaseMDdlStartTransactions')]
+	public function testALowercaseMDdlStartTransactionInsideATransactionIsA2006($sql)
+	{
+		FakeServer::$strict = false;
+		FakeServer::$ddlStartTransaction = true;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a')"));
+		$this->assertFalse($this->q($db, $sql));
+		$this->assertSame(2006, (int) $db->Errno, 'what was open was committed: outcome unknown');
+		FakeServer::failNext("/VALUES \\('b'\\)/", 1213);
+		$this->assertFalse($this->q($db, "INSERT INTO t (v) VALUES ('b')"));
+		$this->assertSame(2006, (int) $db->Errno, 'never "rolled back, retry"');
+		$this->assertFalse($this->q($db, 'COMMIT'));
+		$this->assertSame(2006, (int) $db->Errno);
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a')"], self::writes(), 'a committed by trans_begin(), once');
+	}
+
+	/**
+	* r13 R1 (r11_mcomment, shared): the same sent by a clone while another handle has a transaction open on the shared
+	* link: that handle is told its transaction ended (2006), never "rolled back, retry" while a1 was committed.
+	*
+	* @dataProvider lowercaseMDdlStartTransactions
+	* @param string $sql
+	*/
+	#[DataProvider('lowercaseMDdlStartTransactions')]
+	public function testALowercaseMDdlStartTransactionBesideAnotherHandlesTransaction($sql)
+	{
+		FakeServer::$strict = false;
+		FakeServer::$ddlStartTransaction = true;
+		$a = $this->db();
+		$this->assertTrue($this->q($a, 'SELECT 1'));
+		$b = clone $a;
+		$this->assertTrue($this->q($a, 'START TRANSACTION'));
+		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertFalse($this->q($b, $sql));
+		$this->assertSame(3979, (int) $b->Errno);
+		FakeServer::failNext("/VALUES \\('a2'\\)/", 1213);
+		$this->assertFalse($this->q($a, "INSERT INTO t (v) VALUES ('a2')"));
+		$this->assertSame(2006, (int) $a->Errno, 'outcome unknown, never "rolled back, retry"');
+		$this->assertFalse($this->q($a, 'COMMIT'));
+		$this->assertSame(2006, (int) $a->Errno);
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a1')"], self::writes(), 'a1 committed by trans_begin(), once');
+	}
+
+	public static function readOnlyRefusals()
+	{
+		return [
+			'1290 (read-only), CREATE TEMPORARY TABLE' => ['CREATE TEMPORARY TABLE tt (a int) START TRANSACTION', 1290],
+			'1290 (read-only), ALTER TABLE' => ['ALTER TABLE t2 ADD COLUMN c int, START TRANSACTION', 1290],
+			'1792 (READ ONLY transaction), CREATE TEMPORARY TABLE' => ['CREATE TEMPORARY TABLE tt (a int) START TRANSACTION', 1792],
+		];
+	}
+
+	/**
+	* r13 R5 (the reviewer's r11_f5 K2): one the server refuses before trans_begin() (1290 read-only, 1792) began no
+	* transaction, so no quiet ROLLBACK follows it: one would end what the caller has open there that the library does not
+	* track (here the implicit transaction of the caller's SET autocommit=0, made on the fake by hand), and w1 with it.
+	* Before, the ROLLBACK followed any failure but a statement that never ran: w1 was rolled back and the caller's COMMIT
+	* answered true.
+	*
+	* @dataProvider readOnlyRefusals
+	* @param string $sql
+	* @param int $errno
+	*/
+	#[DataProvider('readOnlyRefusals')]
+	public function testARefusalBeforeTheDdlTransactionBeganSendsNoRollback($sql, $errno)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		// the caller's SET autocommit=0: an implicit transaction the library does not track
+		FakeServer::$open[FakeServer::$connections] = [];
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('w1')"));
+		// (refused on every try: statementRetry() retries it on the same link)
+		FakeServer::failNext('/START TRANSACTION$/', $errno, 20);
+		$this->assertFalse($this->q($db, $sql));
+		$this->assertSame($errno, (int) $db->Errno);
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'), 'no quiet ROLLBACK');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('w2')"));
+		$this->assertTrue($this->q($db, 'COMMIT'));
+		$this->assertSame(["INSERT INTO t (v) VALUES ('w1')", "INSERT INTO t (v) VALUES ('w2')"], self::writes(), 'w1 kept');
+	}
+
+	public static function retriedFirstTries()
+	{
+		return ['1205 (lock wait timeout)' => [1205], '1105' => [1105]];
+	}
+
+	/**
+	* r13 R3 (the reviewer's r11_retry_takeback): a CREATE TEMPORARY TABLE that holds the two words in a literal (counted
+	* as an end, taken back once it worked: a temporary table takes no START TRANSACTION) whose first try fails and whose
+	* retry on the same link works, sent by a clone while another handle has a transaction open there, ended nothing:
+	* the end is counted once on that link and taken back once. Before, each try counted one and only one was taken back:
+	* the other handle's live transaction was taken as ended elsewhere, a quiet ROLLBACK discarded a1 and a2 and its
+	* COMMIT were 2006s.
+	*
+	* @dataProvider retriedFirstTries
+	* @param int $errno
+	*/
+	#[DataProvider('retriedFirstTries')]
+	public function testARetriedStatementThatEndedNothingLeavesAnotherHandlesTransactionAlone($errno)
+	{
+		FakeServer::$strict = false;
+		$a = $this->db();
+		$this->assertTrue($this->q($a, 'SELECT 1'));
+		$b = clone $a;
+		$this->assertTrue($this->q($a, 'START TRANSACTION'));
+		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a1')"));
+		$sql = "CREATE TEMPORARY TABLE tt SELECT v FROM t WHERE v = 'start transaction'";
+		FakeServer::failNext('/^CREATE TEMPORARY/', $errno);
+		$this->assertTrue($this->q($b, $sql));
+		$this->assertSame(2, FakeServer::sent($sql), 'retried once, on the same link');
+		$this->assertSame(1, FakeServer::$connections);
+		$this->assertTrue($this->q($a, "INSERT INTO t (v) VALUES ('a2')"), 'A goes on');
+		$this->assertTrue($this->q($a, 'COMMIT'));
+		$this->assertSame(0, FakeServer::sent('ROLLBACK'), 'no quiet ROLLBACK');
+		$this->assertSame(["INSERT INTO t (v) VALUES ('a1')", "INSERT INTO t (v) VALUES ('a2')"], self::writes());
+	}
+
+	/**
+	* r13 R4 (the reviewer's r11_f2 after-commit): after a lost transaction's refused COMMIT (which ends the refusal and
+	* keeps the lost record), a statement that only may be a ROLLBACK (MySQL 8.0 runs this one as the INSERT) leaves the
+	* lost record as it is, so the next COMMIT is refused too. Before, it cleared the record and that COMMIT answered
+	* true with a1 rolled back by the server.
+	*/
+	public function testAStatementThatMayBeARollbackKeepsTheLostRecordAfterTheRefusedCommit()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertNotFalse($this->q($db, "SELECT GET_LOCK('k', 0)"));
+		FakeServer::failNext("/VALUES \\('a2'\\)/", 1213);
+		$this->assertFalse($this->q($db, "INSERT INTO t (v) VALUES ('a2')"));
+		$this->assertFalse($this->q($db, 'COMMIT'));
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertTrue($this->q($db, "/*!99999 ROLLBACK; */ INSERT INTO t (v) VALUES ('x')"));
+		$this->assertTrue($db->lost(), 'only may be a ROLLBACK: the lost record stays');
+		$this->assertFalse($this->q($db, 'COMMIT'), 'never a false success');
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertSame(0, FakeServer::sent("INSERT INTO t (v) VALUES ('a1')") - 1, 'a1 never replayed');
+		// a ROLLBACK read as one still clears it
+		$this->assertTrue($this->q($db, 'ROLLBACK'));
+		$this->assertFalse($db->lost());
 	}
 
 	public static function endsNothing()
@@ -1650,6 +1873,13 @@ class TransactionUnknownEndTest extends TestCase
 			"/*!99999 'q' */ INSERT ... 'commit and chain'" => ["/*!99999 'q' */ INSERT INTO t (v) VALUES ('commit and chain')"],
 			'/*!99999 BEGIN */ SELECT 1' => ['/*!99999 BEGIN */ SELECT 1'],
 			'/*!99999 START TRANSACTION */ SELECT 1' => ['/*!99999 START TRANSACTION */ SELECT 1'],
+			// r13 R2: the COMMIT ... AND CHAIN grammar, each reading (the reviewer's r11b false openers)
+			'COMMIT /*!80000 AND NO */ CHAIN' => ['COMMIT /*!80000 AND NO */ CHAIN'],
+			'ROLLBACK /*!80000 NO AND CHAIN */' => ['ROLLBACK /*!80000 NO AND CHAIN */'],
+			'/*!80000 ROLLBACK AND NO */ CHAIN' => ['/*!80000 ROLLBACK AND NO */ CHAIN'],
+			'COMMIT AND NO CHAIN /*!99999 AND CHAIN */' => ['COMMIT AND NO CHAIN /*!99999 AND CHAIN */'],
+			'/*!99999 /* n */ */ COMMIT AND NO CHAIN' => ['/*!99999 /* n */ */ COMMIT AND NO CHAIN'],
+			'COMMIT AND NO /*!99999 /* n */ */ CHAIN' => ['COMMIT AND NO /*!99999 /* n */ */ CHAIN'],
 		];
 	}
 
@@ -1801,7 +2031,12 @@ class TransactionUnknownEndTest extends TestCase
 			'START TRANSACTION' => ['CREATE TABLE t2 START TRANSACTION AS SELECT 1', false, true],
 			'START/**/TRANSACTION' => ['CREATE TABLE t2 START/**/TRANSACTION AS SELECT 1', false, true],
 			'START /* c */ /*!80000 */ TRANSACTION' => ['CREATE TABLE t2 START /* c */ /*!80000 */ TRANSACTION AS SELECT 1', false, false],
-			'START /* c */ /*m!80000 */ TRANSACTION' => ['CREATE TABLE t2 START /* c */ /*m!80000 */ TRANSACTION AS SELECT 1', false, false],
+			// r13 R1: slash-star-m-bang (a lowercase m) is a plain comment on every server
+			'START /* c */ /*m!80000 */ TRANSACTION' => ['CREATE TABLE t2 START /* c */ /*m!80000 */ TRANSACTION AS SELECT 1', false, true],
+			'START /*m! */ TRANSACTION' => ['CREATE TABLE t2 START /*m! */ TRANSACTION AS SELECT 1', false, true],
+			'START /*m!*/ TRANSACTION' => ['CREATE TABLE t2 START /*m!*/ TRANSACTION AS SELECT 1', false, true],
+			'START /*M! */ TRANSACTION is no gap' => ['CREATE TABLE t2 START /*M! */ TRANSACTION AS SELECT 1', false, false],
+			'INTO /*m!50000 @x */: either case' => ['SELECT a INTO /*m!50000 @x */ FROM t', true, false],
 			'START /* c */ transactions' => ['CREATE TABLE t2 AS SELECT start /* c */ transactions FROM t', false, false],
 			'START /* c */ transaction_id' => ['CREATE TABLE t2 AS SELECT start /* c */ transaction_id FROM t', false, false],
 			'START /* c */ transaction$x ($ is no word character)' => ['CREATE TABLE t2 AS SELECT start /* c */ transaction$x FROM t', false, true],
@@ -2035,7 +2270,8 @@ class TransactionUnknownEndTest extends TestCase
 
 	/**
 	* r11a F2: the words are found (strpos() on a lowercase copy, the word boundary, the run and the comment after it
-	* checked by hand) exactly where e6006ea's entry patterns found them, on strings of the pieces that matter: both
+	* checked by hand) exactly where e6006ea's entry patterns found them (r13 R1: for START, with a lowercase m-bang a
+	* plain comment, the uppercase M only an executable one), on strings of the pieces that matter: both
 	* cases and mixes, word bytes and others before the word, every whitespace byte, star-slashes, plain and executable
 	* comments, '#', '--' with every kind of byte after it, at the end of the string too
 	*/
@@ -2043,7 +2279,7 @@ class TransactionUnknownEndTest extends TestCase
 	{
 		$patterns = [
 			'into' => '~\binto(?:\s|\*/)*+(?=/\*|\#|--[\x00-\x20\x7F])~i',
-			'start' => '~\bstart\s*+(?=/\*(?!M?!)|\#|--[\x00-\x20\x7F])~i',
+			'start' => '~\bstart\s*+(?=/\*(?!(?-i:M)?!)|\#|--[\x00-\x20\x7F])~i',
 		];
 		$pieces = ['into', 'INTO', 'iNtO', 'start', 'START', 'StArT', 'x', 'Z', '_', '$', '1', '9', "\xC3\xA9", "\xA0", "\x00",
 			' ', "\t", "\n", "\r", "\x0B", "\f", '*/', '*/*/', '*', '/', '/*', '/*!', '/*!80000', '/*M!', '/*m!', '/*M', '/*m', '/**/',
