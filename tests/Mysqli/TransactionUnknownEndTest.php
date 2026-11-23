@@ -1902,6 +1902,153 @@ class TransactionUnknownEndTest extends TestCase
 		}
 	}
 
+
+	/**
+	* Ends the transaction the library tracks with a statement that works: an implicit commit through query() (TRUNCATE,
+	* LOCK TABLES), lock() or execute() (a prepared CREATE TABLE), each with the server's commit of the open writes
+	* (the fake does not model it), or a ROLLBACK that is not plain (a quote in its comment: queryInTransaction())
+	*/
+	private function endTracked($db, $end)
+	{
+		if ($end === 'rollback') {
+			return $this->q($db, "ROLLBACK /* the caller's */");
+		}
+		if ($end === 'execute') {
+			$this->assertNotSame(0, $db->prepare('CREATE TABLE z (a int)'));
+		}
+		$calls = [
+			'truncate' => function () use ($db) { return $this->q($db, 'TRUNCATE TABLE z'); },
+			'lock tables' => function () use ($db) { return $this->q($db, 'LOCK TABLES z WRITE'); },
+			'lock' => function () use ($db) { return $db->lock('z'); },
+			'execute' => function () use ($db) { return $db->execute(); },
+		];
+		$result = $calls[$end]();
+		self::implicitCommit();
+		return $result;
+	}
+
+	public static function endsAfterALoss()
+	{
+		// [the opener (tracked, the lost record left: R4), the end, the COMMIT path (transactionCommit() or query('COMMIT'))
+		// of the refused COMMIT and the later one, how many times c is committed in the end]. On the fake (MySQL 8.0)
+		// /*!99999 x *\/ START TRANSACTION opens a transaction and ROLLBACK /*!99999 AND CHAIN *\/ opens none (c
+		// autocommits): what a ROLLBACK leaves of c tells them apart
+		$rows = [];
+		foreach (['/*!99999 x */ START TRANSACTION' => 0, 'ROLLBACK /*!99999 AND CHAIN */' => 1] as $opener => $cAfterRollback) {
+			foreach (['truncate', 'lock tables', 'lock', 'execute', 'rollback'] as $end) {
+				foreach (['transactionCommit()' => true, "query('COMMIT')" => false] as $path => $api) {
+					$rows[$opener.', '.$end.', '.$path] = [$opener, $end, $api, $end === 'rollback' ? $cAfterRollback : 1];
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r15 T14-1 (the r14 review): T13-1 on the other ends. A transaction tracked as open after a lost one (its opener
+	* may be a START, openUnknown(); the record left, R4) that ends with an implicit commit that works (DDL or LOCK TABLES
+	* through query(), lock(), a prepared DDL through execute()) or with a ROLLBACK that is not plain kept the lost
+	* record: the caller's next COMMIT answered the lost one's 1213 while c and d were committed (a caller retrying on it
+	* wrote them twice). Every end that works now clears it, as a COMMIT that works does (a0dc3d0)
+	*
+	* @dataProvider endsAfterALoss
+	* @param string $opener
+	* @param string $end
+	* @param bool $api
+	* @param int $c
+	*/
+	#[DataProvider('endsAfterALoss')]
+	public function testEveryEndThatWorksOfATransactionOpenedAfterALossClearsTheLostRecord($opener, $end, $api, $c)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->lostAndRefused($db, $api);
+		$this->assertTrue($this->q($db, $opener));
+		$this->assertTrue($db->inTransaction());
+		$this->assertTrue($db->lost(), 'R4');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+
+		$this->assertNotFalse($this->endTracked($db, $end), 'it worked');
+
+		$this->assertSame(0, (int) $db->Errno);
+		$this->assertFalse($db->inTransaction(), 'over');
+		$this->assertFalse($db->lost(), 'ended without being lost: the record is gone');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('d')"));
+		$this->assertTrue($api ? $db->transactionCommit() : $this->q($db, 'COMMIT'), 'never the lost one\'s stale 1213');
+		$this->assertSame(0, (int) $db->Errno);
+		$this->assertSame($c, self::committed("INSERT INTO t (v) VALUES ('c')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"), 'd once');
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('a2')"));
+		$this->assertSame([], FakeServer::$open, 'nothing left open');
+	}
+
+	public static function implicitEnds()
+	{
+		return ['TRUNCATE through query()' => ['truncate'], 'LOCK TABLES through query()' => ['lock tables'], 'lock()' => ['lock'], 'a prepared CREATE TABLE through execute()' => ['execute'], 'a ROLLBACK that is not plain' => ['rollback']];
+	}
+
+	/**
+	* r15: after such an end the lost record no longer waits for the caller's cleanup either: a ROLLBACK (or
+	* transactionAbort()) beside another handle's open transaction fails as one meant for that transaction (2006, not
+	* sent), as after the COMMIT (r14)
+	*
+	* @dataProvider implicitEnds
+	* @param string $end
+	*/
+	#[DataProvider('implicitEnds')]
+	public function testAfterAnyEndOfTheNextTransactionARollbackIsNoLongerTheLostOnesCleanup($end)
+	{
+		foreach (['ROLLBACK', 'transactionAbort'] as $how) {
+			FakeServer::reset();
+			FakeServer::$strict = false;
+			$db = $this->db();
+			$this->assertTrue($this->q($db, 'SELECT 1'));
+			$other = clone $db;
+			$this->lostAndRefused($db, true);
+			$this->assertTrue($this->q($db, '/*!99999 x */ START TRANSACTION'));
+			$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+			$this->assertNotFalse($this->endTracked($db, $end), $how);
+			$this->assertTrue($this->q($other, 'START TRANSACTION'));
+			$this->assertTrue($this->q($other, "INSERT INTO t (v) VALUES ('o1')"));
+			$this->assertSame($db->linkId, $other->linkId, 'one shared connection');
+			$sent = count(FakeServer::statements());
+			$this->assertFalse($how === 'transactionAbort' ? $db->transactionAbort() : $this->q($db, 'ROLLBACK'), $how.': the transaction open there is the other handle\'s');
+			$this->assertSame(2006, (int) $db->Errno, $how);
+			$this->assertSame($sent, count(FakeServer::statements()), $how.': nothing sent');
+			$this->assertTrue($other->inTransaction(), $how);
+			$this->assertSame(["INSERT INTO t (v) VALUES ('o1')"], FakeServer::$open[1] ?? null, $how.': untouched');
+		}
+	}
+
+	public static function implicitEndsWithNothingTracked()
+	{
+		return ['lock()' => ['lock'], 'TRUNCATE through query()' => ['truncate'], 'a prepared CREATE TABLE through execute()' => ['execute']];
+	}
+
+	/**
+	* r15: with no transaction tracked (the record left after the refused COMMIT, R4), an implicit commit commits nothing
+	* of the caller's: the record stays and the COMMIT after it is refused (F/1213, nothing sent), as on a0dc3d0
+	*
+	* @dataProvider implicitEndsWithNothingTracked
+	* @param string $end
+	*/
+	#[DataProvider('implicitEndsWithNothingTracked')]
+	public function testAnImplicitCommitWithNoTransactionTrackedKeepsTheLostRecord($end)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->lostAndRefused($db, true);
+		$this->assertFalse($db->inTransaction());
+		$this->assertNotFalse($this->endTracked($db, $end));
+		$this->assertTrue($db->lost(), 'nothing of the caller\'s ended');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		$sent = count(FakeServer::statements());
+		$this->assertFalse($db->transactionCommit());
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertSame($sent, count(FakeServer::statements()), 'nothing sent');
+	}
+
 	public static function endsNothing()
 	{
 		return [

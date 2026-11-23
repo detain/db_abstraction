@@ -911,9 +911,10 @@ class Db extends Generic implements Db_Interface
             // what it did to the transaction, told strictly as in queryInTransaction() (implicitCommitOutcome())
             $outcome = static::implicitCommitOutcome($lead, (string) $this->statement_query);
             if ($outcome === 'end') {
-                // it committed the open transaction first: the transaction is over
+                // it committed the open transaction first: the transaction is over, and not lost (clearTransactionLost())
                 $this->inTransaction = false;
                 $this->txEnd();
+                $this->clearTransactionLost();
             } elseif ($outcome === 'doubt' || $outcome === 'chain') {
                 $this->keepUnknownEnd((string) $this->statement_query, $line, $file, static::firstWord($lead), $outcome === 'chain');
             } elseif ($outcome === 'unknown') {
@@ -1205,7 +1206,8 @@ class Db extends Generic implements Db_Interface
         $known = $isStart || $isRollback || $isCommit;
         // a START or ROLLBACK read as one: only such a statement that worked clears the lost record (one that only may
         // be one, below, leaves it: a later COMMIT stays refused, the safe side; but for the COMMIT of a transaction it
-        // may have opened, which is tracked as open: that one is sent, and clears the record once it works)
+        // may have opened, which is tracked as open: that one is sent, and it, like any end of that transaction that
+        // works, clears the record: clearTransactionLost())
         $knownClears = $isStart || $isRollback;
         if ($unread && !$transactionOpen) {
             /*
@@ -1685,21 +1687,24 @@ class Db extends Generic implements Db_Interface
                 if (static::changesSessionState($lead)) {
                     $this->markSessionState();
                 }
-                if ($isStart || $isCommit) {
-                    // (a COMMIT that worked here ended a transaction opened after a lost one, if the record is left:
-                    // transactionCommit())
+                $change = $this->trackTransactionState($queryString);
+                if ($change !== null) {
+                    // a START, COMMIT or ROLLBACK (any form that ends it: one that is not plain gets here) that worked
+                    // ended the transaction without losing it (clearTransactionLost())
                     $this->clearTransactionLost();
                 }
-                $this->txAfter($this->trackTransactionState($queryString), true, $queryString, $line, $file, $result);
+                $this->txAfter($change, true, $queryString, $line, $file, $result);
                 if ($implicitCommit) {
                     // what it did to the transaction is told strictly (implicitCommitOutcome())
                     $outcome = static::implicitCommitOutcome($lead, $queryString);
                     if ($outcome === 'end') {
                         // it committed the open transaction before it ran (MySQL's implicit commit: the writes so far are
                         // committed), and the connection is back in autocommit: the transaction is over, as after lock(),
-                        // so a later 1213 is never taken for the rollback of a transaction that is gone
+                        // so a later 1213 is never taken for the rollback of a transaction that is gone; and it is not lost
+                        // (clearTransactionLost())
                         $this->inTransaction = false;
                         $this->txEnd();
+                        $this->clearTransactionLost();
                     } elseif ($outcome === 'doubt' || $outcome === 'chain') {
                         // it committed it or left it open, which is not known ('chain': it committed it, and may have
                         // begun a transaction of its own): it goes on, its end not known to the caller's errno
@@ -4571,6 +4576,18 @@ class Db extends Generic implements Db_Interface
     /**
     * Forgets that the transaction was lost.
     *
+    * Besides a START or ROLLBACK read as one (query()), transactionBegin() or transactionAbort() that worked, and the
+    * cleanup ROLLBACK answered without being sent, every end of a transaction tracked as open that worked without
+    * losing it calls this: a COMMIT (query(): queryInTransaction(), a replayed one too; transactionCommit()), a
+    * ROLLBACK of any form (a plain one through query(), any other through queryInTransaction()), and a statement that
+    * committed it implicitly (DDL, LOCK TABLES, TRUNCATE...: queryInTransaction() and execute() 'end', lock()). Only
+    * openUnknown() leaves a lost record beside a tracked transaction (a statement that may be a START, after the lost
+    * one's refused COMMIT: query() keeps the record for what only may be a START or ROLLBACK). Once that transaction is
+    * over the caller has ended a transaction of its own since: kept, the record would refuse a later COMMIT with the
+    * lost one's "rolled back" while the writes are committed (a caller retrying on it writes them twice), and answer a
+    * later ROLLBACK beside another handle's transaction as its cleanup. (transactionCommit()'s replay never runs with a
+    * lost record left: openUnknown() makes the transaction not replayable.)
+    *
     * @return void
     */
     protected function clearTransactionLost()
@@ -4848,7 +4865,8 @@ class Db extends Generic implements Db_Interface
     * executable comment that is not read, openUnknown()) opens one and leaves the lost record, and refused, the COMMIT
     * of that new transaction would answer the stale "rolled back" of the lost one while its writes stay open or are
     * saved (a caller that retries on it writes them twice). Once such a COMMIT works the lost record is cleared: the
-    * caller has committed a transaction of its own since, so no later COMMIT is the lost one's.
+    * caller has committed a transaction of its own since, so no later COMMIT is the lost one's (so is it by every other
+    * end of that transaction that worked: clearTransactionLost()).
     *
     * @return bool
     */
@@ -4932,7 +4950,7 @@ class Db extends Generic implements Db_Interface
         if ($result) {
             $this->inTransaction = false;
             $this->txEnd();
-            // (the COMMIT of a transaction opened after a lost one: see above)
+            // (the COMMIT of a transaction opened after a lost one: see above, and clearTransactionLost())
             $this->clearTransactionLost();
             return true;
         }
@@ -5201,6 +5219,11 @@ class Db extends Generic implements Db_Interface
         // LOCK TABLES implicitly commits any open transaction.
         $this->inTransaction = false;
         $this->txEnd();
+        if ($wasOpen) {
+            // the transaction it committed was this instance's own, and is not lost (clearTransactionLost()); with none
+            // open a lost record stays (it commits nothing of the caller's)
+            $this->clearTransactionLost();
+        }
         return $res;
     }
 
