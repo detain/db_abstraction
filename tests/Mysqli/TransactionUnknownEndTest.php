@@ -1781,6 +1781,127 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertFalse($db->lost());
 	}
 
+
+	/** a non-replayable transaction (GET_LOCK) lost to a 1213 on a2, and the caller's COMMIT of it refused (F/1213) */
+	private function lostAndRefused($db, $api)
+	{
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertNotFalse($this->q($db, "SELECT GET_LOCK('k', 0)"));
+		FakeServer::failNext("/VALUES \\('a2'\\)/", 1213);
+		$this->assertFalse($this->q($db, "INSERT INTO t (v) VALUES ('a2')"));
+		$this->assertFalse($api ? $db->transactionCommit() : $this->q($db, 'COMMIT'));
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertTrue($db->lost());
+	}
+
+	public static function openersAfterALoss()
+	{
+		// [the statement that may open a transaction (MySQL 8.0 runs it: it opens one, or for the last rolls back), the
+		// COMMIT through transactionCommit() (api) or query('COMMIT')]
+		$rows = [];
+		foreach (['/*!99999 x */ START TRANSACTION', 'START /*!99999 x */ TRANSACTION', '/*!80000 START TRANSACTION */', '/*!99999 x */ BEGIN', 'ROLLBACK /*!99999 AND CHAIN */'] as $opener) {
+			$rows[$opener.', transactionCommit()'] = [$opener, true];
+			$rows[$opener.", query('COMMIT')"] = [$opener, false];
+		}
+		return $rows;
+	}
+
+	/**
+	* r14 T13-1 (the r13 review): after a lost transaction's refused COMMIT, a statement that may be a START opens a
+	* transaction the library tracks (openUnknown(); the lost record stays, R4). transactionCommit() refused its COMMIT
+	* with the stale 1213 whatever was tracked (never sent: c left open, or already autocommitted, and a caller that
+	* retries on it wrote c twice), while query('COMMIT') sent it. Both send it now, and once it works the lost record is
+	* cleared: a later COMMIT is not answered with the lost transaction's 1213
+	*
+	* @dataProvider openersAfterALoss
+	* @param string $opener
+	* @param bool $api
+	*/
+	#[DataProvider('openersAfterALoss')]
+	public function testTheCommitOfATransactionOpenedAfterALossIsSentOnBothPaths($opener, $api)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->lostAndRefused($db, $api);
+		$this->assertTrue($this->q($db, $opener));
+		$this->assertTrue($db->inTransaction(), 'tracked as open (its start not known)');
+		$this->assertTrue($db->lost(), 'R4: only a START or ROLLBACK read as one clears the record');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		$sent = count(FakeServer::statements());
+		$this->assertTrue($api ? $db->transactionCommit() : $this->q($db, 'COMMIT'), 'the COMMIT of the transaction it tracks');
+		$this->assertSame(0, (int) $db->Errno);
+		$this->assertGreaterThan($sent, count(FakeServer::statements()), 'sent');
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('c')"), 'c saved, once');
+		$this->assertSame([], FakeServer::$open, 'nothing left open');
+		$this->assertFalse($db->inTransaction());
+		$this->assertFalse($db->lost(), 'the caller committed a transaction of its own since: the record is gone');
+		$this->assertTrue($api ? $db->transactionCommit() : $this->q($db, 'COMMIT'), 'no stale 1213 later');
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('a1')"));
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('a2')"));
+	}
+
+	/**
+	* r14: R4's own case through transactionCommit() too: a statement that only may be a ROLLBACK (MySQL 8.0 runs
+	* /*!99999 ROLLBACK; *\/ INSERT ... as the INSERT) opens nothing that is tracked, so the COMMIT after it is refused
+	* (F/1213, nothing sent) on both paths, as on 75ba16e/4233584
+	*/
+	public function testAMayBeRollbackStillLeavesTheCommitRefusedThroughTransactionCommit()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->lostAndRefused($db, true);
+		$this->assertTrue($this->q($db, "/*!99999 ROLLBACK; */ INSERT INTO t (v) VALUES ('x')"));
+		$this->assertFalse($db->inTransaction());
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		$sent = count(FakeServer::statements());
+		$this->assertFalse($db->transactionCommit(), 'never a false success');
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertSame($sent, count(FakeServer::statements()), 'nothing sent');
+		$this->assertTrue($db->lost());
+		$this->assertSame(0, FakeServer::sent("INSERT INTO t (v) VALUES ('a1')") - 1, 'a1 never replayed');
+	}
+
+	public static function commitPaths()
+	{
+		return ['transactionCommit()' => [true], "query('COMMIT')" => [false]];
+	}
+
+	/**
+	* r14: once the COMMIT of the transaction opened after the loss worked, the lost record no longer waits for the
+	* caller's cleanup: a ROLLBACK (or transactionAbort()) beside another handle's open transaction is not answered as
+	* that cleanup (true, nothing sent) but fails as one meant for that transaction (2006, not sent), as after any
+	* transaction of the caller's own
+	*
+	* @dataProvider commitPaths
+	* @param bool $api
+	*/
+	#[DataProvider('commitPaths')]
+	public function testAfterTheCommitOfTheNextTransactionARollbackIsNoLongerTheLostOnesCleanup($api)
+	{
+		FakeServer::$strict = false;
+		foreach (['ROLLBACK', 'transactionAbort'] as $how) {
+			FakeServer::reset();
+			FakeServer::$strict = false;
+			$db = $this->db();
+			$this->assertTrue($this->q($db, 'SELECT 1'));
+			$other = clone $db;
+			$this->lostAndRefused($db, $api);
+			$this->assertTrue($this->q($db, '/*!99999 x */ START TRANSACTION'));
+			$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+			$this->assertTrue($api ? $db->transactionCommit() : $this->q($db, 'COMMIT'));
+			$this->assertTrue($this->q($other, 'START TRANSACTION'));
+			$this->assertTrue($this->q($other, "INSERT INTO t (v) VALUES ('o1')"));
+			$this->assertSame($db->linkId, $other->linkId, 'one shared connection');
+			$sent = count(FakeServer::statements());
+			$this->assertFalse($how === 'transactionAbort' ? $db->transactionAbort() : $this->q($db, 'ROLLBACK'), $how.': the transaction open there is the other handle\'s');
+			$this->assertSame(2006, (int) $db->Errno, $how);
+			$this->assertSame($sent, count(FakeServer::statements()), $how.': nothing sent');
+			$this->assertTrue($other->inTransaction(), $how);
+			$this->assertSame(["INSERT INTO t (v) VALUES ('o1')"], FakeServer::$open[1] ?? null, $how.': untouched');
+		}
+	}
+
 	public static function endsNothing()
 	{
 		return [

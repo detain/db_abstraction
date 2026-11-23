@@ -1204,7 +1204,8 @@ class Db extends Generic implements Db_Interface
         // caller's COMMIT of it)
         $known = $isStart || $isRollback || $isCommit;
         // a START or ROLLBACK read as one: only such a statement that worked clears the lost record (one that only may
-        // be one, below, leaves it: a later COMMIT stays refused, the safe side)
+        // be one, below, leaves it: a later COMMIT stays refused, the safe side; but for the COMMIT of a transaction it
+        // may have opened, which is tracked as open: that one is sent, and clears the record once it works)
         $knownClears = $isStart || $isRollback;
         if ($unread && !$transactionOpen) {
             /*
@@ -1684,7 +1685,9 @@ class Db extends Generic implements Db_Interface
                 if (static::changesSessionState($lead)) {
                     $this->markSessionState();
                 }
-                if ($isStart) {
+                if ($isStart || $isCommit) {
+                    // (a COMMIT that worked here ended a transaction opened after a lost one, if the record is left:
+                    // transactionCommit())
                     $this->clearTransactionLost();
                 }
                 $this->txAfter($this->trackTransactionState($queryString), true, $queryString, $line, $file, $result);
@@ -4839,12 +4842,20 @@ class Db extends Generic implements Db_Interface
     * through the handle that began it. It never mails or halts, and the statements after it are not refused (the
     * caller has ended the transaction).
     *
+    * After a lost transaction it is refused (nothing is sent: false with the errno the transaction was lost with,
+    * markCommitRefused()) while no transaction is open, as query('COMMIT') is. A transaction tracked as open since then
+    * is sent its COMMIT, as by query('COMMIT') (queryInTransaction()): only a statement that may be a START (an
+    * executable comment that is not read, openUnknown()) opens one and leaves the lost record, and refused, the COMMIT
+    * of that new transaction would answer the stale "rolled back" of the lost one while its writes stay open or are
+    * saved (a caller that retries on it writes them twice). Once such a COMMIT works the lost record is cleared: the
+    * caller has committed a transaction of its own since, so no later COMMIT is the lost one's.
+    *
     * @return bool
     */
     public function transactionCommit()
     {
         $this->txLastStep = null;
-        if ($this->transactionLost) {
+        if ($this->transactionLost && $this->inTransaction !== true) {
             /*
              * The server already lost the transaction. This fails like a mysqli_commit() that failed
              * (Errno/Error set, false returned): no emailError(), no halt(), whatever haltOnError is,
@@ -4921,6 +4932,8 @@ class Db extends Generic implements Db_Interface
         if ($result) {
             $this->inTransaction = false;
             $this->txEnd();
+            // (the COMMIT of a transaction opened after a lost one: see above)
+            $this->clearTransactionLost();
             return true;
         }
         if (!$wasOpen) {
