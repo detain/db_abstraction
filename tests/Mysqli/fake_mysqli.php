@@ -329,6 +329,8 @@ namespace MyDb\Tests\Mysqli {
 
 	final class FakeServer
 	{
+		/** the server's version (MYSQL_VERSION_ID): executable comments up to it run (serverSql()) */
+		const SERVER_VERSION = 80036;
 		/** @var bool true: failures throw mysqli_sql_exception (MYSQLI_REPORT_STRICT, PHP 8.1+ default); false: mysqli_query() returns false */
 		public static $strict = true;
 		/** @var int next N real_connect() calls fail the way real mysqli does (half-open object left behind) */
@@ -341,6 +343,13 @@ namespace MyDb\Tests\Mysqli {
 		public static $connectFails = 0;
 		/** @var bool model MySQL's OPTION_BEGIN after an implicit rollback, and a failed COMMIT ending the transaction */
 		public static $implicitBegin = true;
+		/**
+		 * @var bool model CREATE TEMPORARY TABLE / ALTER TABLE ... START TRANSACTION (off by default): trans_begin()
+		 * (sql_parse.cc) commits the open transaction and begins one, then sql_table.cc refuses the statement (3979,
+		 * ER_NOT_ALLOWED_WITH_START_TRANSACTION) without rolling that one back, so the session is left inside an empty
+		 * transaction
+		 */
+		public static $ddlStartTransaction = false;
 		/** @var array[] scripted result sets: [pattern, row sets (each run takes the next; the last one repeats)] */
 		public static $results = [];
 		/** @var array[] scripted affected rows: [pattern, counts (each run takes the next; the last one repeats)] */
@@ -377,6 +386,7 @@ namespace MyDb\Tests\Mysqli {
 			2055 => "Lost connection to MySQL server at 'reading initial communication packet'",
 			4031 => 'The client was disconnected by the server because of inactivity.',
 			3101 => 'Plugin instructed the server to rollback the current transaction.',
+			3979 => 'START TRANSACTION clause cannot be used with this statement',
 		];
 
 		public static function reset()
@@ -387,6 +397,7 @@ namespace MyDb\Tests\Mysqli {
 			self::$connectFailsReal = 0;
 			self::$halfOpenCalls = [];
 			self::$implicitBegin = true;
+			self::$ddlStartTransaction = false;
 			self::$results = [];
 			self::$affected = [];
 			self::$autoIncrement = 0;
@@ -537,10 +548,16 @@ namespace MyDb\Tests\Mysqli {
 					return self::fail($link, $failure[1], $sql);
 				}
 			}
-			// the server ignores leading comments
-			$sql = preg_replace('/^(?:[\s(]|\/\*.*?\*\/|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', $sql);
-			$sql = preg_replace('/\/\*.*?\*\//s', ' ', $sql);
+			// the server ignores comments, and runs the content of an executable one
+			$sql = self::serverSql($sql);
 			$chain = preg_match('/^(?:commit|rollback)\b(?:\s+work)?\s+and\s+chain\b/i', $sql) === 1;
+			if (self::$ddlStartTransaction && preg_match('/^\s*(?:create\s+temporary\s+table|alter\s+table)\b.*\bstart\s+transaction\b/is', $sql) === 1) {
+				foreach (isset(self::$open[$connection]) ? self::$open[$connection] : [] as $write) {
+					self::$committed[] = $write;
+				}
+				self::$open[$connection] = [];
+				return self::fail($link, 3979, $sql);
+			}
 			if (preg_match('/^\s*(start\s+transaction|begin)\b/i', $sql) === 1) {
 				// START TRANSACTION/BEGIN implicitly commits a transaction that is already open
 				foreach (isset(self::$open[$connection]) ? self::$open[$connection] : [] as $write) {
@@ -585,9 +602,73 @@ namespace MyDb\Tests\Mysqli {
 			return true;
 		}
 
+		/**
+		 * The statement as the server runs it, from its first keyword: a block comment is a space, an executable one
+		 * (slash-star-bang, with no version or one up to SERVER_VERSION) is its content, as MySQL's lexer does; a
+		 * MariaDB one (slash-star-M-bang, slash-star-m-bang too) and a later version are comments. Leading whitespace,
+		 * "(" and line comments are dropped. Nesting as MySQL's lexer has it (r13): a version comment it skips ends at
+		 * the first star-slash that does not close a comment nested in it (consume_comment(), one level); in one it
+		 * runs, a block comment is a space and the first star-slash outside one ends it; a plain comment ends at its
+		 * first star-slash. Quotes in a comment are not modelled.
+		 *
+		 * @param string $sql
+		 * @return string
+		 */
+		public static function serverSql($sql)
+		{
+			// each block comment found with strpos (a pattern walked a comment never closed again from every slash-star
+			// in it: the length squared, the whole of query()'s time on a long one); one never closed is left as it is
+			$sql = (string) $sql;
+			$bare = '';
+			$from = 0;
+			while (($open = strpos($sql, '/*', $from)) !== false) {
+				if (substr($sql, $open + 2, 1) !== '!') {
+					$close = strpos($sql, '*/', $open + 2);
+					if ($close === false) {
+						break;
+					}
+					$bare .= substr($sql, $from, $open - $from).' ';
+					$from = $close + 2;
+					continue;
+				}
+				$version = strspn($sql, '0123456789', $open + 3) >= 5 ? substr($sql, $open + 3, 5) : '';
+				$runs = $version === '' || (int) $version <= self::SERVER_VERSION;
+				$at = $open + 3 + strlen($version);
+				$content = '';
+				$end = false;
+				while (($close = strpos($sql, '*/', $at)) !== false) {
+					$nested = strpos($sql, '/*', $at);
+					if ($nested === false || $nested > $close) {
+						$content .= substr($sql, $at, $close - $at);
+						$end = $close + 2;
+						break;
+					}
+					// a comment nested in it (a space where it runs), to its own first star-slash
+					$content .= substr($sql, $at, $nested - $at).' ';
+					$inner = strpos($sql, '*/', $nested + 2);
+					if ($inner === false) {
+						break;
+					}
+					$at = $inner + 2;
+				}
+				if ($end === false) {
+					break;
+				}
+				$bare .= substr($sql, $from, $open - $from).($runs ? ' '.$content.' ' : ' ');
+				$from = $end;
+			}
+			$sql = $bare.substr($sql, $from);
+			$sql = preg_replace('/^(?:[\s(]|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', $sql);
+			// a line comment among the leading words (START -- c, newline, TRANSACTION) is a space too
+			do {
+				$sql = preg_replace('/^(\w++(?:\s++\w++)*+)\s*+(?:--[ \t\r\n][^\n]*+|#[^\n]*+)(?:\n|$)/', '$1 ', $sql, 1, $count);
+			} while ($count > 0);
+			return $sql;
+		}
+
 		private static function fail(FakeLink $link, $code, $sql = '')
 		{
-			$bare = preg_replace('/^(?:[\s(]|\/\*.*?\*\/|--[ \t\r\n][^\n]*(?:\n|$)|#[^\n]*(?:\n|$))+/s', '', (string) $sql);
+			$bare = self::serverSql((string) $sql);
 			$isCommit = preg_match('/^\s*commit\b/i', $bare) === 1;
 			if (preg_match('/^\s*(start\s+transaction|begin)\b/i', $bare) === 1 && !in_array($code, [1064, 1065, 1149], true)) {
 				// a START/BEGIN with a transaction open commits it first: when that commit fails the transaction is

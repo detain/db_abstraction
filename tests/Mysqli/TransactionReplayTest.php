@@ -1278,6 +1278,11 @@ class TransactionReplayTest extends TestCase
 			['USE otherdb', true],
 			['CREATE TEMPORARY TABLE tmp_t (a int)', true],
 			['DROP TEMPORARY TABLE tmp_t', true],
+			// round 7: TEMPORARY read with the comments gone; an executable comment may well make it one
+			['CREATE /* c */ TEMPORARY TABLE tmp_t (a int)', true],
+			["DROP -- c\nTEMPORARY TABLE tmp_t", true],
+			['CREATE /*!32312 TEMPORARY */ TABLE tmp_t (a int)', true],
+			['CREATE /* c */ TABLE real_t (a int)', false],
 			["SELECT GET_LOCK('k', 1)", true],
 			["SELECT RELEASE_LOCK('k')", true],
 			['SELECT LAST_INSERT_ID(5)', true],

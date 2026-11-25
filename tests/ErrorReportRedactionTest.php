@@ -41,6 +41,26 @@ class ErrorReportRedactionTest extends TestCase
         $this->assertSame("Duplicate entry '[redacted]' for key '[redacted]'", $closed);
     }
 
+    /**
+     * r10: a literal never closed that ends in a backslash (a statement or driver message cut short) is redacted to its
+     * end, and costs what its length does: the pattern walked it again from every quote in it (the length squared, and
+     * at 8k escaped quotes a PCRE limit, which made the whole report '')
+     */
+    public function testALiteralNeverClosedThatEndsInABackslashIsRedacted()
+    {
+        $this->assertSame("update x set pass='[redacted]'", Generic::redactQueryForLog("update x set pass='top\\'secret\\"));
+        $this->assertSame('update x set pass="[redacted]"', Generic::redactQueryForLog('update x set pass="top\\"secret\\'));
+        $this->assertSame("update x set pass='[redacted]'", Generic::redactQueryForLog("update x set pass='a''b\\"));
+        foreach (["'", '"'] as $quote) {
+            $long = 'update x set pass='.$quote.str_repeat('a\\'.$quote, 200000).'\\';
+            $start = microtime(true);
+            $this->assertSame('update x set pass='.$quote.'[redacted]'.$quote, Generic::redactQueryForLog($long));
+            $this->assertLessThan(3.0, microtime(true) - $start);
+        }
+        // closed literals read as before
+        $this->assertSame("update x set pass='[redacted]', b='[redacted]' where c='[redacted]'", Generic::redactQueryForLog("update x set pass='a\\'b', b='it''s' where c='\\\\'"));
+    }
+
     public function testServerReportIsAnAllowlistWithRedactedQueryString()
     {
         $out = Generic::serverForReport([
