@@ -165,6 +165,59 @@ class TransactionSafetyTest extends TestCase
 		$this->assertSame(0, self::committed('INSERT INTO t VALUES (1)'));
 	}
 
+	public static function failedConnectsBeforeAnEscape()
+	{
+		// [haltOnError, how real_connect() fails with mysqli reporting off, the errno and error the link carries]
+		return [
+			"'report', real_connect() false" => ['report', 'connectFails', 0, ''],
+			"'no', real_connect() false" => ['no', 'connectFails', 0, ''],
+			"'report', the link carries 2002" => ['report', 'connectRefused', 2002, 'Connection refused'],
+			"'no', the link carries 1045" => ['no', 'connectRefused', 1045, 'Access denied'],
+			"'report', the link carries 1045" => ['report', 'connectRefused', 1045, 'Access denied'],
+		];
+	}
+
+	/**
+	* r15 T15-3 (the owner's B013 halt, 509ec2d): real_escape() with no usable connection, and a connect() that fails
+	* with mysqli reporting off (the only way connect() returns 0): connect() has halted for that failure already (its
+	* failsafe mail under 'report'), and real_escape() halted it a second time (two mails for one failed connect) with
+	* no Errno set and, under 'no', nothing logged. Now: one halt, Errno/Error say the connect failed (the link's
+	* connect errno, else 2002), one error_log() line says the string was escaped without a connection, under 'no' as
+	* under 'report', and escape()'s result is handed back.
+	*
+	* @dataProvider failedConnectsBeforeAnEscape
+	* @param string $halt
+	* @param string $how
+	* @param int $errno
+	* @param string $error
+	*/
+	#[DataProvider('failedConnectsBeforeAnEscape')]
+	public function testRealEscapeAfterAFailedConnectHaltsOnceAndSaysSo($halt, $how, $errno, $error)
+	{
+		FakeServer::$strict = false;
+		if ($how === 'connectFails') {
+			FakeServer::$connectFails = 1;
+		} else {
+			FakeServer::$connectRefused = true;
+			FakeServer::$connectRefusedErrno = $errno;
+			FakeServer::$connectRefusedError = $error;
+		}
+		$db = $this->db($halt);
+
+		$this->assertSame("O\\'Brien", $db->real_escape("O'Brien"), 'escape(): there is no connection to escape with');
+
+		$this->assertSame(1, $db->halts, 'one halt for one failed connect: connect()\'s own');
+		$this->assertSame($errno > 0 ? $errno : 2002, (int) $db->Errno);
+		$this->assertStringContainsString('real_escape() had no usable connection (connect() failed', $db->Error);
+		if ($error !== '') {
+			$this->assertStringContainsString(': '.$error.')', $db->Error);
+		}
+		$this->assertCount(1, array_filter(FakeServer::$log, static function ($line) {
+			return strpos($line, 'real_escape() escaped without a connection') === 0;
+		}), 'logged once');
+		$this->assertSame(1, FakeServer::$connections, 'one connect tried');
+	}
+
 	public static function linkUsers()
 	{
 		return [

@@ -3,6 +3,7 @@
 namespace MyDb\Tests\Mysqli;
 
 use MyDb\Mysqli\Db as MysqliDb;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -92,6 +93,48 @@ class ConnectLimitTest extends TestCase
 		$this->assertSame(1, $status, 'a supervisor sees failure where it used to see success');
 		$this->assertStringNotContainsString('LIVE-ON', $output);
 		$this->assertStringNotContainsString('MAILED', $output, "'no' mode keeps its silent contract: halt() returns true without mailing");
+	}
+
+	public static function haltModes(): array
+	{
+		// [haltOnError, failsafe mails, "Session halted." messages]
+		return [
+			"'yes' (the default)" => ['yes', 1, 1],
+			"'report'" => ['report', 1, 0],
+			"'no'" => ['no', 0, 0],
+		];
+	}
+
+	/**
+	* r15 T15-2: the limit leaves with status 1 under every haltOnError, the default 'yes' included. halt() under 'yes'
+	* mails and then ends the process itself with echo + die(), status 0, so the exit(1) after it never ran: a 'yes'
+	* process (every legacy handle) that reached the limit still told its supervisor it had succeeded. Now halt() runs
+	* as 'report' there and the 'yes' message is echoed after it: each mode mails and prints what halt() does in it, the
+	* mode is put back, and the status is 1. The scripted stand-in is loaded, so nothing could connect.
+	*
+	* @dataProvider haltModes
+	*/
+	#[DataProvider('haltModes')]
+	public function testTheLimitEndsWithStatus1InEveryHaltMode(string $mode, int $mails, int $messages): void
+	{
+		$db = new MysqliDb();
+		$trip = $db->maxConnectErrors - 1;
+		$body = ' $db = new \MyDb\Mysqli\Db();'
+			. ' $db->haltOnError = ' . var_export($mode, true) . ';'
+			. ' $db->connectionAttempt = ' . ($trip - 1) . ';'
+			. ' register_shutdown_function(function () use ($db) { echo PHP_EOL . "MODE:" . $db->haltOnError . PHP_EOL;'
+			. ' foreach (\MyDb\Tests\Mysqli\FakeServer::$log as $line) { echo "LOG:" . $line . PHP_EOL; }'
+			. ' echo "CONNECTS:" . \MyDb\Tests\Mysqli\FakeServer::$connections . PHP_EOL; });'
+			. ' $db->connect();'
+			. ' echo "LIVE-ON" . PHP_EOL; exit(6);';
+		[$status, $output] = $this->childResult($this->childScript($body, true));
+		$this->assertSame(1, $status, "a supervisor sees failure under '{$mode}'; child said: " . $output);
+		$this->assertStringNotContainsString('LIVE-ON', $output, 'connect() did not hand back a link');
+		$this->assertStringContainsString("LOG:MySQLi Connection Attempt #{$trip}/{$db->maxConnectErrors}", $output);
+		$this->assertSame($mails, substr_count($output, 'MAILED:DB Error connect('), 'what halt() mails in this mode');
+		$this->assertSame($messages, substr_count($output, '<p><b>Session halted.</b>'), 'what halt() prints in this mode');
+		$this->assertStringContainsString('MODE:' . $mode . "\n", $output, 'the mode is put back');
+		$this->assertStringContainsString('CONNECTS:0', $output, 'nothing connected');
 	}
 
 	/**

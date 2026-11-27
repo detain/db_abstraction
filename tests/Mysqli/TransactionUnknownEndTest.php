@@ -2132,6 +2132,111 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"), 'p once');
 	}
 
+	public static function refusedOutsideReadInside()
+	{
+		// [a statement prepare() refuses with no transaction open (an executable comment that is not read: it may be a
+		//  START, COMMIT or ROLLBACK) that is read after it works inside one, how the caller then opens a transaction,
+		//  MYSQLI_REPORT_STRICT]. What e344766's execute() did with the INSERT prepared before it, in its place: 'doubt'
+		//  (the transaction goes on, the INSERT committed twice), 'unknown' (given up with 2006, the caller's
+		//  transaction lost), 'noend' (committed twice)
+		$rows = [];
+		foreach ([
+			'START /*!80000 TRANSACTION */' => 'doubt',
+			'START /*M! x */ TRANSACTION' => 'doubt',
+			'START /*!99999 @x*/ TRANSACTION READ ONLY' => 'doubt',
+			'/*!99999 COMMIT */' => 'unknown',
+			'/*!80000 BEGIN */' => 'unknown',
+			'/*M! x */ START TRANSACTION' => 'unknown',
+			'autocommit/*!' => 'noend',
+			'CHAIN /*!80000 ' => 'noend',
+		] as $sql => $then) {
+			foreach (['transactionBegin', 'query START'] as $how) {
+				foreach ([false, true] as $strict) {
+					$rows[$sql.' ('.$then.'), '.$how.($strict ? ', strict' : '')] = [$sql, $how, $strict];
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r15 T15-1: a refused prepare() left $statement as it was, and execute() read the refused statement again against
+	* the transaction state of the moment. One refused with no transaction open, because an executable comment that is
+	* not read may make it a START, COMMIT or ROLLBACK, is read after it works inside one (not refused there): once the
+	* caller (ignoring prepare()'s 0) had opened a transaction, execute() sent the statement prepared BEFORE it in its
+	* place and tracked it as the refused one: an INSERT already committed was written again and committed by the
+	* caller's COMMIT, or rolled back with the caller's transaction given up (a false success either way). The refusal
+	* is kept until a statement is prepared again: execute() refuses (false, 1295, nothing sent, nothing changed, no
+	* halt, no mail, no exception), and the transaction goes on with every write once
+	*
+	* @dataProvider refusedOutsideReadInside
+	* @param string $sql
+	* @param string $how
+	* @param bool $strict
+	*/
+	#[DataProvider('refusedOutsideReadInside')]
+	public function testARefusedPrepareNeverLetsExecuteRunTheStatementPreparedBefore($sql, $how, $strict)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db('yes');
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertTrue($db->execute());
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+
+		$this->assertSame(0, $db->prepare($sql), 'refused with no transaction open');
+		$this->assertSame(1295, (int) $db->Errno);
+		$this->assertTrue($how === 'transactionBegin' ? $db->transactionBegin() : $this->q($db, 'START TRANSACTION'));
+		$wire = count(FakeServer::$wire);
+
+		$this->assertFalse($db->execute(), 'still refused inside the transaction');
+		$this->assertSame(1295, (int) $db->Errno);
+		$this->assertStringContainsString('not supported in the prepared statement protocol', $db->Error);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent: not the INSERT prepared before');
+		$this->assertTrue($db->inTransaction(), 'nothing changed');
+		$this->assertFalse($db->lost());
+		$this->assertTrue($db->replayable());
+		$this->assertSame([], FakeServer::$open[1] ?? [], 'nothing written inside it');
+
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		$wire = count(FakeServer::$wire);
+		$this->assertFalse($db->execute(), 'refused again: nothing has been prepared since');
+		$this->assertSame(1295, (int) $db->Errno);
+		$this->assertSame($wire, count(FakeServer::$wire));
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"), 'p once');
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('c')"), 'c once');
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('d')"), 'a statement prepared again');
+		$this->assertTrue($db->execute(), 'runs: the refusal ended with it');
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+	}
+
+	/**
+	* r15 T15-1: detach() lets go of the prepared statement (it belongs to the connection let go of), and of a refusal
+	* kept for it: a statement prepared after it runs; a copy made by newConnection() starts with neither
+	*/
+	public function testDetachLetsGoOfAKeptRefusal()
+	{
+		FakeServer::$strict = false;
+		$refused = new \ReflectionProperty(\MyDb\Mysqli\Db::class, 'statementRefused');
+		$refused->setAccessible(true);
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$this->assertSame(0, $db->prepare('/*!99999 COMMIT */'));
+		$this->assertTrue($refused->getValue($db));
+		$copy = $db->newConnection();
+		$this->assertFalse($refused->getValue($copy), 'newConnection(): no statement, nothing refused');
+		$this->assertNull($copy->statement_query);
+		$db->detach();
+		$this->assertFalse($refused->getValue($db), 'detach(): no statement, nothing refused');
+		$this->assertNull($db->statement_query);
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertTrue($db->execute());
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+	}
+
 	/**
 	* r15b: what execute() reads is the statement prepared, whether or not queries are logged (disable_db_queries: the
 	* statement was kept only when they were, so execute() read the one before): a prepared CREATE TABLE inside the

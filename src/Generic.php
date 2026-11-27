@@ -401,11 +401,17 @@ abstract class Generic
     }
 
     /**
-     * Connection-bound escaping is a driver job; the shared base has none.
+     * Connection-bound escaping is a driver job; the shared base has none: it throws, and every driver that escapes
+     * overrides it (Mysqli\Db, and Mdb2\Db through it; Pgsql/Adodb with their own, see there).
      *
-     * @param $string
-     * @return never
-     * @throws \LogicException always, from the base: the driver did not implement its own escaper
+     * The return type is the drivers' contract, not this base's (which never returns): typed `never` here, every
+     * value escaped through a handle typed as this class read as `never` to static analysis, which then checked none
+     * of them (and an override without its own return tag inherited `never`). Not declared natively either: a native
+     * `never` would make every override a fatal error.
+     *
+     * @param mixed $string
+     * @return string the escaped string (Mysqli\Db hands a value that is not a string back as it is)
+     * @throws \LogicException from this base only: the driver has no escaper of its own
      */
     public function real_escape($string = '')
     {

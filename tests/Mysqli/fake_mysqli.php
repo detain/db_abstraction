@@ -218,12 +218,12 @@ namespace MyDb\Tests\Mysqli {
 			if (FakeServer::$connectRefused) {
 				if (FakeServer::$strict) {
 					// MYSQLI_REPORT_STRICT: the driver's connect() never gets to halt()
-					throw new \mysqli_sql_exception('Connection refused', 2002);
+					throw new \mysqli_sql_exception(FakeServer::$connectRefusedError, FakeServer::$connectRefusedErrno);
 				}
 				// the half-open handle: real_connect() reports success but the handle carries the error,
 				// which is the one refused-connect shape in which connect() returns 0 instead of exiting
-				$this->connect_errno = 2002;
-				$this->connect_error = 'Connection refused';
+				$this->connect_errno = FakeServer::$connectRefusedErrno;
+				$this->connect_error = FakeServer::$connectRefusedError;
 			}
 			return true;
 		}
@@ -339,6 +339,10 @@ namespace MyDb\Tests\Mysqli {
 		public static $halfOpenCalls = [];
 		/** @var bool every real_connect() is refused (2002) */
 		public static $connectRefused = false;
+		/** @var int the errno a refused real_connect() ($connectRefused) fails with */
+		public static $connectRefusedErrno = 2002;
+		/** @var string the error a refused real_connect() ($connectRefused) fails with */
+		public static $connectRefusedError = 'Connection refused';
 		/** @var int next N real_connect() calls fail (r6 harness addition) */
 		public static $connectFails = 0;
 		/** @var bool model MySQL's OPTION_BEGIN after an implicit rollback, and a failed COMMIT ending the transaction */
@@ -393,6 +397,8 @@ namespace MyDb\Tests\Mysqli {
 		{
 			self::$strict = true;
 			self::$connectRefused = false;
+			self::$connectRefusedErrno = 2002;
+			self::$connectRefusedError = 'Connection refused';
 			self::$connectFails = 0;
 			self::$connectFailsReal = 0;
 			self::$halfOpenCalls = [];

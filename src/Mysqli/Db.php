@@ -436,6 +436,18 @@ class Db extends Generic implements Db_Interface
     protected $statementLink = null;
 
     /**
+    * Whether the last prepare() refused its statement (preparedTransactionStatement(): a START TRANSACTION, BEGIN,
+    * COMMIT or ROLLBACK, or one that may be one) and nothing has been prepared since. $statement still holds the
+    * statement prepared before it, so execute() refuses on this alone, whatever the transaction state is when it runs:
+    * read again then, a statement refused with no transaction open (one whose executable comment is not read) is let
+    * through inside one, and that earlier statement would be run, and tracked, in its place (a write sent twice).
+    * Cleared once mysqli_prepare() has replaced $statement, and with it by detach().
+    *
+    * @var bool
+    */
+    protected $statementRefused = false;
+
+    /**
     * alias function of select_db, changes the database we are working with.
     *
     * @param string $database the name of the database to use
@@ -524,6 +536,7 @@ class Db extends Generic implements Db_Interface
         $this->statement_query = null;
         $this->statement_vars = null;
         $this->statementLink = null;
+        $this->statementRefused = false;
     }
 
     /**
@@ -599,11 +612,30 @@ class Db extends Generic implements Db_Interface
                 // The trip point stays deliberately one failure before the documented
                 // maxConnectErrors (with the default of 5: on the 4th consecutive failure), the
                 // timing every outage path has lived with; what changes is that it is now a real
-                // halt: log, halt() (mail under 'report', message under 'yes', caller-visible
-                // false under 'no'), then leave with a status that says failure. The replay stays
-                // inside this limit without adjustment (see replayReset()).
+                // halt: log, halt() (its failsafe mail, or log lines where there is no mailer, under
+                // 'report' and 'yes'; the "Session halted." message too under 'yes'; nothing under
+                // 'no'), then leave with status 1 whatever the mode. halt() itself ends a 'yes'
+                // process with die(), status 0, before an exit after it could run: so it runs as
+                // 'report' here (the same mail, and back to 'yes' after it; the one other thing the
+                // two modes do apart, an UNLOCK TABLES exception thrown on under 'yes', cannot
+                // happen here: its unlock() sends nothing on a link that is not usable) and the
+                // 'yes' message is echoed after it, as halt() would. The replay stays inside this
+                // limit without adjustment (see replayReset()).
                 error_log("MySQLi Connection Attempt #{$this->connectionAttempt}/{$this->maxConnectErrors}");
-                $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
+                $haltMode = $this->haltOnError;
+                // halt()'s own reading of 'yes': neither 'no' nor 'report'
+                $haltDies = $haltMode != 'no' && $haltMode != 'report';
+                if ($haltDies) {
+                    $this->haltOnError = 'report';
+                }
+                try {
+                    $this->halt("connect($host, $user, \$password) failed. ".(is_object($this->linkId) && isset( $this->linkId->connect_error) ? $this->linkId->connect_error : ''));
+                } finally {
+                    $this->haltOnError = $haltMode;
+                }
+                if ($haltDies) {
+                    echo '<p><b>Session halted.</b>';
+                }
                 exit(1);
             }
             //error_log("real_connect($host, $user, $password, $database, $port)");
@@ -742,13 +774,29 @@ class Db extends Generic implements Db_Interface
         // connect(); keep calling it, but off a check that can actually pass.
         if (!$this->linkIsUsable() && !$this->connect()) {
             // B013 (S52, 2026-11-22): str_replace escaping without a live utf8mb4 link is not a
-            // security control, so surface the outage instead of degrading silently: halt() sets
-            // Errno/Error and logs (mailing only in 'report' mode); haltOnError='yes' dies inside
-            // halt() before ever handing back a worse escape, and under PHP 8.3's default
-            // MYSQLI_REPORT_STRICT real_connect() throws before connect() returns 0 at all — this
-            // leg runs only when the driver is deliberately running with mysqli error reporting
-            // off and halting off. escape() stays the documented worst case, and it is now loud.
-            $this->halt('real_escape() called with no usable connection', __LINE__, __FILE__);
+            // security control, so surface the outage instead of degrading silently. connect()
+            // returns 0 only after its own halt() for this same failure (mail under 'report';
+            // under 'yes' it dies there, before ever handing back a worse escape; under 'no' it
+            // is silent), and under PHP 8.3's default MYSQLI_REPORT_STRICT real_connect() throws
+            // before connect() returns 0 at all: this leg runs only with mysqli error reporting
+            // off and haltOnError 'report' or 'no'. No second halt() here (it mailed the one
+            // failure twice under 'report', and halt() sets no Errno): Errno/Error say the
+            // connect failed (its errno, else 2002), and one error_log() line says the string was
+            // escaped without a connection, in both modes. escape() stays the documented worst
+            // case, and it is now loud.
+            $errno = 0;
+            $why = '';
+            try {
+                if (is_object($this->linkId)) {
+                    $errno = (int) $this->linkId->connect_errno;
+                    $why = (string) $this->linkId->connect_error;
+                }
+            } catch (\Throwable $e) {
+                // a mysqli that cannot say why: the default below
+            }
+            $this->Errno = $errno > 0 ? $errno : 2002;
+            $this->Error = 'real_escape() had no usable connection (connect() failed'.($why !== '' ? ': '.$why : '').'): the string was escaped without one (escape(), not connection or charset aware)';
+            error_log('real_escape() escaped without a connection (connect() failed, SQL error '.$this->Errno.'): escape() is not connection or charset aware');
             return $this->escape($string);
         }
         return mysqli_real_escape_string($this->linkId, $string);
@@ -817,8 +865,9 @@ class Db extends Generic implements Db_Interface
     * A START TRANSACTION, BEGIN, COMMIT or ROLLBACK (preparedTransactionStatement()) is not prepared: 0, Errno 1295,
     * nothing sent and nothing changed, as execute() refuses one (see there): the mysqli_stmt handed back could be run
     * with its own execute(), past this instance's bookkeeping. The statement execute() reads ($statement_query) is the
-    * one prepared here whether or not it is logged (disable_db_queries), and after a refusal the refused one, so the
-    * statement prepared before is never run in its place.
+    * one prepared here whether or not it is logged (disable_db_queries), and after a refusal the refused one; and the
+    * refusal is kept ($statementRefused) until a statement is prepared again, so execute() refuses too, whatever the
+    * transaction state is by then, and the statement prepared before is never run in its place.
     *
     * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and
     * col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
@@ -831,8 +880,10 @@ class Db extends Generic implements Db_Interface
         $unread = false;
         $lead = static::leadingKeywordSql((string) $query, $unread);
         if (static::preparedTransactionStatement($lead, $unread, $this->inTransaction === true)) {
-            // (execute() reads it, and refuses it too)
+            // (execute() reads it, and refuses it too, whatever the transaction state is by then: $statement is still
+            // the one prepared before)
             $this->statement_query = $query;
+            $this->statementRefused = true;
             $this->refusePreparedTransactionStatement('prepare', $line, $file);
             return 0;
         }
@@ -853,6 +904,8 @@ class Db extends Generic implements Db_Interface
         $this->countStatement();
         try {
             $this->statement = mysqli_prepare($this->linkId, $query);
+            // the statement prepared before is gone: nothing refused is left to run in its place
+            $this->statementRefused = false;
             // a mysqli_stmt runs on the connection that prepared it: execute() checks that this instance still holds it
             $this->statementLink = is_object($this->linkId) ? $this->linkId : null;
             // what execute() reads, logged or not: kept with the statement it belongs to
@@ -909,14 +962,17 @@ class Db extends Generic implements Db_Interface
     * it twice) and past query()'s guards (the refusal after a lost transaction, another handle's transaction on the
     * shared link). Refused rather than tracked: MySQL takes only COMMIT of them as a prepared statement (the rest fail
     * 1295 at prepare), no caller sends one, and tracking it would repeat every guard of query() here. Send them through
-    * query() or transactionBegin()/transactionCommit()/transactionAbort().
+    * query() or transactionBegin()/transactionCommit()/transactionAbort(). After a prepare() that refused its statement
+    * nothing is sent either until a statement is prepared again ($statementRefused), even where the refused statement
+    * would not be refused now (one with an executable comment that is not read, refused with no transaction open and
+    * read after it works inside one): the mysqli_stmt still held is the one prepared before.
     *
     * @return bool success
     */
     public function execute($line = '', $file = '') {
         $unread = false;
         $lead = static::leadingKeywordSql((string) $this->statement_query, $unread);
-        if (static::preparedTransactionStatement($lead, $unread, $this->inTransaction === true)) {
+        if ($this->statementRefused || static::preparedTransactionStatement($lead, $unread, $this->inTransaction === true)) {
             $this->refusePreparedTransactionStatement('execute', $line, $file);
             return false;
         }
