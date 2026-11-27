@@ -34,6 +34,8 @@ class TransactionUnknownEndTest extends TestCase
 {
 	protected function tearDown(): void
 	{
+		// (testExecuteReadsThePreparedStatementWithQueriesNotLogged)
+		unset($GLOBALS['disable_db_queries']);
 		$this->assertSame([], \MyAdmin\Mail::$sent, 'nothing was mailed');
 	}
 
@@ -2048,6 +2050,381 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertSame(1213, (int) $db->Errno);
 		$this->assertSame($sent, count(FakeServer::statements()), 'nothing sent');
 	}
+	public static function preparedTransactionStatements()
+	{
+		// [the statement, whether a transaction of the handle's own is open when it is prepared]
+		$rows = [];
+		foreach (['COMMIT', 'commit work', 'COMMIT AND CHAIN', 'COMMIT RELEASE', 'ROLLBACK', 'ROLLBACK AND CHAIN', 'ROLLBACK WORK', "ROLLBACK /* the caller's */", 'START TRANSACTION', 'START TRANSACTION READ ONLY', 'START /* c */ TRANSACTION', 'BEGIN', 'BEGIN WORK', 'COMMIT /*!99999 AND CHAIN */', 'ROLLBACK /*!99999 TO SAVEPOINT s1 */', '/* c */ COMMIT', 'ROLLBACK /* never closed'] as $sql) {
+			$rows['inside: '.$sql] = [$sql, true];
+		}
+		foreach (['COMMIT', 'ROLLBACK', 'START TRANSACTION', 'BEGIN', 'COMMIT AND CHAIN', 'ROLLBACK AND CHAIN', '/*!99999 x */ START TRANSACTION', 'START /*!99999 x */ TRANSACTION', '/*!80000 START TRANSACTION */', '/*!99999 x */ ROLLBACK', '/*!99999 x */ COMMIT', 'ROLLBACK /*!99999 AND CHAIN */', '/*!800001 */ COMMIT', 'ROLLBACK /* never closed'] as $sql) {
+			$rows['outside: '.$sql] = [$sql, false];
+		}
+		return $rows;
+	}
+
+	/**
+	* r15b (lead decision on r15's E1): a START TRANSACTION, BEGIN, COMMIT or ROLLBACK through prepare()/execute() ran
+	* untracked: a prepared COMMIT left the transaction tracked as open (a 1213 after it was taken for its rollback, and a
+	* retrying caller wrote it twice), and one past the refusal after a lost transaction or beside another handle's
+	* transaction went out unguarded. It is refused now: prepare() returns 0 and sends nothing (the mysqli_stmt it would
+	* hand back could be run past the bookkeeping), execute() does not run it either, Errno 1295, nothing changed, no mail,
+	* no halt (haltOnError 'yes'), no exception (MYSQLI_REPORT_STRICT); outside a transaction one that may be any of them
+	* (an executable comment that is not read) too
+	*
+	* @dataProvider preparedTransactionStatements
+	* @param string $sql
+	* @param bool $open
+	*/
+	#[DataProvider('preparedTransactionStatements')]
+	public function testAPreparedTransactionStatementIsRefusedNotRunUntracked($sql, $open)
+	{
+		FakeServer::$strict = true;
+		$db = $this->db('yes');
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		if ($open) {
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		}
+		$wire = count(FakeServer::$wire);
+
+		$this->assertSame(0, $db->prepare($sql), 'not prepared');
+		$this->assertSame(1295, (int) $db->Errno);
+		$this->assertStringContainsString('not supported in the prepared statement protocol', $db->Error);
+		$this->assertFalse($db->execute(), 'nor run');
+		$this->assertSame(1295, (int) $db->Errno);
+
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+		$this->assertSame($open, $db->inTransaction(), 'nothing changed');
+		$this->assertSame($open ? [1 => ["INSERT INTO t (v) VALUES ('c')"]] : [], FakeServer::$open);
+		$this->assertTrue($open ? $db->replayable() : true, 'still replayable');
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+		$this->assertSame([], $db->reported, 'not mailed');
+		$this->assertFalse($db->lost());
+		$this->assertTrue($open ? $db->transactionCommit() : $this->q($db, "INSERT INTO t (v) VALUES ('d')"), 'the handle goes on');
+		$this->assertSame($open ? 1 : 0, self::committed("INSERT INTO t (v) VALUES ('c')"));
+	}
+
+	/**
+	* r15b: execute() reads the statement again when it runs: one prepared inside the transaction, where what it did is
+	* told after it worked (an executable comment that is not read), is refused once no transaction of the handle's own
+	* is open, where it may be the COMMIT, ROLLBACK or START query() guards; and after a refused prepare() it never runs
+	* the statement prepared before in its place (an INSERT written twice)
+	*/
+	public function testExecuteRefusesWhatItWouldNotPrepareNow()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertNotSame(0, $db->prepare('/*!99999 x */ COMMIT'), 'inside it is told after it worked');
+		$this->assertTrue($this->q($db, 'COMMIT'));
+		$sent = count(FakeServer::statements());
+		$this->assertFalse($db->execute());
+		$this->assertSame(1295, (int) $db->Errno);
+		$this->assertSame($sent, count(FakeServer::statements()), 'not sent');
+
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertTrue($db->execute());
+		$this->assertSame(0, $db->prepare('COMMIT'));
+		$this->assertFalse($db->execute(), 'refused, not the INSERT prepared before');
+		$this->assertSame(1295, (int) $db->Errno);
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"), 'p once');
+	}
+
+	/**
+	* r15b: what execute() reads is the statement prepared, whether or not queries are logged (disable_db_queries: the
+	* statement was kept only when they were, so execute() read the one before): a prepared CREATE TABLE inside the
+	* transaction ends it (c committed, d autocommits), and a 1213 after it is no "rolled back, retry"
+	*/
+	public function testExecuteReadsThePreparedStatementWithQueriesNotLogged()
+	{
+		FakeServer::$strict = false;
+		$GLOBALS['disable_db_queries'] = true;
+		$db = $this->db();
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertTrue($db->execute());
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		$this->assertNotSame(0, $db->prepare('CREATE TABLE z (a int)'));
+		$this->assertSame('CREATE TABLE z (a int)', $db->statement_query);
+		$this->assertTrue($db->execute());
+		self::implicitCommit();
+		$this->assertFalse($db->inTransaction(), 'the implicit commit ended it');
+		FakeServer::failNext("/VALUES \\('d'\\)/", 1213);
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('d')"), 'outside a transaction: retried on its own');
+		$this->assertTrue($db->transactionCommit());
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('c')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertSame(0, $db->prepare('COMMIT'));
+		$this->assertFalse($db->execute());
+		$this->assertSame(1295, (int) $db->Errno);
+	}
+
+	public static function preparedStatementsRunAsThroughQuery()
+	{
+		// [the prepared statement, whether a transaction is open]: what execute() runs and tracks as query() does
+		return [
+			'inside: ROLLBACK TO SAVEPOINT (no end)' => ['ROLLBACK TO SAVEPOINT s1', true],
+			'inside: ROLLBACK WORK TO s1' => ['ROLLBACK WORK TO s1', true],
+			'inside: ROLLBACK, a comment, TO SAVEPOINT' => ['ROLLBACK /* c */ TO SAVEPOINT s1', true],
+			'inside: SAVEPOINT' => ['SAVEPOINT s1', true],
+			'inside: RELEASE SAVEPOINT' => ['RELEASE SAVEPOINT s1', true],
+			'inside: one that may be a START (told after it worked: given up)' => ['/*!99999 x */ START TRANSACTION', true],
+			'inside: one that may be a COMMIT' => ['/*!99999 x */ COMMIT', true],
+			'inside: DDL' => ['CREATE TABLE z (a int)', true],
+			'inside: an INSERT' => ["INSERT INTO t (v) VALUES ('p')", true],
+			'outside: ROLLBACK TO SAVEPOINT' => ['ROLLBACK TO SAVEPOINT s1', false],
+			'outside: an executable comment that opens nothing' => ['/*!99999 x */ SELECT 1', false],
+			'outside: an INSERT' => ["INSERT INTO t (v) VALUES ('p')", false],
+		];
+	}
+
+	/**
+	* r15b: what prepare()/execute() do not refuse runs and is tracked exactly as through query(): the same result, Errno,
+	* transaction state, lost record and server state
+	*
+	* @dataProvider preparedStatementsRunAsThroughQuery
+	* @param string $sql
+	* @param bool $open
+	*/
+	#[DataProvider('preparedStatementsRunAsThroughQuery')]
+	public function testAPreparedStatementItDoesNotRefuseRunsAsThroughQuery($sql, $open)
+	{
+		$seen = [];
+		foreach (['execute', 'query'] as $how) {
+			FakeServer::reset();
+			FakeServer::$strict = false;
+			$db = $this->db();
+			$this->assertTrue($this->q($db, 'SELECT 1'));
+			if ($open) {
+				$this->assertTrue($this->q($db, 'START TRANSACTION'));
+				$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+			}
+			if ($how === 'execute') {
+				$this->assertNotSame(0, $db->prepare($sql));
+			}
+			$result = $how === 'execute' ? $db->execute() : $this->q($db, $sql);
+			$seen[$how] = [$result !== false, (int) $db->Errno, $db->inTransaction(), $db->lost(), FakeServer::sent($sql), FakeServer::$open, FakeServer::$committed];
+		}
+		$this->assertSame(1, $seen['execute'][4], 'sent');
+		$this->assertSame($seen['query'], $seen['execute']);
+	}
+
+	public static function preparedCommitGuards()
+	{
+		return ['after the lost transaction\'s refused COMMIT' => ['lost'], 'beside another handle\'s transaction' => ['other'], 'its retry after a 1213' => ['retry']];
+	}
+
+	/**
+	* r15b: the cases a prepared COMMIT ran past: after a lost transaction's refused COMMIT (query('COMMIT') is refused
+	* there, F/1213, nothing sent), beside another handle's open transaction on the shared link (query('COMMIT') fails
+	* 2006 unsent: run, it committed that one behind its back), and a caller's retry: START, c, a prepared COMMIT (it
+	* committed c, the transaction still tracked as open), then d failing 1213 was taken for the transaction's rollback,
+	* and the retry wrote c twice. Refused (1295), c is written once
+	*
+	* @dataProvider preparedCommitGuards
+	* @param string $case
+	*/
+	#[DataProvider('preparedCommitGuards')]
+	public function testAPreparedCommitNeverRunsPastTheGuardsOfQuery($case)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		if ($case === 'lost') {
+			$this->lostAndRefused($db, true);
+			$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+			$sent = count(FakeServer::statements());
+			$this->assertSame(0, $db->prepare('COMMIT'));
+			$this->assertFalse($db->execute());
+			$this->assertSame(1295, (int) $db->Errno);
+			$this->assertSame($sent, count(FakeServer::statements()), 'nothing sent');
+			$this->assertTrue($db->lost(), 'the record stays');
+			$this->assertFalse($db->transactionCommit(), 'still refused');
+			$this->assertSame(1213, (int) $db->Errno);
+			return;
+		}
+		if ($case === 'other') {
+			$other = clone $db;
+			$this->assertTrue($this->q($other, 'START TRANSACTION'));
+			$this->assertTrue($this->q($other, "INSERT INTO t (v) VALUES ('o1')"));
+			$this->assertSame(0, $db->prepare('COMMIT'));
+			$this->assertFalse($db->execute());
+			$this->assertSame(1295, (int) $db->Errno);
+			$this->assertSame(["INSERT INTO t (v) VALUES ('o1')"], FakeServer::$open[1] ?? null, 'the other handle\'s transaction untouched');
+			$this->assertTrue($other->transactionCommit());
+			$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('o1')"));
+			return;
+		}
+		$done = false;
+		for ($attempt = 1; $attempt <= 3 && !$done; $attempt++) {
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+			$db->prepare('COMMIT');
+			if ($db->execute() === false && (int) $db->Errno === 1295) {
+				// the caller's fallback for a statement the prepared protocol does not take
+				$done = $this->q($db, 'COMMIT') !== false;
+				continue;
+			}
+			if ($attempt === 1) {
+				FakeServer::failNext("/VALUES \\('d'\\)/", 1213);
+			}
+			$d = $this->q($db, "INSERT INTO t (v) VALUES ('d')");
+			$done = $d !== false;
+			if (!$done) {
+				$this->assertFalse($db->transactionCommit());
+			}
+		}
+		$this->assertTrue($done);
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('c')"), 'c once');
+	}
+
+	public static function failedAborts()
+	{
+		// [how the ROLLBACK fails (the server's errno), the opener (plain, or after a loss a statement that may be a START:
+		// its end not known), strict]: it fails every time, so query('ROLLBACK')'s retries fail too
+		$rows = [];
+		foreach ([1180, 2013, 1213, 1064] as $errno) {
+			foreach (['plain', 'unknown'] as $opener) {
+				foreach ([false, true] as $strict) {
+					$rows[$errno.', '.$opener.($strict ? ', strict' : '')] = [$errno, $opener, $strict];
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/** START (or, after a lost transaction's refused COMMIT, a statement that may be one) and c */
+	private function openForAbort($db, $opener)
+	{
+		$this->assertTrue($this->q($db, 'SELECT 1'));
+		if ($opener === 'unknown') {
+			$this->lostAndRefused($db, true);
+			$this->assertTrue($this->q($db, '/*!99999 x */ START TRANSACTION'));
+		} else {
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		}
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+	}
+
+	/**
+	* r15b (lead decision on r15's E2): a transactionAbort() whose ROLLBACK fails on the server records it as a failed
+	* query('ROLLBACK') does: Errno/Error the server's (was left as they were, 0 after the last statement that worked), the
+	* transaction lost with that errno (2006 while its end was not known; was: nothing recorded, or a stale record of an
+	* older loss kept, whose 1213 the next COMMIT then answered), not refusing the caller's statements, and the connection
+	* closed (the server may still hold the transaction: before, the caller's next statements ran inside it). Unlike
+	* query() it never mails or halts (haltOnError 'yes' here), and under MYSQLI_REPORT_STRICT it still throws the
+	* server's exception, after recording it
+	*
+	* @dataProvider failedAborts
+	* @param int $errno
+	* @param string $opener
+	* @param bool $strict
+	*/
+	#[DataProvider('failedAborts')]
+	public function testAFailedTransactionAbortIsRecordedAsAFailedQueryRollback($errno, $opener, $strict)
+	{
+		$seen = [];
+		foreach (['transactionAbort', 'query'] as $how) {
+			FakeServer::reset();
+			FakeServer::$strict = false;
+			$db = $this->db($how === 'transactionAbort' ? 'yes' : 'no');
+			// (query() reports a failed statement: logged, not mailed, here)
+			$db->reportFailures = $how === 'transactionAbort';
+			$this->openForAbort($db, $opener);
+			// (the setup's failed a2 halts and reports under 'yes': only what the abort adds counts)
+			list($halts, $reports) = [$db->haltCalls, count($db->reported)];
+			FakeServer::$strict = $strict;
+			FakeServer::failNext('/^ROLLBACK$/', $errno, 1000);
+			list($result, $exception) = self::attempt(function () use ($db, $how) { return $how === 'transactionAbort' ? $db->transactionAbort() : $this->q($db, 'ROLLBACK'); });
+			FakeServer::$strict = false;
+			if ($how === 'transactionAbort') {
+				$this->assertSame($strict ? $errno : null, $exception !== null ? (int) $exception->getCode() : null, 'the server\'s exception only under STRICT');
+				$this->assertSame($halts, $db->haltCalls, 'never halts');
+				$this->assertSame($reports, count($db->reported), 'never mailed');
+			}
+			$state = [$result, (int) $db->Errno, $db->inTransaction(), $db->lost(), $db->lostTransactionPending(), $db->linkId === 0];
+			$sent = count(FakeServer::statements());
+			$later = $db->transactionCommit();
+			$seen[$how] = [$state, $later, (int) $db->Errno, count(FakeServer::statements()) - $sent, self::committed("INSERT INTO t (v) VALUES ('c')")];
+		}
+		$this->assertSame([false, $errno, false, true, false, true], $seen['transactionAbort'][0], 'false, the server\'s Errno, lost (not refusing), the connection closed');
+		$this->assertSame([false, $opener === 'unknown' && $errno !== 2013 ? 2006 : $errno, 0, 0], array_slice($seen['transactionAbort'], 1), 'the later COMMIT answers this loss, never an older one\'s, and sends nothing');
+		$this->assertSame($seen['query'], $seen['transactionAbort']);
+	}
+
+	/**
+	* r15b: the ROLLBACK failed once on a connection that is still there (on the fake, as on MySQL after a deadlock, the
+	* session stays in a transaction): transactionAbort() closes it, as query('ROLLBACK') does when its ROLLBACK finally
+	* fails, so d autocommits on a new connection. Before, the connection was kept and d ran inside the transaction still
+	* open there: never committed (lost with the connection) unless a later COMMIT, which the caller has no reason to send
+	*/
+	public function testAFailedTransactionAbortClosesTheConnectionThatMayStillHoldTheTransaction()
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->openForAbort($db, 'plain');
+		FakeServer::failNext('/^ROLLBACK$/', 1213, 1);
+		$this->assertFalse($db->transactionAbort());
+		$this->assertSame(1213, (int) $db->Errno);
+		$this->assertSame(0, $db->linkId, 'closed');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('d')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"), 'autocommitted');
+		$this->assertSame([], FakeServer::$open, 'nothing left open');
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('c')"));
+		$this->assertFalse($db->transactionCommit(), 'the loss refuses a later COMMIT');
+		$this->assertSame(1213, (int) $db->Errno);
+	}
+
+	public static function unusableHandlesWithAnOpenTransaction()
+	{
+		return ['closed by another holder, plain' => ['closed', 'plain'], 'closed, after a loss' => ['closed', 'unknown'], 'half-open, plain' => ['halfOpen', 'plain'], 'half-open, after a loss' => ['halfOpen', 'unknown']];
+	}
+
+	/**
+	* r15b: transactionAbort() on a handle mysqli cannot use, with a transaction of its own open, fails as before (false,
+	* 2006, the handle let go of) and now records the loss (2006) like any failed ROLLBACK: the later COMMIT is refused
+	* with it, nothing sent (before: answered true with nothing recorded, or with the stale 1213 of an older loss).
+	* query('ROLLBACK') reconnects there and answers true (the transaction went with the connection): the API call keeps
+	* failing, the safe side
+	*
+	* @dataProvider unusableHandlesWithAnOpenTransaction
+	* @param string $how
+	* @param string $opener
+	*/
+	#[DataProvider('unusableHandlesWithAnOpenTransaction')]
+	public function testATransactionAbortOnAnUnusableHandleRecordsTheLoss($how, $opener)
+	{
+		FakeServer::$strict = false;
+		$db = $this->db();
+		$this->openForAbort($db, $opener);
+		if ($how === 'closed') {
+			$other = clone $db;
+			$other->disconnect();
+		} else {
+			$established = new \ReflectionProperty(\MyDb\Mysqli\Db::class, 'linkEstablished');
+			$established->setAccessible(true);
+			$established->setValue($db, false);
+			$db->linkId->halfOpen = true;
+		}
+		$this->assertFalse($db->transactionAbort());
+		$this->assertSame(2006, (int) $db->Errno);
+		$this->assertSame(0, $db->linkId);
+		$this->assertTrue($db->lost());
+		$this->assertFalse($db->lostTransactionPending(), 'the caller ended it: nothing refused');
+		$sent = count(FakeServer::statements());
+		$this->assertFalse($db->transactionCommit());
+		$this->assertSame(2006, (int) $db->Errno, 'this loss, not an older one\'s');
+		$this->assertSame($sent, count(FakeServer::statements()), 'nothing sent');
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('d')"), 'not refused: the caller ended it');
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('c')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
+		$this->assertTrue($db->transactionBegin(), 'a new transaction clears it');
+		$this->assertFalse($db->lost());
+	}
+
 
 	public static function endsNothing()
 	{

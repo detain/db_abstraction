@@ -814,6 +814,12 @@ class Db extends Generic implements Db_Interface
     /**
     * creates a prepaired statement from query
     *
+    * A START TRANSACTION, BEGIN, COMMIT or ROLLBACK (preparedTransactionStatement()) is not prepared: 0, Errno 1295,
+    * nothing sent and nothing changed, as execute() refuses one (see there): the mysqli_stmt handed back could be run
+    * with its own execute(), past this instance's bookkeeping. The statement execute() reads ($statement_query) is the
+    * one prepared here whether or not it is logged (disable_db_queries), and after a refusal the refused one, so the
+    * statement prepared before is never run in its place.
+    *
     * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and
     * col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
     * @return false|mysqli_stmt
@@ -822,6 +828,14 @@ class Db extends Generic implements Db_Interface
     */
     public function prepare($query, $line = '', $file = '')
     {
+        $unread = false;
+        $lead = static::leadingKeywordSql((string) $query, $unread);
+        if (static::preparedTransactionStatement($lead, $unread, $this->inTransaction === true)) {
+            // (execute() reads it, and refuses it too)
+            $this->statement_query = $query;
+            $this->refusePreparedTransactionStatement('prepare', $line, $file);
+            return 0;
+        }
         if ($this->linkLostInTransaction()) {
             // no reconnect underneath an open transaction: it is recorded as lost
             return 0;
@@ -841,11 +855,12 @@ class Db extends Generic implements Db_Interface
             $this->statement = mysqli_prepare($this->linkId, $query);
             // a mysqli_stmt runs on the connection that prepared it: execute() checks that this instance still holds it
             $this->statementLink = is_object($this->linkId) ? $this->linkId : null;
+            // what execute() reads, logged or not: kept with the statement it belongs to
+            $this->statement_query = $query;
         } finally {
             $this->haltOnError = $haltPrev;
         }
         if (!isset($GLOBALS['disable_db_queries'])) {
-            $this->statement_query = $query;
             $this->addLog($query, microtime(true) - $start, $line, $file);
         }
         return $this->statement;
@@ -884,9 +899,27 @@ class Db extends Generic implements Db_Interface
     * not known at all: implicitCommitOutcome()) and gives it up when it fails after the server ran it, as through
     * query() (see executeFailed(), queryInTransaction()).
     *
+    * A START TRANSACTION, BEGIN, COMMIT or ROLLBACK (preparedTransactionStatement(): every form query() tracks, and
+    * one that may be any of them) is never sent here, nor prepared (prepare()): false, Errno 1295 (ER_UNSUPPORTED_PS,
+    * the server's own "not supported in the prepared statement protocol": nothing ran, not a conflict errno), one
+    * error_log() line, no mail, no halt, no exception, whatever haltOnError and the report mode are (as for a statement
+    * prepared on a connection let go of), and nothing changes: an open transaction stays open, a lost one stays lost.
+    * Run untracked it would end, open or commit a transaction behind the bookkeeping (a prepared COMMIT left the
+    * transaction tracked as open, so a 1213 on the next statement was taken for its rollback and a retrying caller wrote
+    * it twice) and past query()'s guards (the refusal after a lost transaction, another handle's transaction on the
+    * shared link). Refused rather than tracked: MySQL takes only COMMIT of them as a prepared statement (the rest fail
+    * 1295 at prepare), no caller sends one, and tracking it would repeat every guard of query() here. Send them through
+    * query() or transactionBegin()/transactionCommit()/transactionAbort().
+    *
     * @return bool success
     */
     public function execute($line = '', $file = '') {
+        $unread = false;
+        $lead = static::leadingKeywordSql((string) $this->statement_query, $unread);
+        if (static::preparedTransactionStatement($lead, $unread, $this->inTransaction === true)) {
+            $this->refusePreparedTransactionStatement('execute', $line, $file);
+            return false;
+        }
         if ($this->linkLostInTransaction() || $this->refusing()) {
             // the transaction it would have run in was lost (or its link closed, replaced or ended by another holder):
             // run now it would commit on its own
@@ -901,7 +934,6 @@ class Db extends Generic implements Db_Interface
             $this->txNotReplayable('execute() ran inside it');
         }
         $start = microtime(true);
-        $lead = static::leadingKeywordSql((string) $this->statement_query);
         $ends = static::endsTransaction($lead, (string) $this->statement_query);
         // a statement that commits the open transaction of this instance's own implicitly before it runs (see
         // queryInTransaction())
@@ -947,6 +979,54 @@ class Db extends Generic implements Db_Interface
             $this->addLog($query, microtime(true) - $start, $line, $file);
         }
         return $return;
+    }
+
+    /**
+    * Whether a statement is one prepare() and execute() refuse (see execute()): a START TRANSACTION or BEGIN (query()'s
+    * isStart, trackTransactionState()'s 'start'), any COMMIT (every form ends or chains the transaction), and any
+    * ROLLBACK but a ROLLBACK [WORK] TO [SAVEPOINT] read as one with no executable comment among its words that is not
+    * read (trackTransactionState() reads the rest as 'end' or 'chain'; one with such a comment, queryInTransaction()
+    * gives up, and one whose comments cannot be read, it leaves untracked: refused here, as either may end the
+    * transaction on the server); and, with no transaction of this instance's own open, one whose executable comment is
+    * not read and that may be any of them (unreadLeadMay(): query() guards it as each of them there). Inside one such a
+    * statement is told after it worked, by execute() as by queryInTransaction() (implicitCommitOutcome()), so it is not
+    * refused.
+    *
+    * @param string $lead the statement from its first keyword on (leadingKeywordSql())
+    * @param bool $unread whether leadingKeywordSql() found an executable comment it could not read
+    * @param bool $open whether a transaction of this instance's own is open
+    * @return bool
+    */
+    protected static function preparedTransactionStatement($lead, $unread, $open)
+    {
+        if (preg_match('/^(?:start\s+transaction|begin|commit)\b/i', $lead) === 1) {
+            return true;
+        }
+        if (preg_match('/^rollback\b/i', $lead) === 1) {
+            return static::executableAmongLeadingWords($lead)
+                || preg_match('/^rollback(?:\s+work)?\s+to\b/i', static::withoutComments($lead)) !== 1;
+        }
+        if ($unread && !$open) {
+            $may = static::unreadLeadMay($lead);
+            return $may['commit'] || $may['rollback'] || $may['open'];
+        }
+        return false;
+    }
+
+    /**
+    * prepare() or execute() of a START TRANSACTION, BEGIN, COMMIT or ROLLBACK: not sent (see execute()). Sets
+    * Errno/Error and writes one error_log() line.
+    *
+    * @param string $what 'prepare' or 'execute'
+    * @param string|int $line
+    * @param string $file
+    * @return void
+    */
+    protected function refusePreparedTransactionStatement($what, $line, $file)
+    {
+        $this->Errno = 1295;
+        $this->Error = 'This command is not supported in the prepared statement protocol here: a START TRANSACTION, BEGIN, COMMIT or ROLLBACK goes through query() or transactionBegin()/transactionCommit()/transactionAbort() (not sent)';
+        error_log($what.'() not sent: a START TRANSACTION, BEGIN, COMMIT or ROLLBACK (or a statement that may be one) is never run as a prepared statement, where the transaction it ends or opens would not be tracked; it fails (1295), nothing changed: send it through query() or transactionBegin()/transactionCommit()/transactionAbort(). Query: '.static::redactQueryForLog((string) $this->statement_query).' from '.$file.':'.$line);
     }
 
     /**
@@ -1971,14 +2051,17 @@ class Db extends Generic implements Db_Interface
     *
     * @param int $errno
     * @param string $error
+    * @param string|null $endUnknown the transaction's $txEndUnknown when txEnd() has cleared it already
+    *                                (transactionAbort()); null: read it now
     * @return array{0: int, 1: string}
     */
-    protected function unknownEndLoss($errno, $error)
+    protected function unknownEndLoss($errno, $error, $endUnknown = null)
     {
-        if ($this->txEndUnknown === '' || in_array((int) $errno, self::LINK_ERRORS, true)) {
+        $endUnknown = $endUnknown === null ? $this->txEndUnknown : (string) $endUnknown;
+        if ($endUnknown === '' || in_array((int) $errno, self::LINK_ERRORS, true)) {
             return [(int) $errno, (string) $error];
         }
-        return [2006, 'Transaction lost: SQL error '.(int) $errno.' after '.$this->txEndUnknown];
+        return [2006, 'Transaction lost: SQL error '.(int) $errno.' after '.$endUnknown];
     }
 
     /**
@@ -5041,17 +5124,19 @@ class Db extends Generic implements Db_Interface
     *
     * Returns false, never throws an \Error, when the handle is closed (another holder of the shared link closed it)
     * or half-open (a connect that failed): the connection is gone, and its transaction with it; the handle is let go
-    * of so the next call connects anew, and a lost record stays (as after a ROLLBACK on a dead link). A transaction of
-    * this instance's own that another holder of the shared link ended (transactionElsewhere()) is not rolled back as
-    * asked: its writes may have been committed by whatever ended it, so it is marked lost (2006), the link let go of
-    * without closing it, and false returned (no mail, no halt); a quiet ROLLBACK goes out first only while no other
-    * handle has a transaction open there (releaseEndedElsewhere()). With no transaction of its own while another
-    * handle sharing the link has one open there, nothing is sent (the ROLLBACK would end that handle's transaction),
-    * as query('ROLLBACK') (rollbackWithoutTransaction()): true when the handle kept a lost record of its own that still
-    * waits for its cleanup (right after its own give-up, $lostCleanupPending; the record is cleared), else false with
-    * Errno 2006, "the open transaction belongs to another handle" (roll it back through the handle that began it; no
-    * mail, no halt, no exception). Under
-    * MYSQLI_REPORT_STRICT a server error still throws its mysqli_sql_exception.
+    * of so the next call connects anew. A ROLLBACK that fails (there or on the server) is recorded as query('ROLLBACK')
+    * records one (abortFailed(): Errno/Error, and a transaction of its own that was open lost with that errno, its
+    * connection closed when still usable), never mailed and never halting; with nothing of its own open a lost record
+    * stays. A transaction of this instance's own that another holder of the shared link ended (transactionElsewhere())
+    * is not rolled back as asked: its writes may have been committed by whatever ended it, so it is marked lost (2006),
+    * the link let go of without closing it, and false returned (no mail, no halt); a quiet ROLLBACK goes out first only
+    * while no other handle has a transaction open there (releaseEndedElsewhere()). With no transaction of its own while
+    * another handle sharing the link has one open there, nothing is sent (the ROLLBACK would end that handle's
+    * transaction), as query('ROLLBACK') (rollbackWithoutTransaction()): true when the handle kept a lost record of its
+    * own that still waits for its cleanup (right after its own give-up, $lostCleanupPending; the record is cleared),
+    * else false with Errno 2006, "the open transaction belongs to another handle" (roll it back through the handle that
+    * began it; no mail, no halt, no exception). Under MYSQLI_REPORT_STRICT a server error still throws its
+    * mysqli_sql_exception, once it is recorded.
     *
     * @return bool
     */
@@ -5093,23 +5178,65 @@ class Db extends Generic implements Db_Interface
             error_log('transactionAbort(): ROLLBACK not sent: this handle has no transaction open, and the transaction open on the shared connection belongs to another handle; it fails (2006), nothing was rolled back: roll it back through the handle that began it.');
             return false;
         }
+        // read before txEnd() forgets them: a failure is recorded against the transaction that was open (abortFailed())
+        $wasOpen = $this->inTransaction === true;
+        $endUnknown = $this->txEndUnknown;
         $this->countStatement(true);
         $this->inTransaction = false;
         $this->txEnd();
         try {
             $result = mysqli_rollback($this->linkId);
         } catch (\Error $e) {
-            // closed or half-open: the connection is gone, and any transaction with it (the lost record is kept)
+            // closed or half-open: the connection is gone, and any transaction with it
             $this->releaseLink();
-            $this->Errno = 2006;
-            $this->Error = 'MySQL server has gone away ('.$e->getMessage().')';
+            $this->abortFailed($wasOpen, $endUnknown, 2006, 'MySQL server has gone away ('.$e->getMessage().')');
             return false;
+        } catch (\mysqli_sql_exception $e) {
+            // (MYSQLI_REPORT_STRICT) recorded as a failure that returns, then thrown as always
+            $this->abortFailed($wasOpen, $endUnknown, (int) $e->getCode(), $e->getMessage());
+            throw $e;
         }
         if ($result) {
-            // a failed ROLLBACK (dead link) leaves the lost record in place
             $this->clearTransactionLost();
+            return true;
         }
-        return $result;
+        $this->abortFailed($wasOpen, $endUnknown, (int) @mysqli_errno($this->linkId), (string) @mysqli_error($this->linkId));
+        return false;
+    }
+
+    /**
+    * transactionAbort()'s ROLLBACK failed: recorded as query('ROLLBACK') records one that failed (query(): a plain
+    * ROLLBACK inside a transaction that did not go through). Errno/Error are the failure's (the server's, as query()
+    * leaves them; 2006 for a handle mysqli cannot use). A transaction of this instance's own that was open is lost with
+    * that errno (2006 while its end was not known: unknownEndLoss()), so a later COMMIT is refused rather than answered
+    * for writes whose fate the caller was not told (an older lost record gives way to it: a COMMIT is not answered with
+    * that one's "rolled back"), and the caller's statements are not refused (it ended the transaction itself); a
+    * connection still usable is closed, which ends the transaction there (the server may still hold it, and what the
+    * caller sends next must not run inside it). One error_log() line says so. With none open nothing is recorded, as
+    * for query('ROLLBACK'). Unlike query() it never mails or halts, whatever haltOnError is (an API call, as
+    * transactionCommit() and transactionBegin()), and it does not reconnect to send the ROLLBACK again (query() does for
+    * a plain ROLLBACK, and answers true once that one works: the transaction went with the old connection).
+    *
+    * @param bool $wasOpen whether a transaction of this instance's own was open
+    * @param string $endUnknown its $txEndUnknown
+    * @param int $errno
+    * @param string $error
+    * @return void
+    */
+    protected function abortFailed($wasOpen, $endUnknown, $errno, $error)
+    {
+        $this->Errno = (int) $errno;
+        $this->Error = (string) $error;
+        if (!$wasOpen) {
+            return;
+        }
+        list($lostErrno, $lostError) = $this->unknownEndLoss($this->Errno > 0 ? $this->Errno : 2006, $this->Error, $endUnknown);
+        $this->markTransactionLost($lostErrno, $lostError, false);
+        $closed = $this->linkIsUsable();
+        if ($closed) {
+            $this->dropLink();
+        }
+        error_log('transactionAbort(): the ROLLBACK failed (SQL error '.$this->Errno.'), so the transaction is recorded as lost (#'.$lostErrno.'): a later COMMIT is refused'.($closed ? '; its connection is closed, which ends it on the server' : '').'.');
     }
 
     /**
