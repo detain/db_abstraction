@@ -441,7 +441,9 @@ class Db extends Generic implements Db_Interface
     * statement prepared before it, so execute() refuses on this alone, whatever the transaction state is when it runs:
     * read again then, a statement refused with no transaction open (one whose executable comment is not read) is let
     * through inside one, and that earlier statement would be run, and tracked, in its place (a write sent twice).
-    * Cleared once mysqli_prepare() has replaced $statement, and with it by detach().
+    * Cleared once mysqli_prepare() has replaced $statement, and with it by detach(); not before mysqli_prepare()
+    * returns (one that throws, under MYSQLI_REPORT_STRICT, leaves $statement as it was, and the refusal with it), and
+    * not by __clone() (a clone holds the same $statement).
     *
     * @var bool
     */
@@ -491,13 +493,19 @@ class Db extends Generic implements Db_Interface
     /**
     * A clone shares the connection (and with it what the server keeps per connection, and the per-link counts) but
     * not the transaction bookkeeping of the handle it was cloned from: it starts with no transaction of its own,
-    * nothing recorded, nothing lost and nothing refused, whatever its source was doing (get_module_db() clones the
-    * application's handle in the middle of its work). A transaction its source has open on the shared link is the
-    * source's: the clone's statements run inside it on the server (making it not replayable, and ending it if they
-    * end a transaction, see query()), and linkHasOpenTransaction() sees it. Nor does it inherit the shorter lock wait
-    * of a handle that moved a START off a shared link ($movedApart): it holds its source's connection as it is (made
-    * while that moved transaction runs, it shares the shorter wait on it until the transaction ends; made after, it
-    * gets the server's), and it never sets the connection back itself (cleared first, before anything here could).
+    * nothing recorded, nothing lost and no statement refused for a lost transaction ($txRefuse), whatever its source
+    * was doing (get_module_db() clones the application's handle in the middle of its work). The prepared statement is
+    * not transaction bookkeeping and is kept as it is: the clone holds the same mysqli_stmt ($statement, with
+    * $statementLink and $statement_query), and so a refusal kept for it ($statementRefused: the source's last prepare()
+    * refused its statement, and $statement is still the one prepared before) is kept too. The clone's execute()
+    * refuses as its source's would until the clone prepares a statement itself (each handle's prepare() ends only its
+    * own refusal); cleared here, the clone would run that earlier statement again in the refused one's place (a write
+    * sent twice). A transaction its source has open on the shared link is the source's: the clone's statements run
+    * inside it on the server (making it not replayable, and ending it if they end a transaction, see query()), and
+    * linkHasOpenTransaction() sees it. Nor does it inherit the shorter lock wait of a handle that moved a START off a
+    * shared link ($movedApart): it holds its source's connection as it is (made while that moved transaction runs, it
+    * shares the shorter wait on it until the transaction ends; made after, it gets the server's), and it never sets the
+    * connection back itself (cleared first, before anything here could).
     *
     * @return void
     */
@@ -777,13 +785,26 @@ class Db extends Generic implements Db_Interface
             // security control, so surface the outage instead of degrading silently. connect()
             // returns 0 only after its own halt() for this same failure (mail under 'report';
             // under 'yes' it dies there, before ever handing back a worse escape; under 'no' it
-            // is silent), and under PHP 8.3's default MYSQLI_REPORT_STRICT real_connect() throws
-            // before connect() returns 0 at all: this leg runs only with mysqli error reporting
-            // off and haltOnError 'report' or 'no'. No second halt() here (it mailed the one
-            // failure twice under 'report', and halt() sets no Errno): Errno/Error say the
-            // connect failed (its errno, else 2002), and one error_log() line says the string was
-            // escaped without a connection, in both modes. escape() stays the documented worst
-            // case, and it is now loud.
+            // is silent). With the real mysqli extension and this class's own halt() and unlock()
+            // this leg never runs, in either report mode: under MYSQLI_REPORT_STRICT (PHP 8.1+'s
+            // default) real_connect() throws out of connect(); with reporting off, the failed
+            // real_connect() leaves the mysqli_init() object behind, half-open ("not fully
+            // initialized", which linkIsUsable() calls usable), so connect()'s halt() runs
+            // unlock(false), its mysqli_query() on that object throws \Error, and halt() lets
+            // that \Error out in every haltOnError mode, out of connect() and out of here (a
+            // later call finds the half-open link "usable" and throws the same \Error from
+            // mysqli_real_escape_string() below). connect()'s other return 0 (a connect_errno
+            // after a real_connect() that worked) does not happen: a connect that works clears it.
+            // So it runs only when connect() returns 0 without throwing, under 'report' or 'no':
+            // a subclass whose unlock() leaves the half-open link alone, or a mysqli stand-in whose
+            // failed connect leaves no half-open object (the library's fake: refused or failed
+            // connects, TransactionSafetyTest). It stays for those, and for any later change that
+            // makes a failed connect return 0 here: the string is still escaped, and loudly,
+            // rather than handed to mysqli_real_escape_string() on a link that cannot be used.
+            // No second halt() here (it mailed the one failure twice under 'report', and halt()
+            // sets no Errno): Errno/Error say the connect failed (its errno, else 2002), and one
+            // error_log() line says the string was escaped without a connection, in both modes.
+            // escape() stays the documented worst case, and it is loud.
             $errno = 0;
             $why = '';
             try {
@@ -904,7 +925,8 @@ class Db extends Generic implements Db_Interface
         $this->countStatement();
         try {
             $this->statement = mysqli_prepare($this->linkId, $query);
-            // the statement prepared before is gone: nothing refused is left to run in its place
+            // the statement prepared before is gone: nothing refused is left to run in its place (only now: a
+            // mysqli_prepare() that throws leaves it, and with it the refusal)
             $this->statementRefused = false;
             // a mysqli_stmt runs on the connection that prepared it: execute() checks that this instance still holds it
             $this->statementLink = is_object($this->linkId) ? $this->linkId : null;

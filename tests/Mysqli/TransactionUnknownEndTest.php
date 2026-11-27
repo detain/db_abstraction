@@ -2237,6 +2237,97 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
 	}
 
+	public static function keptRefusals()
+	{
+		// [the refused statement, how the caller opens a transaction, MYSQLI_REPORT_STRICT, what comes between the
+		//  refusal and the transaction]: every row of refusedOutsideReadInside(), after a clone of the handle (the
+		//  transaction opened, and execute() run, on the clone), and after a prepare() whose mysqli_prepare() throws
+		//  (under MYSQLI_REPORT_STRICT only: with reporting off it returns false, and $statement is no longer the one
+		//  prepared before)
+		$rows = [];
+		foreach (self::refusedOutsideReadInside() as $name => list($sql, $how, $strict)) {
+			$rows[$name.', clone'] = [$sql, $how, $strict, 'clone'];
+			if ($strict) {
+				$rows[$name.', prepare throws'] = [$sql, $how, $strict, 'prepare throws'];
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r16 T16-1: the refusal is kept through the two paths that leave $statement as it was. A prepare() whose
+	* mysqli_prepare() throws (STRICT; the caller catches it) has replaced nothing: the refusal is cleared only after
+	* mysqli_prepare() returns. A clone holds the same $statement: __clone() keeps the refusal. Cleared on either path
+	* (the flag reset before mysqli_prepare(), or in __clone()), execute() inside the caller's transaction sent the
+	* INSERT prepared before in the refused statement's place, and the caller's COMMIT wrote it twice. Here execute()
+	* refuses (false, 1295, nothing sent, the transaction intact, no halt, no mail), every write lands once, and a
+	* statement prepared again runs; a clone's prepare() ends only the clone's refusal, never its source's
+	*
+	* @dataProvider keptRefusals
+	* @param string $sql
+	* @param string $how
+	* @param bool $strict
+	* @param string $path
+	*/
+	#[DataProvider('keptRefusals')]
+	public function testARefusalIsKeptThroughAThrowingPrepareAndIntoAClone($sql, $how, $strict, $path)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db('yes');
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertTrue($db->execute());
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertSame(0, $db->prepare($sql), 'refused with no transaction open');
+		$this->assertSame(1295, (int) $db->Errno);
+
+		if ($path === 'prepare throws') {
+			FakeServer::$prepareFails = 1;
+			list($result, $exception) = self::attempt(function () use ($db) { return $db->prepare("INSERT INTO t (v) VALUES ('q')"); });
+			$this->assertFalse($result);
+			$this->assertInstanceOf(\mysqli_sql_exception::class, $exception, 'the server refused it, and STRICT threw');
+			$this->assertSame(1064, $exception->getCode());
+			$this->assertSame('yes', $db->haltOnError, 'put back after the throw');
+			$on = $db;
+		} else {
+			$on = clone $db;
+		}
+		$this->assertTrue($how === 'transactionBegin' ? $on->transactionBegin() : $this->q($on, 'START TRANSACTION'));
+		$wire = count(FakeServer::$wire);
+
+		$this->assertFalse($on->execute(), 'still refused: $statement is the one prepared before the refusal');
+		$this->assertSame(1295, (int) $on->Errno);
+		$this->assertStringContainsString('not supported in the prepared statement protocol', $on->Error);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent: not the INSERT prepared before');
+		$this->assertTrue($on->inTransaction(), 'nothing changed');
+		$this->assertFalse($on->lost());
+		$this->assertSame([], FakeServer::$open[1] ?? [], 'nothing written inside it');
+		if ($path === 'clone') {
+			$this->assertFalse($db->execute(), 'the source refuses too');
+			$this->assertSame(1295, (int) $db->Errno);
+			$this->assertSame($wire, count(FakeServer::$wire));
+		}
+
+		$this->assertTrue($this->q($on, "INSERT INTO t (v) VALUES ('c')"));
+		$this->assertTrue($on->transactionCommit());
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"), 'p once');
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('c')"), 'c once');
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('q')"), 'q was never prepared');
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+		$this->assertSame(0, $on->haltCalls, 'no halt');
+
+		$this->assertNotSame(0, $on->prepare("INSERT INTO t (v) VALUES ('d')"), 'a statement prepared again');
+		$this->assertTrue($on->execute(), 'runs: the refusal ended with it');
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
+		if ($path === 'clone') {
+			$wire = count(FakeServer::$wire);
+			$this->assertFalse($db->execute(), 'the clone ended its own refusal, not its source\'s');
+			$this->assertSame(1295, (int) $db->Errno);
+			$this->assertSame($wire, count(FakeServer::$wire));
+		}
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
+	}
+
 	/**
 	* r15b: what execute() reads is the statement prepared, whether or not queries are logged (disable_db_queries: the
 	* statement was kept only when they were, so execute() read the one before): a prepared CREATE TABLE inside the

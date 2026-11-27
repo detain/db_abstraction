@@ -87,6 +87,16 @@ namespace MyDb\Mysqli {
 	{
 		$link = FakeServer::live($link, 'mysqli_prepare');
 		FakeServer::$wire[] = ['prepare', $link->id(), $query];
+		if (FakeServer::$prepareFails > 0) {
+			// the server refuses the statement (1064): thrown under MYSQLI_REPORT_STRICT, false with reporting off
+			FakeServer::$prepareFails--;
+			$link->errno = 1064;
+			$link->error = 'You have an error in your SQL syntax';
+			if (FakeServer::$strict) {
+				throw new \mysqli_sql_exception($link->error, 1064);
+			}
+			return false;
+		}
 		return new FakeStmt($link, $query);
 	}
 
@@ -345,6 +355,8 @@ namespace MyDb\Tests\Mysqli {
 		public static $connectRefusedError = 'Connection refused';
 		/** @var int next N real_connect() calls fail (r6 harness addition) */
 		public static $connectFails = 0;
+		/** @var int next N mysqli_prepare() calls fail on the server (1064), thrown under $strict, else false (r16) */
+		public static $prepareFails = 0;
 		/** @var bool model MySQL's OPTION_BEGIN after an implicit rollback, and a failed COMMIT ending the transaction */
 		public static $implicitBegin = true;
 		/**
@@ -401,6 +413,7 @@ namespace MyDb\Tests\Mysqli {
 			self::$connectRefusedError = 'Connection refused';
 			self::$connectFails = 0;
 			self::$connectFailsReal = 0;
+			self::$prepareFails = 0;
 			self::$halfOpenCalls = [];
 			self::$implicitBegin = true;
 			self::$ddlStartTransaction = false;
