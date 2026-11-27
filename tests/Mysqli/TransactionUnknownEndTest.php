@@ -2232,6 +2232,13 @@ class TransactionUnknownEndTest extends TestCase
 		$db->detach();
 		$this->assertFalse($refused->getValue($db), 'detach(): no statement, nothing refused');
 		$this->assertNull($db->statement_query);
+		// (r17 S4b) with none prepared execute() sends nothing: 2030, not the TypeError of mysqli_stmt_execute(null)
+		$wire = count(FakeServer::$wire);
+		foreach (['detach()' => $db, 'newConnection()' => $copy] as $what => $handle) {
+			$this->assertFalse($handle->execute(), $what.': nothing prepared');
+			$this->assertSame(2030, (int) $handle->Errno, $what);
+		}
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
 		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
 		$this->assertTrue($db->execute());
 		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
@@ -2242,8 +2249,10 @@ class TransactionUnknownEndTest extends TestCase
 		// [the refused statement, how the caller opens a transaction, MYSQLI_REPORT_STRICT, what comes between the
 		//  refusal and the transaction]: every row of refusedOutsideReadInside(), after a clone of the handle (the
 		//  transaction opened, and execute() run, on the clone), and after a prepare() whose mysqli_prepare() throws
-		//  (under MYSQLI_REPORT_STRICT only: with reporting off it returns false, and $statement is no longer the one
-		//  prepared before)
+		//  (the fake's server refusal, rows under MYSQLI_REPORT_STRICT only: with reporting off that refusal returns
+		//  false, a mysqli_prepare() that returned, which ends the refusal; a mysqli_prepare() also throws with
+		//  reporting off, ext-mysqli's \Error on the half-open link a failed reconnect leaves, and keeps it the same
+		//  way: 1295 then, and 2030 with no refusal kept, as with STRICT)
 		$rows = [];
 		foreach (self::refusedOutsideReadInside() as $name => list($sql, $how, $strict)) {
 			$rows[$name.', clone'] = [$sql, $how, $strict, 'clone'];
@@ -2255,13 +2264,16 @@ class TransactionUnknownEndTest extends TestCase
 	}
 
 	/**
-	* r16 T16-1: the refusal is kept through the two paths that leave $statement as it was. A prepare() whose
-	* mysqli_prepare() throws (STRICT; the caller catches it) has replaced nothing: the refusal is cleared only after
-	* mysqli_prepare() returns. A clone holds the same $statement: __clone() keeps the refusal. Cleared on either path
-	* (the flag reset before mysqli_prepare(), or in __clone()), execute() inside the caller's transaction sent the
-	* INSERT prepared before in the refused statement's place, and the caller's COMMIT wrote it twice. Here execute()
-	* refuses (false, 1295, nothing sent, the transaction intact, no halt, no mail), every write lands once, and a
-	* statement prepared again runs; a clone's prepare() ends only the clone's refusal, never its source's
+	* r16 T16-1: the refusal is kept through the two paths that prepare nothing in the refused statement's place. A
+	* prepare() whose mysqli_prepare() throws (STRICT; the caller catches it): the refusal is cleared only after
+	* mysqli_prepare() returns (since r17 S4b that prepare() lets go of the statement before it all the same). A clone
+	* holds the same $statement: __clone() keeps the refusal. Cleared on either path (the flag reset before
+	* mysqli_prepare(), or in __clone()), execute() inside the caller's transaction sent the INSERT prepared before in
+	* the refused statement's place, and the caller's COMMIT wrote it twice (on the clone path; on the throwing path it
+	* now fails 2030 instead of 1295). Here execute() refuses (false, 1295, one error_log() line naming the refused
+	* statement, nothing sent, the transaction intact, no halt, no mail), every write lands once, and a statement
+	* prepared again runs; a clone's prepare() ends only the clone's refusal, never its source's (r17 T17-1: checked
+	* with a transaction open on the source, where the refused statement read again would be let through)
 	*
 	* @dataProvider keptRefusals
 	* @param string $sql
@@ -2294,10 +2306,14 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertTrue($how === 'transactionBegin' ? $on->transactionBegin() : $this->q($on, 'START TRANSACTION'));
 		$wire = count(FakeServer::$wire);
 
-		$this->assertFalse($on->execute(), 'still refused: $statement is the one prepared before the refusal');
+		$log = count(FakeServer::$log);
+		$this->assertFalse($on->execute(), 'still refused: $statement is the one prepared before the refusal (or none, after the throw)');
 		$this->assertSame(1295, (int) $on->Errno);
 		$this->assertStringContainsString('not supported in the prepared statement protocol', $on->Error);
 		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent: not the INSERT prepared before');
+		$this->assertCount($log + 1, FakeServer::$log, 'one error_log() line');
+		$this->assertStringContainsString('Query: '.\MyDb\Mysqli\Db::redactQueryForLog($sql).' from', end(FakeServer::$log), 'naming the refused statement');
+		$this->assertStringNotContainsString("VALUES ('q')", end(FakeServer::$log), 'not the one whose prepare() threw');
 		$this->assertTrue($on->inTransaction(), 'nothing changed');
 		$this->assertFalse($on->lost());
 		$this->assertSame([], FakeServer::$open[1] ?? [], 'nothing written inside it');
@@ -2319,13 +2335,172 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertTrue($on->execute(), 'runs: the refusal ended with it');
 		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
 		if ($path === 'clone') {
+			// (r17 T17-1) the source inside a transaction of its own (on the shared link: the clone's is over): read
+			// there the refused statement is let through, so only the source's own kept refusal stops the earlier INSERT
+			$this->assertTrue($how === 'transactionBegin' ? $db->transactionBegin() : $this->q($db, 'START TRANSACTION'));
 			$wire = count(FakeServer::$wire);
 			$this->assertFalse($db->execute(), 'the clone ended its own refusal, not its source\'s');
 			$this->assertSame(1295, (int) $db->Errno);
 			$this->assertSame($wire, count(FakeServer::$wire));
+			$this->assertTrue($db->transactionCommit());
 		}
 		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
 		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
+	}
+
+	public static function failedPrepares()
+	{
+		// [MYSQLI_REPORT_STRICT, where the failed prepare() runs (autocommit, or inside a transaction opened by
+		//  transactionBegin() or query START) or where execute() runs after it (a transaction opened in between, still
+		//  replayable then), haltOnError]
+		$rows = [];
+		foreach ([true, false] as $strict) {
+			foreach (['autocommit', 'transactionBegin', 'query START', 'transaction opened after it'] as $where) {
+				foreach (['yes', 'report', 'no'] as $halt) {
+					$rows[($strict ? 'strict' : 'reporting off').', '.$where.', '.$halt] = [$strict, $where, $halt];
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r17 S4b: a prepare() whose mysqli_prepare() fails on the server (1064 here; 1146, 1054, 1142 alike) left the
+	* statement prepared before it in $statement when it threw (MYSQLI_REPORT_STRICT, PHP 8.1+'s default): a caller
+	* that caught the exception and called execute() sent that earlier statement again, a false success for its own,
+	* and the earlier INSERT written twice (inside a transaction, committed twice by the caller's COMMIT). With reporting
+	* off the failed prepare() returned false and execute() threw a TypeError. Now prepare() lets go of the earlier
+	* statement first, and execute() with none prepared sends nothing: false, 2030, one error_log() line naming the
+	* statement whose prepare() failed, no halt, no mail, no exception, the transaction as it was (still replayable when
+	* it was, nothing counted on the link); every write lands once, and a statement prepared again runs
+	*
+	* @dataProvider failedPrepares
+	* @param bool $strict
+	* @param string $where
+	* @param string $halt
+	*/
+	#[DataProvider('failedPrepares')]
+	public function testAPrepareTheServerRefusesNeverLetsExecuteRunTheStatementPreparedBefore($strict, $where, $halt)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db($halt);
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertTrue($db->execute());
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+		$open = function () use ($db) {
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+			$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		};
+		if ($where === 'transactionBegin') {
+			$this->assertTrue($db->transactionBegin());
+			$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		} elseif ($where === 'query START') {
+			$open();
+		}
+
+		FakeServer::$prepareFails = 1;
+		list($result, $exception) = self::attempt(function () use ($db) { return $db->prepare("INSERT INTO u (w) VALUES ('q')"); });
+		$this->assertFalse($result);
+		if ($strict) {
+			$this->assertInstanceOf(\mysqli_sql_exception::class, $exception, 'the server refused it, and STRICT threw');
+			$this->assertSame(1064, $exception->getCode());
+		} else {
+			$this->assertNull($exception, 'returned false');
+		}
+		$this->assertSame($halt, $db->haltOnError, 'put back');
+		if ($where === 'transaction opened after it') {
+			$open();
+			$this->assertTrue($db->replayable(), 'replayable: no prepare() ran inside it');
+		}
+		$inTransaction = $db->inTransaction();
+		$replayable = $db->replayable();
+		$counts = (new \ReflectionProperty(\MyDb\Mysqli\Db::class, 'linkStatements'))->getValue();
+		$counted = $counts[$db->linkId];
+		$wire = count(FakeServer::$wire);
+		$log = count(FakeServer::$log);
+
+		list($result, $exception) = self::attempt(function () use ($db) { return $db->execute(); });
+		$this->assertFalse($result, 'not the INSERT prepared before');
+		$this->assertNull($exception, 'no exception');
+		$this->assertSame(2030, (int) $db->Errno);
+		$this->assertStringContainsString('Statement not prepared', $db->Error);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+		$this->assertCount($log + 1, FakeServer::$log, 'one error_log() line');
+		$this->assertStringContainsString("Query: INSERT INTO u (w) VALUES ('q') from", end(FakeServer::$log), 'naming the statement whose prepare() failed');
+		$this->assertSame($inTransaction, $db->inTransaction(), 'nothing changed');
+		$this->assertSame($replayable, $db->replayable(), 'not made unreplayable by a statement never sent');
+		$this->assertSame($counted, $counts[$db->linkId], 'nor counted on the link');
+		$this->assertFalse($db->lost());
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+
+		if ($where !== 'autocommit') {
+			$this->assertSame(["INSERT INTO t (v) VALUES ('c')"], FakeServer::$open[1] ?? [], 'nothing more written inside it');
+			$this->assertTrue($db->transactionCommit());
+			$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('c')"), 'c once');
+		}
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"), 'p once');
+		$this->assertSame(0, self::committed("INSERT INTO u (w) VALUES ('q')"), 'q was never prepared');
+
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('d')"), 'a statement prepared again');
+		$this->assertTrue($db->execute(), 'runs');
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('d')"));
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+	}
+
+	public static function failedPreparesInALostTransaction()
+	{
+		// [MYSQLI_REPORT_STRICT, haltOnError]
+		$rows = [];
+		foreach ([true, false] as $strict) {
+			foreach (['yes', 'report', 'no'] as $halt) {
+				$rows[($strict ? 'strict' : 'reporting off').', '.$halt] = [$strict, $halt];
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r17 S4b: with no statement prepared, execute() after the transaction was lost refuses as every statement there is
+	* refused (the errno the transaction was lost with, "Statement refused", reported and halted under 'yes' only, as
+	* before), never with 2030 first: the caller is told its transaction is gone
+	*
+	* @dataProvider failedPreparesInALostTransaction
+	* @param bool $strict
+	* @param string $halt
+	*/
+	#[DataProvider('failedPreparesInALostTransaction')]
+	public function testALostTransactionRefusesExecuteBeforeItsMissingStatement($strict, $halt)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db($halt);
+		$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+		$this->assertTrue($db->execute());
+		$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		$this->assertTrue($this->q($db, "INSERT INTO t (v) VALUES ('c')"));
+		FakeServer::$prepareFails = 1;
+		list($result, ) = self::attempt(function () use ($db) { return $db->prepare("INSERT INTO u (w) VALUES ('q')"); });
+		$this->assertFalse($result);
+		FakeServer::failNext("/VALUES \\('e'\\)/", 1213);
+		list($result, ) = self::attempt(function () use ($db) { return $this->q($db, "INSERT INTO t (v) VALUES ('e')"); });
+		$this->assertFalse($result, 'given up: not replayable once prepare() ran inside it');
+		$this->assertTrue($db->lostTransactionPending());
+		$reported = count($db->reported);
+		$halts = $db->haltCalls;
+		$wire = count(FakeServer::$wire);
+
+		list($result, $exception) = self::attempt(function () use ($db) { return $db->execute(); });
+		$this->assertFalse($result);
+		$this->assertNull($exception, 'no exception');
+		$this->assertSame(1213, (int) $db->Errno, 'the errno the transaction was lost with');
+		$this->assertStringContainsString('Statement refused', $db->Error);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+		$this->assertCount($halt === 'yes' ? $reported + 1 : $reported, $db->reported, 'reported under \'yes\' only');
+		$this->assertSame($halt === 'yes' ? $halts + 1 : $halts, $db->haltCalls, 'halted under \'yes\' only');
+		$this->assertTrue($db->lostTransactionPending(), 'still refusing: it ended nothing');
+		$this->assertSame(1, self::committed("INSERT INTO t (v) VALUES ('p')"), 'p once');
+		$this->assertSame(0, self::committed("INSERT INTO t (v) VALUES ('c')"), 'rolled back with the transaction');
+		$this->assertSame(0, self::committed("INSERT INTO u (w) VALUES ('q')"));
 	}
 
 	/**

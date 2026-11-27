@@ -437,13 +437,15 @@ class Db extends Generic implements Db_Interface
 
     /**
     * Whether the last prepare() refused its statement (preparedTransactionStatement(): a START TRANSACTION, BEGIN,
-    * COMMIT or ROLLBACK, or one that may be one) and nothing has been prepared since. $statement still holds the
+    * COMMIT or ROLLBACK, or one that may be one) and no mysqli_prepare() has returned since. $statement still holds the
     * statement prepared before it, so execute() refuses on this alone, whatever the transaction state is when it runs:
     * read again then, a statement refused with no transaction open (one whose executable comment is not read) is let
     * through inside one, and that earlier statement would be run, and tracked, in its place (a write sent twice).
-    * Cleared once mysqli_prepare() has replaced $statement, and with it by detach(); not before mysqli_prepare()
-    * returns (one that throws, under MYSQLI_REPORT_STRICT, leaves $statement as it was, and the refusal with it), and
-    * not by __clone() (a clone holds the same $statement).
+    * Cleared once mysqli_prepare() has returned (a statement, or false: either replaced $statement), and by detach();
+    * not before mysqli_prepare() returns: one that throws (a server refusal under MYSQLI_REPORT_STRICT, or
+    * ext-mysqli's \Error on a half-open link in either report mode) keeps it, and execute() goes on refusing with 1295
+    * (that prepare() let go of $statement all the same, see there); and not by __clone() (a clone holds the same
+    * $statement).
     *
     * @var bool
     */
@@ -491,17 +493,18 @@ class Db extends Generic implements Db_Interface
     protected $linkEstablished = false;
 
     /**
-    * A clone shares the connection (and with it what the server keeps per connection, and the per-link counts) but
-    * not the transaction bookkeeping of the handle it was cloned from: it starts with no transaction of its own,
-    * nothing recorded, nothing lost and no statement refused for a lost transaction ($txRefuse), whatever its source
-    * was doing (get_module_db() clones the application's handle in the middle of its work). The prepared statement is
-    * not transaction bookkeeping and is kept as it is: the clone holds the same mysqli_stmt ($statement, with
-    * $statementLink and $statement_query), and so a refusal kept for it ($statementRefused: the source's last prepare()
-    * refused its statement, and $statement is still the one prepared before) is kept too. The clone's execute()
-    * refuses as its source's would until the clone prepares a statement itself (each handle's prepare() ends only its
-    * own refusal); cleared here, the clone would run that earlier statement again in the refused one's place (a write
-    * sent twice). A transaction its source has open on the shared link is the source's: the clone's statements run
-    * inside it on the server (making it not replayable, and ending it if they end a transaction, see query()), and
+    * A clone shares the connection (and with it what the server keeps per connection, and the per-link counts) but not
+    * the transaction bookkeeping of the handle it was cloned from: it starts with no transaction of its own, nothing
+    * recorded, nothing lost and no statement refused for a lost transaction ($txRefuse), whatever its source was doing
+    * (get_module_db() clones the application's handle in the middle of its work). The prepared statement is not
+    * transaction bookkeeping and is kept as it is: the clone holds the same mysqli_stmt ($statement, with
+    * $statementLink and $statement_query), and so a refusal kept for it ($statementRefused: a prepare() of the source
+    * refused its statement and no mysqli_prepare() has returned since, so $statement is the one prepared before, or
+    * none after a prepare() that threw) is kept too. The clone's execute() refuses as its source's would until the
+    * clone prepares a statement itself or is detach()ed (each handle's prepare() and detach() end only its own
+    * refusal); cleared here, the clone would run that earlier statement again in the refused one's place (a write sent
+    * twice). A transaction its source has open on the shared link is the source's: the clone's statements run inside it
+    * on the server (making it not replayable, and ending it if they end a transaction, see query()), and
     * linkHasOpenTransaction() sees it. Nor does it inherit the shorter lock wait of a handle that moved a START off a
     * shared link ($movedApart): it holds its source's connection as it is (made while that moved transaction runs, it
     * shares the shorter wait on it until the transaction ends; made after, it gets the server's), and it never sets the
@@ -888,7 +891,11 @@ class Db extends Generic implements Db_Interface
     * with its own execute(), past this instance's bookkeeping. The statement execute() reads ($statement_query) is the
     * one prepared here whether or not it is logged (disable_db_queries), and after a refusal the refused one; and the
     * refusal is kept ($statementRefused) until a statement is prepared again, so execute() refuses too, whatever the
-    * transaction state is by then, and the statement prepared before is never run in its place.
+    * transaction state is by then, and the statement prepared before is never run in its place. Nor after a statement
+    * the server does not prepare: the one prepared before is let go of before mysqli_prepare() runs, so one that
+    * returns false or throws (a mysqli_sql_exception under MYSQLI_REPORT_STRICT, which the caller may catch and go on)
+    * leaves no statement, and execute() sends nothing (false, Errno 2030, see there) where it ran the earlier one again;
+    * what it reads then is the statement given here, or the refused one while a refusal is kept.
     *
     * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and
     * col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
@@ -923,10 +930,18 @@ class Db extends Generic implements Db_Interface
         $this->haltOnError = 'no';
         $start = microtime(true);
         $this->countStatement();
+        // the statement prepared before is let go of first: a mysqli_prepare() that throws leaves none to run in this
+        // one's place (r17 S4b: a caller that caught the exception sent the earlier one again), and what execute()
+        // reads is this one, unless a refusal is kept (execute() reads, and refuses, the refused one until a
+        // mysqli_prepare() returns)
+        $this->statement = null;
+        if (!$this->statementRefused) {
+            $this->statement_query = $query;
+        }
         try {
             $this->statement = mysqli_prepare($this->linkId, $query);
-            // the statement prepared before is gone: nothing refused is left to run in its place (only now: a
-            // mysqli_prepare() that throws leaves it, and with it the refusal)
+            // a mysqli_prepare() has returned: nothing refused is left to run in this one's place (only now: one that
+            // throws keeps the refusal, and execute() its 1295)
             $this->statementRefused = false;
             // a mysqli_stmt runs on the connection that prepared it: execute() checks that this instance still holds it
             $this->statementLink = is_object($this->linkId) ? $this->linkId : null;
@@ -989,6 +1004,12 @@ class Db extends Generic implements Db_Interface
     * would not be refused now (one with an executable comment that is not read, refused with no transaction open and
     * read after it works inside one): the mysqli_stmt still held is the one prepared before.
     *
+    * With no statement prepared (the last prepare() returned false or threw, and let go of the one before it; or none
+    * since detach(), or ever) nothing is sent either: false, Errno 2030 (CR_NO_PREPARE_STMT, the client library's own
+    * "Statement not prepared"), one error_log() line naming the statement that last prepare() was given; no mail, no
+    * halt, no exception, nothing changed (a transaction stays open and replayable as it was, nothing is counted), as for
+    * a statement prepared on a connection let go of. A lost transaction refuses first, as for any statement.
+    *
     * @return bool success
     */
     public function execute($line = '', $file = '') {
@@ -1002,6 +1023,11 @@ class Db extends Generic implements Db_Interface
             // the transaction it would have run in was lost (or its link closed, replaced or ended by another holder):
             // run now it would commit on its own
             return $this->refuseStatement((string) $this->statement_query, $line, $file);
+        }
+        if (!is_object($this->statement)) {
+            // nothing prepared: the last prepare() failed or threw (and let go of the statement before it), or none since
+            // detach() or ever
+            return $this->executeNothingPrepared($line, $file);
         }
         if (is_object($this->statement) && is_object($this->statementLink) && $this->statementLink !== $this->linkId) {
             // prepared on a connection this instance has let go of
@@ -1119,6 +1145,23 @@ class Db extends Generic implements Db_Interface
         $this->Errno = 2006;
         $this->Error = 'MySQL server has gone away (the prepared statement belongs to a connection this handle has let go of: prepare it again)';
         error_log('execute() not sent: the prepared statement belongs to a connection this handle has let go of (run there it would land inside whatever another handle has open on it); prepare() it again. Query: '.static::redactQueryForLog((string) $this->statement_query).' from '.$file.':'.$line);
+        return false;
+    }
+
+    /**
+    * execute() with no statement prepared: not sent (see execute()). 2030 is what the client library itself answers
+    * for a statement handle with nothing prepared in it; it is in none of the errno lists (no replay, no lost link, no
+    * rollback), and is not the 1295 of a refused START/BEGIN/COMMIT/ROLLBACK, which this statement need not be.
+    *
+    * @param string|int $line
+    * @param string $file
+    * @return false
+    */
+    protected function executeNothingPrepared($line, $file)
+    {
+        $this->Errno = 2030;
+        $this->Error = 'Statement not prepared (the last prepare() failed, and the statement prepared before it is let go of; or none was prepared): prepare it again';
+        error_log('execute() not sent: no statement is prepared (the last prepare() failed or threw, and the statement prepared before it is never run in its place; or none was prepared); prepare() it again. Query: '.static::redactQueryForLog((string) $this->statement_query).' from '.$file.':'.$line);
         return false;
     }
 
