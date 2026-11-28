@@ -388,10 +388,21 @@ namespace MyDb\Tests\Mysqli {
 					return 'NULL';
 				}
 				if ($type === 'i') {
+					// as mysqlnd: a value that does not fit an int once read as a double goes as a string (PHP bug #52891)
+					$double = (float) $value;
+					if (!is_int($value) && ($double >= (float) PHP_INT_MAX || $double < (float) PHP_INT_MIN)) {
+						return "'".addslashes((string) $value)."'";
+					}
 					return (string) (int) $value;
 				}
 				if ($type === 'd') {
-					return (string) (float) $value;
+					// sent as a double: written so that it reads back as the same one
+					return var_export((float) $value, true);
+				}
+				if ($type === 'b') {
+					// as mysqlnd: a blob is sent by mysqli_stmt_send_long_data() (which the fake does not have), and one
+					// sent nothing that way goes as an empty string, whatever the variable holds
+					return "''";
 				}
 				return "'".addslashes((string) $value)."'";
 			}, $this->sql);
