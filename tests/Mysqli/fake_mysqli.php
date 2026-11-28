@@ -100,9 +100,29 @@ namespace MyDb\Mysqli {
 		return new FakeStmt($link, $query);
 	}
 
+	function mysqli_stmt_bind_param($statement, $types, &...$vars)
+	{
+		// as ext-mysqli: a mysqli_stmt only (a TypeError before anything is bound), one type per variable and one
+		// variable per placeholder (an ArgumentCountError); the variables are bound by reference, so
+		// mysqli_stmt_execute() sends what they hold when it runs (r18 T18-1)
+		if (!$statement instanceof FakeStmt) {
+			throw new \TypeError('mysqli_stmt_bind_param(): Argument #1 ($statement) must be of type mysqli_stmt, '.get_debug_type($statement).' given');
+		}
+		if (strlen((string) $types) !== count($vars)) {
+			throw new \ArgumentCountError('The number of elements in the type definition string must match the number of bind variables');
+		}
+		if (count($vars) !== $statement->placeholders()) {
+			throw new \ArgumentCountError('The number of variables must match the number of parameters in the prepared statement');
+		}
+		FakeServer::$binds++;
+		$statement->types = (string) $types;
+		$statement->vars = $vars;
+		return true;
+	}
+
 	function mysqli_stmt_execute($statement)
 	{
-		return FakeServer::query($statement->link, $statement->sql) !== false;
+		return FakeServer::query($statement->link, $statement->sql()) !== false;
 	}
 
 	function mysqli_stmt_errno($statement)
@@ -327,13 +347,54 @@ namespace MyDb\Tests\Mysqli {
 	*/
 	class FakeStmt
 	{
+		/** a quoted literal, or a placeholder (a ? outside literals) */
+		const LITERAL_OR_PLACEHOLDER = "/'(?:[^'\\\\]++|\\\\.|'')*+'|\"(?:[^\"\\\\]++|\\\\.|\"\")*+\"|\\?/s";
+
 		public $link;
 		public $sql;
+		/** @var string|null the types mysqli_stmt_bind_param() was given */
+		public $types = null;
+		/** @var array|null the variables bound (references), null until mysqli_stmt_bind_param() binds some */
+		public $vars = null;
 
 		public function __construct(FakeLink $link, $sql)
 		{
 			$this->link = $link;
 			$this->sql = $sql;
+		}
+
+		/** the statement's placeholders: the ?s outside quoted literals */
+		public function placeholders()
+		{
+			preg_match_all(self::LITERAL_OR_PLACEHOLDER, $this->sql, $m);
+			return count(array_keys($m[0], '?', true));
+		}
+
+		/** the statement as the server runs it: each placeholder with the value its bound variable holds now */
+		public function sql()
+		{
+			if ($this->vars === null) {
+				return $this->sql;
+			}
+			$at = 0;
+			return preg_replace_callback(self::LITERAL_OR_PLACEHOLDER, function ($m) use (&$at) {
+				if ($m[0] !== '?') {
+					return $m[0];
+				}
+				$value = $this->vars[$at];
+				$type = $this->types[$at];
+				$at++;
+				if ($value === null) {
+					return 'NULL';
+				}
+				if ($type === 'i') {
+					return (string) (int) $value;
+				}
+				if ($type === 'd') {
+					return (string) (float) $value;
+				}
+				return "'".addslashes((string) $value)."'";
+			}, $this->sql);
 		}
 	}
 
@@ -357,6 +418,8 @@ namespace MyDb\Tests\Mysqli {
 		public static $connectFails = 0;
 		/** @var int next N mysqli_prepare() calls fail on the server (1064), thrown under $strict, else false (r16) */
 		public static $prepareFails = 0;
+		/** @var int mysqli_stmt_bind_param() calls that bound variables (r18 T18-1) */
+		public static $binds = 0;
 		/** @var bool model MySQL's OPTION_BEGIN after an implicit rollback, and a failed COMMIT ending the transaction */
 		public static $implicitBegin = true;
 		/**
@@ -414,6 +477,7 @@ namespace MyDb\Tests\Mysqli {
 			self::$connectFails = 0;
 			self::$connectFailsReal = 0;
 			self::$prepareFails = 0;
+			self::$binds = 0;
 			self::$halfOpenCalls = [];
 			self::$implicitBegin = true;
 			self::$ddlStartTransaction = false;

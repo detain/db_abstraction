@@ -25,6 +25,13 @@ class Db extends Generic implements Db_Interface
     public $type = 'mysqli';
     public $statement;
     public $statement_query;
+    /**
+    * the variables bind_param() bound to $statement (references to the caller's, read when execute() runs), kept only
+    * while queries are logged (disable_db_queries unset), for execute()'s log line alone; null until a bind_param()
+    * binds some, and again once prepare() lets go of the statement they were bound to
+    *
+    * @var array|null
+    */
     public $statement_vars;
 
     /**
@@ -498,17 +505,17 @@ class Db extends Generic implements Db_Interface
     * recorded, nothing lost and no statement refused for a lost transaction ($txRefuse), whatever its source was doing
     * (get_module_db() clones the application's handle in the middle of its work). The prepared statement is not
     * transaction bookkeeping and is kept as it is: the clone holds the same mysqli_stmt ($statement, with
-    * $statementLink and $statement_query), and so a refusal kept for it ($statementRefused: a prepare() of the source
-    * refused its statement and no mysqli_prepare() has returned since, so $statement is the one prepared before, or
-    * none after a prepare() that threw) is kept too. The clone's execute() refuses as its source's would until the
-    * clone prepares a statement itself or is detach()ed (each handle's prepare() and detach() end only its own
-    * refusal); cleared here, the clone would run that earlier statement again in the refused one's place (a write sent
-    * twice). A transaction its source has open on the shared link is the source's: the clone's statements run inside it
-    * on the server (making it not replayable, and ending it if they end a transaction, see query()), and
-    * linkHasOpenTransaction() sees it. Nor does it inherit the shorter lock wait of a handle that moved a START off a
-    * shared link ($movedApart): it holds its source's connection as it is (made while that moved transaction runs, it
-    * shares the shorter wait on it until the transaction ends; made after, it gets the server's), and it never sets the
-    * connection back itself (cleared first, before anything here could).
+    * $statementLink, $statement_query and $statement_vars), and so a refusal kept for it ($statementRefused: a prepare()
+    * of the source refused its statement and no mysqli_prepare() has returned since, so $statement is the one prepared
+    * before, or none after a prepare() whose mysqli_prepare() threw) is kept too. The clone's execute() and bind_param()
+    * refuse as its source's would until the clone prepares a statement itself or is detach()ed (each handle's prepare()
+    * and detach() end only its own refusal); cleared here, the clone would run that earlier statement again in the
+    * refused one's place (a write sent twice). A transaction its source has open on the shared link is the source's: the
+    * clone's statements run inside it on the server (making it not replayable, and ending it if they end a transaction,
+    * see query()), and linkHasOpenTransaction() sees it. Nor does it inherit the shorter lock wait of a handle that
+    * moved a START off a shared link ($movedApart): it holds its source's connection as it is (made while that moved
+    * transaction runs, it shares the shorter wait on it until the transaction ends; made after, it gets the server's),
+    * and it never sets the connection back itself (cleared first, before anything here could).
     *
     * @return void
     */
@@ -894,8 +901,10 @@ class Db extends Generic implements Db_Interface
     * transaction state is by then, and the statement prepared before is never run in its place. Nor after a statement
     * the server does not prepare: the one prepared before is let go of before mysqli_prepare() runs, so one that
     * returns false or throws (a mysqli_sql_exception under MYSQLI_REPORT_STRICT, which the caller may catch and go on)
-    * leaves no statement, and execute() sends nothing (false, Errno 2030, see there) where it ran the earlier one again;
-    * what it reads then is the statement given here, or the refused one while a refusal is kept.
+    * leaves no statement, and execute() sends nothing (false, Errno 2030, see there) where it ran the earlier one again
+    * (after one that threw; after one that returned false it threw a TypeError), and bind_param() binds nothing (2030);
+    * what it reads then is the statement given here, or the refused one while a refusal is kept. The variables bound to
+    * the statement let go of are let go of with it ($statement_vars).
     *
     * @param string $query sql query like INSERT INTO table (col) VALUES (?)  or  SELECT * from table WHERE col1 = ? and
     * col2 = ?  or  UPDATE table SET col1 = ?, col2 = ? WHERE col3 = ?
@@ -933,8 +942,10 @@ class Db extends Generic implements Db_Interface
         // the statement prepared before is let go of first: a mysqli_prepare() that throws leaves none to run in this
         // one's place (r17 S4b: a caller that caught the exception sent the earlier one again), and what execute()
         // reads is this one, unless a refusal is kept (execute() reads, and refuses, the refused one until a
-        // mysqli_prepare() returns)
+        // mysqli_prepare() returns); the variables bound to the earlier one go with it, or execute()'s log line would
+        // show their values in this one's
         $this->statement = null;
+        $this->statement_vars = null;
         if (!$this->statementRefused) {
             $this->statement_query = $query;
         }
@@ -958,21 +969,56 @@ class Db extends Generic implements Db_Interface
 
     /**
     * Binds variables to a prepared statement as parameters
-    * 
+    *
+    * They are bound by reference, as mysqli_stmt_bind_param() binds them: execute() sends the values they hold when it
+    * runs, and its log line shows those ($statement_vars, kept while queries are logged). Binding sends nothing to the
+    * server: a statement prepared on a connection this instance has let go of is bound as it is, and execute() refuses
+    * it (2006, see there). A count of types or of variables that does not match the statement's placeholders is
+    * ext-mysqli's own ArgumentCountError, as before.
+    *
+    * Nothing is bound, and nothing is thrown, where execute() would refuse the statement for want of one: while a
+    * refusal is kept ($statementRefused: the statement still held is the one prepared before the refused one, and these
+    * variables are not its), false with Errno 1295, as execute() answers then; with no statement prepared (a prepare()
+    * whose mysqli_prepare() returned false or threw let go of the one before it; or none since detach(), or ever), false
+    * with Errno 2030 (CR_NO_PREPARE_STMT), as execute() answers then. Either way one error_log() line naming the
+    * statement execute() reads, no mail, no halt, whatever haltOnError and the report mode are, and nothing else changes.
+    *
     * @param string $types A string that contains one or more characters which specify the types for the corresponding
     * bind variables: (i)nt, (d)ecimal, (s)tring, (b)inary
     * @param mixed $vars
     * @return bool indicates success
     */
     public function bind_param($types, &...$vars) {
-        $params = [$this->statement, $types];
-        foreach ($vars as &$var) {
-            $params[] = &$var; // Ensure they stay references
+        if ($this->statementRefused || !is_object($this->statement)) {
+            return $this->bindNothing();
         }
         if (!isset($GLOBALS['disable_db_queries'])) {
-            $this->statement_vars &= $vars;
+            // the same references: the log line shows what execute() sends
+            $this->statement_vars = $vars;
         }
-        return call_user_func_array('mysqli_stmt_bind_param', $params);
+        // called unqualified, by reference (the elements of $vars are references to the caller's variables)
+        return mysqli_stmt_bind_param($this->statement, $types, ...$vars);
+    }
+
+    /**
+    * bind_param() with no statement to bind the variables to: nothing bound (see bind_param()). Sets Errno/Error as
+    * execute() would answer then (1295 while a refusal is kept, else 2030) and writes one error_log() line.
+    *
+    * @return false
+    */
+    protected function bindNothing()
+    {
+        if ($this->statementRefused) {
+            $this->Errno = 1295;
+            $this->Error = 'This command is not supported in the prepared statement protocol here: a START TRANSACTION, BEGIN, COMMIT or ROLLBACK goes through query() or transactionBegin()/transactionCommit()/transactionAbort() (nothing bound)';
+            $why = 'the last prepare() refused its statement (a START TRANSACTION, BEGIN, COMMIT or ROLLBACK, or a statement that may be one), and the statement still held is the one prepared before it';
+        } else {
+            $this->Errno = 2030;
+            $this->Error = 'Statement not prepared (the last prepare() failed, and the statement prepared before it is let go of; or none was prepared): prepare it again';
+            $why = 'no statement is prepared (the last prepare() failed, and the statement prepared before it is let go of; or none was prepared)';
+        }
+        error_log('bind_param() bound nothing: '.$why.'; prepare() a statement again. Query: '.static::redactQueryForLog((string) $this->statement_query));
+        return false;
     }
 
     /**
@@ -1004,11 +1050,21 @@ class Db extends Generic implements Db_Interface
     * would not be refused now (one with an executable comment that is not read, refused with no transaction open and
     * read after it works inside one): the mysqli_stmt still held is the one prepared before.
     *
-    * With no statement prepared (the last prepare() returned false or threw, and let go of the one before it; or none
-    * since detach(), or ever) nothing is sent either: false, Errno 2030 (CR_NO_PREPARE_STMT, the client library's own
-    * "Statement not prepared"), one error_log() line naming the statement that last prepare() was given; no mail, no
-    * halt, no exception, nothing changed (a transaction stays open and replayable as it was, nothing is counted), as for
-    * a statement prepared on a connection let go of. A lost transaction refuses first, as for any statement.
+    * With no statement prepared (a prepare() whose mysqli_prepare() returned false or threw let go of the one before it;
+    * or none since detach(), or ever) nothing is sent either: false, Errno 2030 (CR_NO_PREPARE_STMT, the client
+    * library's own "Statement not prepared"), one error_log() line naming the statement that last prepare() was given;
+    * no mail, no halt, no exception, nothing changed (a transaction stays open and replayable as it was, nothing is
+    * counted), as for a statement prepared on a connection let go of. A lost transaction refuses first, as for any
+    * statement. A prepare() that stops before its mysqli_prepare() runs (a lost transaction, a connect() that fails or
+    * throws) keeps the statement before it, which is refused as above: the lost transaction's errno, or 2006 for the
+    * connection let go of.
+    *
+    * Once mysqli_stmt_execute() has returned, nothing here throws: a statement that ran is answered with what it
+    * returned, never with an exception that reads as its failure (a write that landed, which a caller that retries
+    * would write again). It is logged (addLog(), unless disable_db_queries) with the values bound to it (bind_param())
+    * in place of its ?s, in order; a ? with no value left (nothing bound, or a ? inside a literal or a comment) stays a
+    * ?, and so does a value that is neither a scalar nor null (a ? inside a literal or a comment before a placeholder
+    * takes a value too: the line is for reading).
     *
     * @return bool success
     */
@@ -1025,8 +1081,8 @@ class Db extends Generic implements Db_Interface
             return $this->refuseStatement((string) $this->statement_query, $line, $file);
         }
         if (!is_object($this->statement)) {
-            // nothing prepared: the last prepare() failed or threw (and let go of the statement before it), or none since
-            // detach() or ever
+            // nothing prepared: a prepare() whose mysqli_prepare() failed or threw let go of the statement before it, or
+            // none since detach() or ever
             return $this->executeNothingPrepared($line, $file);
         }
         if (is_object($this->statement) && is_object($this->statementLink) && $this->statementLink !== $this->linkId) {
@@ -1076,11 +1132,23 @@ class Db extends Generic implements Db_Interface
             $this->takeBackEnd();
         }
         if (!isset($GLOBALS['disable_db_queries'])) {
-            $vars = $this->statement_vars;
-            $query = $result = preg_replace_callback('/\?/', function () use (&$vars) {
-                return array_shift($vars);
-                }, $this->statement_query);
-            $this->addLog($query, microtime(true) - $start, $line, $file);
+            // the statement has run: nothing here may throw (see above). Each ? takes the next bound value, while one is
+            // left (read by position: one pass, whatever the number of ?s); null reads NULL, and anything that is not a
+            // scalar a ? (no conversion runs a caller's code)
+            $vars = is_array($this->statement_vars) ? array_values($this->statement_vars) : [];
+            $left = count($vars);
+            $at = 0;
+            $query = preg_replace_callback('/\?/', static function () use ($vars, $left, &$at) {
+                if ($at >= $left) {
+                    return '?';
+                }
+                $value = $vars[$at++];
+                if ($value === null) {
+                    return 'NULL';
+                }
+                return is_scalar($value) ? (string) $value : '?';
+            }, (string) $this->statement_query);
+            $this->addLog($query === null ? (string) $this->statement_query : $query, microtime(true) - $start, $line, $file);
         }
         return $return;
     }

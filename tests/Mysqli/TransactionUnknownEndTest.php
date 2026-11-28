@@ -2503,6 +2503,377 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertSame(0, self::committed("INSERT INTO u (w) VALUES ('q')"));
 	}
 
+	/** [the result, anything thrown] of $call: a TypeError or another \Error too, unlike attempt() */
+	private static function attemptAny(callable $call)
+	{
+		try {
+			return [$call(), null];
+		} catch (\Throwable $e) {
+			return [false, $e];
+		}
+	}
+
+	/** the statements this handle logged (addLog()) that start with $prefix, in order */
+	private static function logged(ScriptedDb $db, $prefix)
+	{
+		$lines = [];
+		foreach ($db->getLog() as $entry) {
+			if (strpos($entry['statement'], $prefix) === 0) {
+				$lines[] = $entry['statement'];
+			}
+		}
+		return $lines;
+	}
+
+	public static function boundStatements()
+	{
+		// [MYSQLI_REPORT_STRICT, where it runs (autocommit, or inside a transaction opened by transactionBegin() or query
+		//  START), whether queries are logged (disable_db_queries unset)]
+		$rows = [];
+		foreach ([true, false] as $strict) {
+			foreach (['autocommit', 'transactionBegin', 'query START'] as $where) {
+				foreach ([true, false] as $logged) {
+					$rows[($strict ? 'strict' : 'reporting off').', '.$where.', '.($logged ? 'logged' : 'not logged')] = [$strict, $where, $logged];
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r18 T18-1: since 8b6eb2b bind_param() threw a TypeError on every call before it reached the statement: with queries
+	* logged `statement_vars &= $vars` (& of an array, PHP 8), with them not logged the global mysqli_stmt_bind_param()
+	* called through a string callable (which no fake stood in for: no test reached it). Now the caller's variables are
+	* bound by reference, as ext-mysqli binds them: prepared once, the statement runs with what they hold at each
+	* execute() (a null as NULL), and the log line shows those values (an object a ?: it runs none of the caller's code);
+	* nothing thrown, halted or mailed
+	*
+	* @dataProvider boundStatements
+	* @param bool $strict
+	* @param string $where
+	* @param bool $logged
+	*/
+	#[DataProvider('boundStatements')]
+	public function testABoundStatementRunsWithWhatItsVariablesHoldAtEachExecute($strict, $where, $logged)
+	{
+		FakeServer::$strict = $strict;
+		if (!$logged) {
+			$GLOBALS['disable_db_queries'] = true;
+		}
+		$db = $this->db('yes');
+		if ($where === 'transactionBegin') {
+			$this->assertTrue($db->transactionBegin());
+		} elseif ($where === 'query START') {
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		}
+		$this->assertNotSame(0, $db->prepare('INSERT INTO u (w, n) VALUES (?, ?)'));
+		$w = 'q';
+		$n = 1;
+		list($result, $exception) = self::attemptAny(function () use ($db, &$w, &$n) { return $db->bind_param('si', $w, $n); });
+		$this->assertNull($exception, 'bound: nothing thrown');
+		$this->assertTrue($result);
+		$this->assertSame(1, FakeServer::$binds);
+		$this->assertSame(['q', 1], [$w, $n], 'the caller\'s variables left as they are');
+
+		$w = 'r';
+		$n = 2;
+		$this->assertTrue($db->execute(), 'sent with what the variables hold now');
+		$w = "it's";
+		$n = 3;
+		$this->assertTrue($db->execute(), 'prepared once, run again');
+		$w = null;
+		$this->assertTrue($db->execute(), 'a null');
+		// an object bound as a string is converted once, by the extension, when it sends it (the fake alike); the log line
+		// runs none of the caller's code: it shows a ?
+		$w = new class {
+			public $calls = 0;
+
+			public function __toString()
+			{
+				$this->calls++;
+				return 'obj';
+			}
+		};
+		$this->assertTrue($db->execute(), 'an object');
+		$this->assertSame(1, $w->calls, 'converted once, when sent');
+		if ($where !== 'autocommit') {
+			$this->assertSame([], self::writes(), 'inside the transaction until its COMMIT');
+			$this->assertTrue($db->transactionCommit());
+		}
+		$this->assertSame(["INSERT INTO u (w, n) VALUES ('r', 2)", "INSERT INTO u (w, n) VALUES ('it\\'s', 3)", 'INSERT INTO u (w, n) VALUES (NULL, 3)', "INSERT INTO u (w, n) VALUES ('obj', 3)"], self::writes(), 'each once, with the values of its execute()');
+		$this->assertSame(1, $w->calls, 'and not again by the log line');
+		$this->assertSame(
+			$logged ? ['INSERT INTO u (w, n) VALUES (?, ?)', 'INSERT INTO u (w, n) VALUES (r, 2)', "INSERT INTO u (w, n) VALUES (it's, 3)", 'INSERT INTO u (w, n) VALUES (NULL, 3)', 'INSERT INTO u (w, n) VALUES (?, 3)'] : [],
+			self::logged($db, 'INSERT INTO u'),
+			'the prepare() and each execute() with its values; nothing when queries are not logged'
+		);
+		if ($logged) {
+			$this->assertCount(2, $db->statement_vars, 'kept for the log');
+		} else {
+			$this->assertNull($db->statement_vars, 'kept for the log only');
+		}
+		$this->assertSame(0, (int) $db->Errno);
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+		$this->assertSame([], $db->reported, 'nothing reported');
+	}
+
+	public static function landedWrites()
+	{
+		// [MYSQLI_REPORT_STRICT, where it runs, the statement, the value bound to it (null: nothing bound), what is
+		//  committed, its log line, whether a statement bound before it ran first]
+		$statements = [
+			'a ? in a literal, nothing bound' => ["INSERT INTO t (v) VALUES ('what?')", null, "INSERT INTO t (v) VALUES ('what?')", "INSERT INTO t (v) VALUES ('what?')"],
+			// (the fake server, as MySQL, runs a comment as a space)
+			'a ? in a comment, nothing bound' => ["INSERT INTO t (v) VALUES ('c') /* why? */", null, "INSERT INTO t (v) VALUES ('c')  ", "INSERT INTO t (v) VALUES ('c') /* why? */"],
+			'a ? in a literal before a placeholder' => ["INSERT INTO t (v, w) VALUES ('what?', ?)", 'x', "INSERT INTO t (v, w) VALUES ('what?', 'x')", "INSERT INTO t (v, w) VALUES ('whatx', ?)"],
+		];
+		$rows = [];
+		foreach ([true, false] as $strict) {
+			foreach (['autocommit', 'transactionBegin', 'query START'] as $where) {
+				foreach ($statements as $name => $s) {
+					foreach ([false, true] as $after) {
+						$rows[($strict ? 'strict' : 'reporting off').', '.$where.', '.$name.($after ? ', after a bound statement' : '')] = array_merge([$strict, $where], $s, [$after]);
+					}
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r18 T18-1: execute()'s log line read the bound values with array_shift() on null (nothing ever bound, see above),
+	* so any statement holding a ? (a placeholder, or one inside a literal or a comment) threw a TypeError after
+	* mysqli_stmt_execute() had run it: a write that landed (committed once, autocommitted or by the COMMIT after it),
+	* answered as a failure, which a caller that retries writes twice. Now it is answered true, nothing thrown, and the
+	* log line keeps every ? it has no value for; a value bound to an earlier statement never shows in a later one's
+	*
+	* @dataProvider landedWrites
+	* @param bool $strict
+	* @param string $where
+	* @param string $sql
+	* @param string|null $value
+	* @param string $committed
+	* @param string $line
+	* @param bool $after
+	*/
+	#[DataProvider('landedWrites')]
+	public function testAWriteThatLandedIsAnsweredAsDone($strict, $where, $sql, $value, $committed, $line, $after)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db('yes');
+		$writes = [];
+		if ($after) {
+			$this->assertNotSame(0, $db->prepare('INSERT INTO t (v) VALUES (?)'));
+			$z = 'z';
+			$this->assertTrue($db->bind_param('s', $z));
+			$this->assertTrue($db->execute());
+			$writes[] = "INSERT INTO t (v) VALUES ('z')";
+		}
+		if ($where === 'transactionBegin') {
+			$this->assertTrue($db->transactionBegin());
+		} elseif ($where === 'query START') {
+			$this->assertTrue($this->q($db, 'START TRANSACTION'));
+		}
+		$this->assertNotSame(0, $db->prepare($sql));
+		if ($value !== null) {
+			$this->assertTrue($db->bind_param('s', $value));
+		}
+		$errno = (int) $db->Errno;
+
+		list($result, $exception) = self::attemptAny(function () use ($db) { return $db->execute(); });
+		$this->assertNull($exception, 'the write landed: nothing thrown after it');
+		$this->assertTrue($result, 'answered as done');
+		$this->assertSame($errno, (int) $db->Errno, 'no error set');
+		if ($where !== 'autocommit') {
+			$this->assertSame([$committed], FakeServer::$open[1] ?? [], 'run inside the transaction');
+			$this->assertTrue($db->transactionCommit());
+		}
+		$writes[] = $committed;
+		$this->assertSame($writes, self::writes(), 'once');
+		$log = $db->getLog();
+		$this->assertSame($line, end($log)['statement'], 'the log line: a ? with no value left stays a ?');
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+		$this->assertSame([], $db->reported, 'nothing reported');
+	}
+
+	public static function nothingToBind()
+	{
+		// [MYSQLI_REPORT_STRICT, why nothing is prepared, whether queries are logged, haltOnError]
+		$rows = [];
+		foreach ([true, false] as $strict) {
+			foreach (['a prepare() whose mysqli_prepare() failed', 'detach()', 'never prepared'] as $how) {
+				foreach ([true, false] as $logged) {
+					foreach (['yes', 'no'] as $halt) {
+						$rows[($strict ? 'strict' : 'reporting off').', '.$how.', '.($logged ? 'logged' : 'not logged').', '.$halt] = [$strict, $how, $logged, $halt];
+					}
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r18 T18-1: bind_param() with no statement prepared threw a TypeError (null & array, or the extension's own "null
+	* given"); now it binds nothing and answers as execute() answers then: false, 2030, one error_log() line naming the
+	* statement, no exception, no halt, no mail, nothing sent, the caller's variables as they were; a statement prepared
+	* again binds and runs
+	*
+	* @dataProvider nothingToBind
+	* @param bool $strict
+	* @param string $how
+	* @param bool $logged
+	* @param string $halt
+	*/
+	#[DataProvider('nothingToBind')]
+	public function testBindParamWithNothingPreparedBindsNothing($strict, $how, $logged, $halt)
+	{
+		FakeServer::$strict = $strict;
+		if (!$logged) {
+			$GLOBALS['disable_db_queries'] = true;
+		}
+		$db = $this->db($halt);
+		if ($how !== 'never prepared') {
+			$this->assertNotSame(0, $db->prepare("INSERT INTO t (v) VALUES ('p')"));
+			$this->assertTrue($db->execute());
+		}
+		if ($how === 'detach()') {
+			$db->detach();
+		} elseif ($how !== 'never prepared') {
+			FakeServer::$prepareFails = 1;
+			list($result, ) = self::attempt(function () use ($db) { return $db->prepare('INSERT INTO u (w) VALUES (?)'); });
+			$this->assertFalse($result);
+		}
+		$wire = count(FakeServer::$wire);
+		$log = count(FakeServer::$log);
+		$v = 'q';
+
+		list($result, $exception) = self::attemptAny(function () use ($db, &$v) { return $db->bind_param('s', $v); });
+		$this->assertNull($exception, 'nothing thrown');
+		$this->assertFalse($result, 'nothing bound');
+		$this->assertSame(2030, (int) $db->Errno);
+		$this->assertStringContainsString('Statement not prepared', $db->Error);
+		$this->assertSame(0, FakeServer::$binds);
+		$this->assertNull($db->statement_vars);
+		$this->assertSame('q', $v);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+		$this->assertCount($log + 1, FakeServer::$log, 'one error_log() line');
+		$this->assertStringContainsString('bind_param() bound nothing: no statement is prepared', end(FakeServer::$log));
+		if ($how === 'a prepare() whose mysqli_prepare() failed') {
+			$this->assertStringContainsString('Query: INSERT INTO u (w) VALUES (?)', end(FakeServer::$log), 'naming the statement whose prepare() failed');
+		}
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+		$this->assertSame([], $db->reported, 'nothing reported');
+		list($result, ) = self::attemptAny(function () use ($db) { return $db->execute(); });
+		$this->assertFalse($result, 'execute() answers alike');
+		$this->assertSame(2030, (int) $db->Errno);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+
+		$this->assertNotSame(0, $db->prepare('INSERT INTO u (w) VALUES (?)'), 'a statement prepared again');
+		$v = 'r';
+		$this->assertTrue($db->bind_param('s', $v));
+		$this->assertTrue($db->execute());
+		$this->assertSame($how === 'never prepared' ? ["INSERT INTO u (w) VALUES ('r')"] : ["INSERT INTO t (v) VALUES ('p')", "INSERT INTO u (w) VALUES ('r')"], self::writes());
+		$this->assertSame(0, $db->haltCalls, 'no halt');
+	}
+
+	/**
+	* r18 T18-1: execute()'s log line reads the bound values by position, in one pass. Shifted off the front of the list
+	* one by one (array_shift(), as 8b6eb2b meant to) they cost the square of their number: 4 s for 64,000 values, 26 s
+	* for the 160,000 here (past MySQL's 65,535 placeholders, so that the cost shows plainly); read by position they cost
+	* what the statement's length does, well under 3 s
+	*/
+	public function testTheLogLineReadsTheBoundValuesInLinearTime()
+	{
+		$n = 160000;
+		$db = $this->db();
+		$this->assertNotSame(0, $db->prepare('INSERT INTO t VALUES ('.implode(',', array_fill(0, $n, '?')).')'));
+		$values = array_fill(0, $n, 'v');
+		$refs = [];
+		foreach ($values as $i => &$value) {
+			$refs[] = &$value;
+		}
+		unset($value);
+		$this->assertTrue($db->bind_param(str_repeat('s', $n), ...$refs));
+		$start = microtime(true);
+		$this->assertTrue($db->execute());
+		$this->assertLessThan(3.0, microtime(true) - $start, $n.' values');
+		$log = $db->getLog();
+		$this->assertSame('INSERT INTO t VALUES ('.implode(',', $values).')', end($log)['statement']);
+	}
+
+	public static function bindsWhileARefusalIsKept()
+	{
+		// [MYSQLI_REPORT_STRICT, whether a prepare() whose mysqli_prepare() failed came after the refused one, which
+		//  handle binds, whether queries are logged]
+		$rows = [];
+		foreach ([true, false] as $strict) {
+			foreach ([false, true] as $failedAfter) {
+				foreach (['the handle', 'a clone made after the refusal'] as $who) {
+					foreach ([true, false] as $logged) {
+						$rows[($strict ? 'strict' : 'reporting off').($failedAfter ? ', then a failed prepare()' : '').', '.$who.', '.($logged ? 'logged' : 'not logged')] = [$strict, $failedAfter, $who, $logged];
+					}
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r18 T18-1: while a refusal is kept the statement held is the one prepared before the refused one: bind_param()
+	* would bind the refused statement's variables onto it (the mysqli_stmt prepare() handed the caller then), so it binds
+	* nothing and answers as execute() does: false, 1295 (a refusal kept through a prepare() whose mysqli_prepare() threw
+	* too; one that returned false ended it, and nothing is prepared then: 2030), one error_log() line, nothing thrown,
+	* halted or mailed; a clone keeps the refusal, as its execute() does
+	*
+	* @dataProvider bindsWhileARefusalIsKept
+	* @param bool $strict
+	* @param bool $failedAfter
+	* @param string $who
+	* @param bool $logged
+	*/
+	#[DataProvider('bindsWhileARefusalIsKept')]
+	public function testBindParamWhileARefusalIsKeptBindsNothing($strict, $failedAfter, $who, $logged)
+	{
+		FakeServer::$strict = $strict;
+		if (!$logged) {
+			$GLOBALS['disable_db_queries'] = true;
+		}
+		$db = $this->db('yes');
+		$p = 'p';
+		$statement = $db->prepare('INSERT INTO t (v) VALUES (?)');
+		$this->assertInstanceOf(FakeStmt::class, $statement);
+		$this->assertTrue($db->bind_param('s', $p));
+		$this->assertTrue($db->execute());
+		$this->assertSame(0, $db->prepare('COMMIT'), 'refused');
+		$this->assertSame(1295, (int) $db->Errno);
+		if ($failedAfter) {
+			FakeServer::$prepareFails = 1;
+			list($result, ) = self::attempt(function () use ($db) { return $db->prepare('INSERT INTO u (w) VALUES (?)'); });
+			$this->assertFalse($result);
+		}
+		$on = $who === 'the handle' ? $db : clone $db;
+		$errno = $failedAfter && !$strict ? 2030 : 1295;
+		$wire = count(FakeServer::$wire);
+		$log = count(FakeServer::$log);
+		$v = 'q';
+
+		list($result, $exception) = self::attemptAny(function () use ($on, &$v) { return $on->bind_param('s', $v); });
+		$this->assertNull($exception, 'nothing thrown');
+		$this->assertFalse($result, 'nothing bound');
+		$this->assertSame($errno, (int) $on->Errno);
+		$this->assertSame(1, FakeServer::$binds, 'only p\'s own bind');
+		$this->assertSame('p', $statement->vars[0], 'the statement prepared before keeps its own variable');
+		$this->assertCount($log + 1, FakeServer::$log, 'one error_log() line');
+		$this->assertStringContainsString($errno === 1295 ? 'bind_param() bound nothing: the last prepare() refused its statement' : 'bind_param() bound nothing: no statement is prepared', end(FakeServer::$log));
+		list($result, ) = self::attemptAny(function () use ($on) { return $on->execute(); });
+		$this->assertFalse($result, 'execute() answers alike');
+		$this->assertSame($errno, (int) $on->Errno);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+		$this->assertSame(0, $db->haltCalls + $on->haltCalls, 'no halt');
+		$this->assertSame([], $db->reported, 'nothing reported');
+		$this->assertSame(["INSERT INTO t (v) VALUES ('p')"], self::writes(), 'p once');
+	}
+
 	/**
 	* r15b: what execute() reads is the statement prepared, whether or not queries are logged (disable_db_queries: the
 	* statement was kept only when they were, so execute() read the one before): a prepared CREATE TABLE inside the
