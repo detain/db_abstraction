@@ -6,6 +6,7 @@ use MyDb\Mysqli\Db as MysqliDb;
 use MyDb\Mdb2\Db as Mdb2Db;
 use MyDb\Pdo\Db as PdoDb;
 use MyDb\Pgsql\Db as PgsqlDb;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -32,7 +33,7 @@ class DetachTest extends TestCase
 	/**
 	* @return array
 	*/
-	public function driverProvider()
+	public static function driverProvider()
 	{
 		return [
 			'mysqli' => [MysqliDb::class],
@@ -46,6 +47,7 @@ class DetachTest extends TestCase
 	* @dataProvider driverProvider
 	* @param string $class
 	*/
+	#[DataProvider('driverProvider')]
 	public function testCloneSharesTheConnection($class)
 	{
 		$db = new $class();
@@ -181,6 +183,7 @@ class DetachTest extends TestCase
 	* @dataProvider driverProvider
 	* @param string $class
 	*/
+	#[DataProvider('driverProvider')]
 	public function testNewConnectionIsAvailableOnEveryDriver($class)
 	{
 		$db = new $class();

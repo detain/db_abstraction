@@ -2866,7 +2866,7 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertSame(1, FakeServer::$binds, 'only p\'s own bind');
 		$this->assertSame('p', $statement->vars[0], 'the statement prepared before keeps its own variable');
 		$this->assertCount($log + 1, FakeServer::$log, 'one error_log() line');
-		$this->assertStringContainsString($errno === 1295 ? 'bind_param() bound nothing: the last prepare() refused its statement' : 'bind_param() bound nothing: no statement is prepared', end(FakeServer::$log));
+		$this->assertStringContainsString($errno === 1295 ? 'bind_param() bound nothing: a statement given to prepare() was refused (a START TRANSACTION, BEGIN, COMMIT or ROLLBACK, or a statement that may be one) and none has been prepared since' : 'bind_param() bound nothing: no statement is prepared', end(FakeServer::$log));
 		if ($errno === 1295) {
 			// r19 T19-3: it says whether a statement is held (none after the prepare() whose mysqli_prepare() threw)
 			$this->assertStringContainsString($failedAfter ? 'and no statement is held' : 'and the statement still held is the one prepared before it', end(FakeServer::$log));
@@ -3057,8 +3057,10 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertFalse($result);
 		$this->assertSame(1295, (int) $db->Errno, 'the refusal is kept');
 		$this->assertCount($log + 1, FakeServer::$log, 'one error_log() line');
-		$this->assertStringContainsString('bind_param() bound nothing: the last prepare() refused its statement', end(FakeServer::$log));
-		$this->assertStringContainsString($after === 'nothing' ? 'and the statement still held is the one prepared before it' : 'and no statement is held', end(FakeServer::$log));
+		// r20 F3: the lead clause names the refused statement, not "the last prepare()" (the one after it, which stopped or
+		// threw, where one came after it)
+		$this->assertStringContainsString('bind_param() bound nothing: a statement given to prepare() was refused (a START TRANSACTION, BEGIN, COMMIT or ROLLBACK, or a statement that may be one) and none has been prepared since, and '.($after === 'nothing' ? 'the statement still held is the one prepared before it' : 'no statement is held').'; prepare() a statement again. Query: COMMIT', end(FakeServer::$log));
+		$this->assertStringNotContainsString('the last prepare()', end(FakeServer::$log));
 		$this->assertStringNotContainsString($after === 'nothing' ? 'no statement is held' : 'still held', end(FakeServer::$log));
 		$this->assertStringContainsString('Query: COMMIT', end(FakeServer::$log), 'naming the refused statement');
 		list($result, ) = self::attemptAny(function () use ($db) { return $db->execute(); });
@@ -3067,6 +3069,97 @@ class TransactionUnknownEndTest extends TestCase
 		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
 		$this->assertSame($halts, $db->haltCalls, 'no halt');
 		$this->assertSame($after === 'a prepare() that found the transaction lost' ? 0 : 1, self::committed("INSERT INTO t (v) VALUES ('p')"), 'p once (rolled back with its transaction when the link closed)');
+	}
+
+	public static function refusedWithNothingHeldBefore()
+	{
+		// [MYSQLI_REPORT_STRICT, what the handle held when its prepare() of COMMIT was refused, whether a clone made then
+		//  binds]
+		$rows = [];
+		foreach ([true, false] as $strict) {
+			foreach (['a fresh handle', 'detach() after a statement was prepared', 'a prepare() whose mysqli_prepare() failed'] as $before) {
+				foreach ([false, true] as $clone) {
+					$rows[($strict ? 'strict' : 'reporting off').', '.$before.($clone ? ', a clone of it' : '')] = [$strict, $before, $clone];
+				}
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	* r20 F3: bind_param()'s 1295 line under a kept refusal is true where no statement was held when the statement was
+	* refused (a fresh handle; detach() after one was prepared; a prepare() whose mysqli_prepare() returned false, or threw
+	* under STRICT; a clone of each): it said "a prepare() after it let go of the one prepared before it", with no prepare()
+	* after it and none prepared before it. And its lead clause no longer names "the last prepare()", which is not the
+	* refused one where a prepare() after it stopped (testBindParamSaysWhetherAStatementIsHeldWhileARefusalIsKept). Nothing
+	* bound, sent, thrown or halted, 1295 from bind_param() and execute() alike
+	*
+	* @dataProvider refusedWithNothingHeldBefore
+	* @param bool $strict
+	* @param string $before
+	* @param bool $clone
+	*/
+	#[DataProvider('refusedWithNothingHeldBefore')]
+	public function testBindParamUnderARefusalSaysNoStatementIsHeldWhereNoneWasPreparedBefore($strict, $before, $clone)
+	{
+		FakeServer::$strict = $strict;
+		$db = $this->db('yes');
+		if ($before === 'detach() after a statement was prepared') {
+			$p = 'p';
+			$this->assertInstanceOf(FakeStmt::class, $db->prepare('INSERT INTO t (v) VALUES (?)'));
+			$this->assertTrue($db->bind_param('s', $p));
+			$this->assertTrue($db->execute());
+			$db->detach();
+		} elseif ($before === 'a prepare() whose mysqli_prepare() failed') {
+			FakeServer::$prepareFails = 1;
+			list($result, ) = self::attempt(function () use ($db) { return $db->prepare('INSERT INTO t (v) VALUES (?)'); });
+			$this->assertFalse((bool) $result);
+		}
+		$this->assertFalse(is_object($db->statement), 'nothing held before the refusal');
+		$this->assertSame(0, $db->prepare('COMMIT'), 'refused');
+		$this->assertSame(1295, (int) $db->Errno);
+		$on = $clone ? clone $db : $db;
+		$halts = $db->haltCalls + $on->haltCalls;
+		$wire = count(FakeServer::$wire);
+		$log = count(FakeServer::$log);
+		$v = 'q';
+
+		list($result, $exception) = self::attemptAny(function () use ($on, &$v) { return $on->bind_param('s', $v); });
+		$this->assertNull($exception, 'nothing thrown');
+		$this->assertFalse($result, 'nothing bound');
+		$this->assertSame(1295, (int) $on->Errno, 'the refusal is kept');
+		$this->assertCount($log + 1, FakeServer::$log, 'one error_log() line');
+		$line = end(FakeServer::$log);
+		$this->assertStringContainsString('bind_param() bound nothing: a statement given to prepare() was refused (a START TRANSACTION, BEGIN, COMMIT or ROLLBACK, or a statement that may be one) and none has been prepared since, and no statement is held; prepare() a statement again. Query: COMMIT', $line);
+		$this->assertStringNotContainsString('still held', $line);
+		$this->assertStringNotContainsString('a prepare() after it', $line, 'no prepare() came after the refusal');
+		list($result, $exception) = self::attemptAny(function () use ($on) { return $on->execute(); });
+		$this->assertNull($exception);
+		$this->assertFalse($result, 'execute() answers alike');
+		$this->assertSame(1295, (int) $on->Errno);
+		$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+		$this->assertSame($halts, $db->haltCalls + $on->haltCalls, 'no halt');
+		$this->assertSame([], $db->reported, 'nothing reported');
+		$this->assertSame($before === 'detach() after a statement was prepared' ? ["INSERT INTO t (v) VALUES ('p')"] : [], self::writes(), 'p once, where it ran');
+		if ($before === 'detach() after a statement was prepared' && !$clone) {
+			// detach() ends the refusal too: then nothing is prepared, 2030, and the line says why (one was prepared before
+			// detach(), and the last prepare() did not fail)
+			$db->detach();
+			$log = count(FakeServer::$log);
+			list($result, $exception) = self::attemptAny(function () use ($db, &$v) { return $db->bind_param('s', $v); });
+			$this->assertNull($exception);
+			$this->assertFalse($result);
+			$this->assertSame(2030, (int) $db->Errno);
+			$this->assertStringContainsString('or none has been prepared since detach(), or ever', $db->Error);
+			$this->assertCount($log + 1, FakeServer::$log);
+			$this->assertStringContainsString('bind_param() bound nothing: no statement is prepared (the last prepare() failed, and the statement prepared before it is let go of; or none has been prepared since detach(), or ever)', end(FakeServer::$log));
+			list($result, ) = self::attemptAny(function () use ($db) { return $db->execute(); });
+			$this->assertFalse($result);
+			$this->assertSame(2030, (int) $db->Errno);
+			$this->assertStringContainsString('Statement not prepared (the last prepare() failed, and the statement prepared before it is let go of; or none has been prepared since detach(), or ever)', $db->Error);
+			$this->assertStringContainsString('execute() not sent: no statement is prepared (the last prepare() failed or threw, and the statement prepared before it is never run in its place; or none has been prepared since detach(), or ever)', end(FakeServer::$log));
+			$this->assertSame($wire, count(FakeServer::$wire), 'nothing sent');
+		}
 	}
 
 	public static function bindingsSent()
@@ -3218,6 +3311,51 @@ class TransactionUnknownEndTest extends TestCase
 			$this->assertTrue($db->execute());
 			$lines = self::logged($db, 'UPDATE accounts SET account_passwd=\'');
 			$this->assertSame("UPDATE accounts SET account_passwd='o\\'ne \\\\ two', note='it\\'s a \\\\ \"back\" slash', n=7, big='-1.5E+300', f=0.30000000000000004, flag='', z=NULL, o=?, blob=? WHERE account_id=6", end($lines), 'run again with what the variables hold then');
+			$this->assertSame(0, $db->haltCalls, 'no halt');
+		}
+	}
+
+	public static function intBoundaries()
+	{
+		// [the value bound as 'i', what mysqlnd sends for it (and so the log line): a value that does not fit an int once
+		//  read as a double, d >= (double) PHP_INT_MAX || d < (double) PHP_INT_MIN (ZEND_DOUBLE_FITS_LONG), goes as the
+		//  string it converts to (PHP bug #52891), any other as the int it converts to]
+		return [
+			'2^63 as a string (its double is (double) PHP_INT_MAX)' => ['9223372036854775808', "'9223372036854775808'"],
+			'PHP_INT_MAX as a string (its double rounds up to 2^63)' => [(string) PHP_INT_MAX, "'9223372036854775807'"],
+			'2^63 as a float' => [2.0 ** 63, "'9.2233720368548E+18'"],
+			'the last double below 2^63, as a string' => ['9223372036854774784', '9223372036854774784'],
+			'PHP_INT_MAX as an int (never converted)' => [PHP_INT_MAX, '9223372036854775807'],
+			'PHP_INT_MIN as a string (its double is (double) PHP_INT_MIN)' => [(string) PHP_INT_MIN, '-9223372036854775808'],
+			'-2^63 as a float' => [-(2.0 ** 63), '-9223372036854775808'],
+			'-2^63 - 1 as a string (its double rounds to -2^63: sent as PHP_INT_MIN)' => ['-9223372036854775809', '-9223372036854775808'],
+			'the first double below -2^63, as a string' => ['-9223372036854777856', "'-9223372036854777856'"],
+			'PHP_INT_MIN as an int (never converted)' => [PHP_INT_MIN, '-9223372036854775808'],
+		];
+	}
+
+	/**
+	* r20 F4: the int range edges of the PHP bug #52891 rule in execute()'s log line: a value bound as 'i' whose double
+	* is 2^63 or more, or below -2^63, is sent and logged as a string, and one whose double is -2^63 as an int (each
+	* bound >= / < as mysqlnd checks it: with > for >= a 2^63 was logged as 9223372036854775807, a number not sent)
+	*
+	* @dataProvider intBoundaries
+	* @param mixed $value
+	* @param string $sent
+	*/
+	#[DataProvider('intBoundaries')]
+	public function testAnIntAtTheEdgesOfTheIntRangeIsLoggedAsItWasSent($value, $sent)
+	{
+		foreach ([true, false] as $strict) {
+			FakeServer::reset();
+			FakeServer::$strict = $strict;
+			$db = $this->db('yes');
+			$this->assertInstanceOf(FakeStmt::class, $db->prepare('INSERT INTO t (n) VALUES (?)'));
+			$this->assertTrue($db->bind_param('i', $value));
+			$this->assertTrue($db->execute());
+			$lines = self::logged($db, 'INSERT INTO t (n) VALUES (');
+			$this->assertSame('INSERT INTO t (n) VALUES ('.$sent.')', end($lines), 'logged as it was sent');
+			$this->assertSame(['query', 1, 'INSERT INTO t (n) VALUES ('.$sent.')'], end(FakeServer::$wire), 'what was sent');
 			$this->assertSame(0, $db->haltCalls, 'no halt');
 		}
 	}

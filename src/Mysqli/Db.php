@@ -457,7 +457,7 @@ class Db extends Generic implements Db_Interface
     protected $statementLink = null;
 
     /**
-    * Whether the last prepare() refused its statement (preparedTransactionStatement(): a START TRANSACTION, BEGIN,
+    * Whether a prepare() refused its statement (preparedTransactionStatement(): a START TRANSACTION, BEGIN,
     * COMMIT or ROLLBACK, or one that may be one) and no mysqli_prepare() has returned since. $statement still holds the
     * statement prepared before it, if any, so execute() refuses on this alone, whatever the transaction state is when
     * it runs: read again then, a statement refused with no transaction open (one whose executable comment is not read)
@@ -523,8 +523,8 @@ class Db extends Generic implements Db_Interface
     * $statementLink and $statement_query) and what is bound to it ($statementBinding and $statement_vars, shared: a
     * bind by either handle is what both send and log, until one of them prepares again or is detach()ed), and so a
     * refusal kept for it ($statementRefused: a prepare() of the source refused its statement and no mysqli_prepare()
-    * has returned since, so $statement is the one prepared before, or none after a prepare() that stopped before its
-    * mysqli_prepare() returned) is kept too. The clone's execute() and bind_param() refuse as its source's would until
+    * has returned since, so $statement is the one prepared before it, if any: none if none was held then or a prepare()
+    * after it stopped or threw) is kept too. The clone's execute() and bind_param() refuse as its source's would until
     * the clone prepares a statement itself or is detach()ed (each handle's prepare() and detach() end only its own
     * refusal); cleared here, the clone would run that earlier statement again in the refused one's place (a write sent
     * twice). A transaction its source has open on the shared link is the source's: the clone's statements run inside it
@@ -1058,8 +1058,8 @@ class Db extends Generic implements Db_Interface
     * bind_param() with no statement to bind the variables to: nothing bound (see bind_param()). Sets Errno/Error as
     * execute() would answer then (1295 while a refusal is kept, else 2030; execute() refuses a lost transaction first,
     * with its own errno) and writes one error_log() line, which says whether a statement is held: while a refusal is
-    * kept, the one prepared before the refused one, or none (a prepare() after the refused one let go of it and
-    * prepared none).
+    * kept, the one prepared before the refused one, or none (none was held when it was refused, or a prepare() after
+    * it let go of it and prepared none).
     *
     * @return false
     */
@@ -1068,11 +1068,11 @@ class Db extends Generic implements Db_Interface
         if ($this->statementRefused) {
             $this->Errno = 1295;
             $this->Error = 'This command is not supported in the prepared statement protocol here: a START TRANSACTION, BEGIN, COMMIT or ROLLBACK goes through query() or transactionBegin()/transactionCommit()/transactionAbort() (nothing bound)';
-            $why = 'the last prepare() refused its statement (a START TRANSACTION, BEGIN, COMMIT or ROLLBACK, or a statement that may be one), and '.(is_object($this->statement) ? 'the statement still held is the one prepared before it' : 'no statement is held (a prepare() after it let go of the one prepared before it and prepared none)');
+            $why = 'a statement given to prepare() was refused (a START TRANSACTION, BEGIN, COMMIT or ROLLBACK, or a statement that may be one) and none has been prepared since, and '.(is_object($this->statement) ? 'the statement still held is the one prepared before it' : 'no statement is held');
         } else {
             $this->Errno = 2030;
-            $this->Error = 'Statement not prepared (the last prepare() failed, and the statement prepared before it is let go of; or none was prepared): prepare it again';
-            $why = 'no statement is prepared (the last prepare() failed, and the statement prepared before it is let go of; or none was prepared)';
+            $this->Error = 'Statement not prepared (the last prepare() failed, and the statement prepared before it is let go of; or none has been prepared since detach(), or ever): prepare it again';
+            $why = 'no statement is prepared (the last prepare() failed, and the statement prepared before it is let go of; or none has been prepared since detach(), or ever)';
         }
         error_log('bind_param() bound nothing: '.$why.'; prepare() a statement again. Query: '.static::redactQueryForLog((string) $this->statement_query));
         return false;
@@ -1348,8 +1348,8 @@ class Db extends Generic implements Db_Interface
     protected function executeNothingPrepared($line, $file)
     {
         $this->Errno = 2030;
-        $this->Error = 'Statement not prepared (the last prepare() failed, and the statement prepared before it is let go of; or none was prepared): prepare it again';
-        error_log('execute() not sent: no statement is prepared (the last prepare() failed or threw, and the statement prepared before it is never run in its place; or none was prepared); prepare() it again. Query: '.static::redactQueryForLog((string) $this->statement_query).' from '.$file.':'.$line);
+        $this->Error = 'Statement not prepared (the last prepare() failed, and the statement prepared before it is let go of; or none has been prepared since detach(), or ever): prepare it again';
+        error_log('execute() not sent: no statement is prepared (the last prepare() failed or threw, and the statement prepared before it is never run in its place; or none has been prepared since detach(), or ever); prepare() it again. Query: '.static::redactQueryForLog((string) $this->statement_query).' from '.$file.':'.$line);
         return false;
     }
 
